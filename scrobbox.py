@@ -86,7 +86,9 @@ def open_url(url):
 #  PATHS
 # ─────────────────────────────────────────────────────────────
 
-APP_NAME = "Scrobbox"
+APP_NAME    = "Scrobbox"
+APP_VERSION = "0.3.0"   # bump this with each release
+GITHUB_REPO = "RoyLikesAudio/Scrobbox"
 _sys = platform.system()
 
 if _sys == "Darwin":
@@ -623,7 +625,16 @@ def api_sig(params: dict, secret: str) -> str:
     return hashlib.md5(raw.encode()).hexdigest()
 
 def lfm_call(params: dict, api_url: str, timeout=20) -> dict:
-    r = requests.post(api_url, data=params, timeout=timeout)
+    """POST to Last.fm/Libre.fm API with simple retry on rate-limit and transient errors."""
+    RETRIES = 3
+    for attempt in range(RETRIES):
+        r = requests.post(api_url, data=params, timeout=timeout)
+        if r.status_code == 429 or r.status_code >= 500:
+            if attempt < RETRIES - 1:
+                time.sleep(2 ** attempt)  # 1s, 2s backoff
+                continue
+        r.raise_for_status()
+        return r.json()
     r.raise_for_status()
     return r.json()
 
@@ -998,6 +1009,8 @@ class Worker(QThread):
         BATCH = 50
         done_count = 0
         for batch_start in range(0, len(self.tracks), BATCH):
+            if self.isInterruptionRequested():
+                return
             chunk = self.tracks[batch_start:batch_start + BATCH]
             params = {"method": "track.scrobble", "api_key": key, "sk": session}
             for idx, t in enumerate(chunk):
@@ -1050,6 +1063,8 @@ class Worker(QThread):
         chunk_size = 100
         done = 0
         for i in range(0, len(self.tracks), chunk_size):
+            if self.isInterruptionRequested():
+                return
             chunk   = self.tracks[i:i+chunk_size]
             payload = {
                 "listen_type": "import",
@@ -1107,6 +1122,8 @@ _RBX_TOOL_PATH = CONFIG_DIR / "rockbox_dbtool"
 _RBX_SRC_PATH  = CONFIG_DIR / "rockbox_src"
 
 
+
+
 def _find_bundled_dbtool() -> Optional[Path]:
     """
     When running as an AppImage or PyInstaller bundle, the pre-compiled
@@ -1155,14 +1172,12 @@ class RockboxDbWorker(QThread):
     MODE_INITIALIZE = "initialize"
 
     def __init__(self, device_root: Path, mode: str = MODE_UPDATE,
-                 library_root: Optional[Path] = None,
-                 force_recompile: bool = False):
+                 library_root: Optional[Path] = None):
         super().__init__()
-        self.device_root    = device_root
-        self.mode           = mode
-        self.library_root   = library_root
-        self.force_recompile = force_recompile
-        self._pause_event   = _threading.Event()
+        self.device_root     = device_root
+        self.mode            = mode
+        self.library_root    = library_root
+        self._pause_event    = _threading.Event()
         self._pause_event.set()
         self._proc: Optional[subprocess.Popen] = None  # currently running subprocess
 
@@ -1215,24 +1230,26 @@ class RockboxDbWorker(QThread):
         finally:
             self._proc = None
         if proc.returncode != 0:
+            # Negative exit code means killed by signal (e.g. SIGKILL from cancel).
+            # Treat as cancellation so the clean InterruptedError path fires.
+            if proc.returncode < 0 or self.isInterruptionRequested():
+                raise InterruptedError("Cancelled")
             raise RuntimeError(f"Command failed (exit {proc.returncode}): {' '.join(str(c) for c in cmd)}")
         return proc
 
     # ── step 1: ensure source ─────────────────────────────────
 
     def _ensure_source(self) -> Path:
-        """Clone or update the Rockbox source. Returns path to source root."""
+        """Clone the Rockbox source if not already cached. Returns path to source root.
+
+        We never auto-update an existing checkout — the source is only needed
+        to compile the database tool once.  If the user wants a fresh compile
+        they can click 'Force Recompile', which deletes the cached binary and
+        triggers a fresh clone/compile.
+        """
         src = _RBX_SRC_PATH
         if src.exists() and (src / "tools" / "configure").exists():
-            self._emit(f"✓ Rockbox source found at {src}")
-            # Quick fetch to make sure configure script is current
-            # (skip if interrupted or offline — old source still works)
-            try:
-                self._emit("  Checking for source updates (git fetch)…")
-                self._run_cmd(["git", "fetch", "--depth=1", "origin"], cwd=src)
-                self._run_cmd(["git", "reset", "--hard", "origin/master"], cwd=src)
-            except Exception as _fe:
-                self._emit(f"  (Could not update source: {_fe} — using cached version)")
+            self._emit(f"✓ Rockbox source found at {src} (using cached)")
             return src
 
         self._emit("Cloning Rockbox source (shallow, ~60 MB, one-time)…")
@@ -1336,7 +1353,7 @@ class RockboxDbWorker(QThread):
 
         return tool_out
 
-    # ── step 3: run tool ──────────────────────────────────────
+
 
     def _run_tool(self, tool: Path, scan_root: Path, rbdir: Path):
         """
@@ -1369,18 +1386,33 @@ class RockboxDbWorker(QThread):
             # to putting music directly under fake_root (rel = "").
             device_root = rbdir.parent
             music_rel = ""
+            _AUDIO = {
+                ".mp3", ".flac", ".ogg", ".m4a", ".aac",
+                ".wv", ".ape", ".wav", ".opus", ".mpc",
+                ".aiff", ".alac", ".wma", ".mod", ".spc"
+            }
             try:
+                # Shallow two-level scan — just enough to find the music
+                # subfolder without traversing the entire device tree.
                 for item in device_root.iterdir():
                     if item.name.startswith(".") or not item.is_dir():
                         continue
-                    # Check if this dir contains audio files (one level deep)
-                    for sub in item.rglob("*"):
-                        if sub.suffix.lower() in {
-                            ".mp3", ".flac", ".ogg", ".m4a", ".aac",
-                            ".wv", ".ape", ".wav", ".opus", ".mpc",
-                            ".aiff", ".alac", ".wma", ".mod", ".spc"
-                        }:
+                    # Level 1: audio file directly inside this dir
+                    for child in item.iterdir():
+                        if child.suffix.lower() in _AUDIO:
                             music_rel = item.name
+                            break
+                    if music_rel:
+                        break
+                    # Level 2: one subdir deeper (Artist/Album/file.mp3)
+                    for child in item.iterdir():
+                        if not child.is_dir():
+                            continue
+                        for grandchild in child.iterdir():
+                            if grandchild.suffix.lower() in _AUDIO:
+                                music_rel = item.name
+                                break
+                        if music_rel:
                             break
                     if music_rel:
                         break
@@ -1575,7 +1607,7 @@ class RockboxDbWorker(QThread):
         try:
             raw   = bytearray(tcd.read_bytes())
             magic, datasize, entry_count = struct.unpack_from('<III', raw, 0)
-            if entry_count <= 0 or entry_count > 10_000_000:
+            if entry_count == 0 or entry_count > 10_000_000:
                 self._emit(f"  Warning: database_4.tcd looks invalid (entries={entry_count}) — skipping")
                 return
             HDR    = 12
@@ -1652,11 +1684,10 @@ class RockboxDbWorker(QThread):
 
             if tool_path:
                 self._emit(f"✓ Using bundled database tool: {tool_path}")
-            elif _RBX_TOOL_PATH.exists() and not self.force_recompile:
+            elif _RBX_TOOL_PATH.exists():
                 tool_path = _RBX_TOOL_PATH
                 self._emit(f"✓ Using cached database tool: {tool_path}")
             else:
-                # Need to compile
                 self._check()
                 src = self._ensure_source()
                 self._check()
@@ -1664,7 +1695,7 @@ class RockboxDbWorker(QThread):
 
             self._check()
 
-            # ── Clear old .tcd files if MODE_INITIALIZE ───────
+            # ── Build Fresh: wipe existing .tcd files first ───
             if self.mode == self.MODE_INITIALIZE:
                 old_tcd = list(rbdir.glob("database*.tcd"))
                 if old_tcd:
@@ -1677,7 +1708,11 @@ class RockboxDbWorker(QThread):
 
             self._check()
 
-            # ── Run the tool ──────────────────────────────────
+            # ── Run the tool against the full library root ────
+            # For both modes the tool is run against the complete library.
+            # In Update mode the existing .tcd files are left in .rockbox/ so
+            # tagcache's own incremental logic picks them up and only processes
+            # new/changed entries, writing updated .tcd files in place.
             self._run_tool(tool_path, scan_root, rbdir)
 
             self._check()
@@ -1689,9 +1724,7 @@ class RockboxDbWorker(QThread):
                     "Database tool ran but no .tcd files found on device.\n"
                     "Ensure the device root is correct and contains audio files."}); return
 
-
         except InterruptedError:
-            # Kill any running subprocess
             if self._proc:
                 try: self._proc.kill()
                 except Exception: pass
@@ -1707,6 +1740,9 @@ class RockboxDbWorker(QThread):
             "tag_errors":   0,
             "mode":         self.mode,
             "stats_loaded": 0,
+            "new_files":    0,
+            "changed_files":0,
+            "removed_files":0,
         })
 
 
@@ -3958,32 +3994,37 @@ class _EjectWorker(QThread):
         self.root_str = root_str
 
     def run(self):
+        # Strip AppImage-injected library paths so system tools (udisksctl,
+        # findmnt, umount, diskutil) load their own libs and not ours.
+        env = os.environ.copy()
+        env.pop("LD_LIBRARY_PATH", None)
+        env.pop("LD_PRELOAD", None)
         try:
             if platform.system() == "Linux":
                 if shutil.which("udisksctl"):
                     # findmnt to get block device, then unmount it
                     fm = subprocess.run(
                         ["findmnt", "-n", "-o", "SOURCE", self.root_str],
-                        capture_output=True, text=True, timeout=5,
+                        capture_output=True, text=True, timeout=5, env=env,
                     )
                     blk = fm.stdout.strip()
                     if not blk:
                         self.done.emit("⚠  Could not find block device — try umount manually."); return
                     r = subprocess.run(
                         ["udisksctl", "unmount", "-b", blk],
-                        capture_output=True, text=True, timeout=15,
+                        capture_output=True, text=True, timeout=15, env=env,
                     )
                     msg = r.stdout.strip() or r.stderr.strip()
                 else:
                     r = subprocess.run(
                         ["umount", self.root_str],
-                        capture_output=True, text=True, timeout=15,
+                        capture_output=True, text=True, timeout=15, env=env,
                     )
                     msg = r.stdout.strip() or r.stderr.strip() or f"Unmounted {self.root_str}"
             elif platform.system() == "Darwin":
                 r = subprocess.run(
                     ["diskutil", "eject", self.root_str],
-                    capture_output=True, text=True, timeout=15,
+                    capture_output=True, text=True, timeout=15, env=env,
                 )
                 msg = r.stdout.strip() or r.stderr.strip()
             else:
@@ -4091,8 +4132,6 @@ class RockboxToolsPage(QWidget):
         how = QLabel(
             "Builds a real Rockbox tagcache database on your PC using the official "
             "Rockbox database tool compiled from source — no on-device scan needed.\n\n"
-            "First run: clones Rockbox source (~60 MB) and compiles the tool. "
-            "Subsequent runs use the cached binary and are fast.\n\n"
             "Requires:  git  gcc  make  (standard on Linux)"
         )
         how.setObjectName("secondary"); how.setWordWrap(True)
@@ -4123,6 +4162,23 @@ class RockboxToolsPage(QWidget):
         src_row.addWidget(self._db_src_local)
         src_row.addStretch()
         vb.addLayout(src_row)
+
+        # ── Device subfolder path (optional, shown when "From device" selected) ──
+        self._db_dev_sub_widget = QWidget()
+        dev_sub_row = QHBoxLayout(self._db_dev_sub_widget)
+        dev_sub_row.setContentsMargins(0, 0, 0, 0); dev_sub_row.setSpacing(8)
+        dev_sub_lbl = QLabel("Music folder:"); dev_sub_lbl.setObjectName("secondary"); dev_sub_lbl.setFixedWidth(100)
+        self._db_dev_sub_path = QLineEdit()
+        self._db_dev_sub_path.setPlaceholderText("(whole device)  e.g. /run/media/roy/IPOD/Music")
+        saved_dev_sub = self.conf().get("db_device_sub", "")
+        self._db_dev_sub_path.setText(saved_dev_sub)
+        dev_sub_browse = QPushButton("Browse…"); dev_sub_browse.setObjectName("ghost")
+        dev_sub_browse.clicked.connect(self._browse_device_sub)
+        dev_sub_row.addWidget(dev_sub_lbl)
+        dev_sub_row.addWidget(self._db_dev_sub_path, stretch=1)
+        dev_sub_row.addWidget(dev_sub_browse)
+        self._db_dev_sub_widget.setVisible(True)
+        vb.addWidget(self._db_dev_sub_widget)
 
         # ── Local library path ────────────────────────────────────
         self._db_lib_widget = QWidget()
@@ -4164,24 +4220,11 @@ class RockboxToolsPage(QWidget):
         self._db_progress.setVisible(False); vb.addWidget(self._db_progress)
 
         btn_row = QHBoxLayout()
-        self._db_scan_btn = QPushButton("⟳  Build Database"); self._db_scan_btn.setObjectName("primary")
-        self._db_scan_btn.setToolTip(
-            "Compile and run the Rockbox database tool.\n"
-            "Writes real .tcd files to /.rockbox/ on your device.\n"
-            "No on-device scan needed.")
-        self._db_scan_btn.clicked.connect(self._start_db_scan)
-
-        self._db_init_btn = QPushButton("⚠  Build Fresh"); self._db_init_btn.setObjectName("danger")
-        self._db_init_btn.setToolTip(
-            "Delete existing .tcd files then rebuild from scratch.\n"
-            "⚠ Resets all play counts and ratings.")
-        self._db_init_btn.clicked.connect(self._start_db_initialize)
-
-        self._db_recompile_btn = QPushButton("🔨  Recompile Tool"); self._db_recompile_btn.setObjectName("ghost")
-        self._db_recompile_btn.setToolTip(
-            "Force recompile the Rockbox database tool from source.\n"
-            "Use this after a Rockbox source update.")
-        self._db_recompile_btn.clicked.connect(self._start_db_recompile)
+        self._db_build_btn = QPushButton("🗄  Build Database"); self._db_build_btn.setObjectName("primary")
+        self._db_build_btn.setToolTip(
+            "Build the Rockbox tagcache database from your music library.\n"
+            "Existing .tcd files are replaced with a fresh build.")
+        self._db_build_btn.clicked.connect(self._start_db_build)
 
         self._db_eject_btn = QPushButton("⏏  Eject"); self._db_eject_btn.setObjectName("ghost")
         self._db_eject_btn.setToolTip("Safely unmount the device")
@@ -4196,13 +4239,11 @@ class RockboxToolsPage(QWidget):
         self._db_pause_btn.setVisible(False)
         self._db_paused = False
 
-        btn_row.addWidget(self._db_scan_btn)
-        btn_row.addWidget(self._db_init_btn)
+        btn_row.addWidget(self._db_build_btn)
         btn_row.addWidget(self._db_pause_btn)
         btn_row.addWidget(self._db_cancel_btn)
         btn_row.addStretch()
         btn_row.addWidget(self._db_eject_btn)
-        btn_row.addWidget(self._db_recompile_btn)
         vb.addLayout(btn_row)
         return w
 
@@ -4210,6 +4251,7 @@ class RockboxToolsPage(QWidget):
         is_local = (mode == "local")
         self._db_src_device.setChecked(not is_local)
         self._db_src_local.setChecked(is_local)
+        self._db_dev_sub_widget.setVisible(not is_local)
         self._db_lib_widget.setVisible(is_local)
         accent = _current_theme["accent"]
         active_style  = f"background:{accent}22; color:{accent}; border:1px solid {accent}60; border-radius:4px;"
@@ -4223,6 +4265,14 @@ class RockboxToolsPage(QWidget):
         if path:
             self._db_lib_path.setText(path)
             c = self.conf(); c["db_library_root"] = path; save_conf(c)
+
+    def _browse_device_sub(self):
+        root_str = self._dev_path.text().strip()
+        start = root_str or str(Path.home())
+        path = QFileDialog.getExistingDirectory(self, "Select music folder on device", start)
+        if path:
+            self._db_dev_sub_path.setText(path)
+            c = self.conf(); c["db_device_sub"] = path; save_conf(c)
 
     def _start_db_sanitize(self):
         lib_str = self._db_lib_path.text().strip()
@@ -4241,9 +4291,7 @@ class RockboxToolsPage(QWidget):
             return
         self._db_log.clear()
         self._db_sanitize_btn.setEnabled(False)
-        self._db_scan_btn.setEnabled(False)
-        self._db_init_btn.setEnabled(False)
-        self._db_recompile_btn.setEnabled(False)
+        self._db_build_btn.setEnabled(False)
         self._db_progress.setVisible(True)
         self._db_progress.setRange(0, 0)
         # Run in a simple thread — reuse the worker's method via a thin QThread wrapper
@@ -4297,27 +4345,13 @@ class RockboxToolsPage(QWidget):
 
     def _on_sanitize_done(self):
         self._db_sanitize_btn.setEnabled(True)
-        self._db_scan_btn.setEnabled(True)
-        self._db_init_btn.setEnabled(True)
-        self._db_recompile_btn.setEnabled(True)
+        self._db_build_btn.setEnabled(True)
         self._db_progress.setVisible(False)
 
-    def _start_db_scan(self):
-        self._run_db_worker(RockboxDbWorker.MODE_UPDATE)
+    def _start_db_build(self):
+        self._run_db_worker()
 
-    def _start_db_initialize(self):
-        ans = QMessageBox.warning(self, "Build Fresh Database",
-            "This will delete existing .tcd files and rebuild from scratch.\n\n"
-            "⚠ All play counts, ratings, and runtime stats will be reset to zero.\n\n"
-            "Continue?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
-        if ans == QMessageBox.StandardButton.Yes:
-            self._run_db_worker(RockboxDbWorker.MODE_INITIALIZE)
-
-    def _start_db_recompile(self):
-        self._run_db_worker(RockboxDbWorker.MODE_UPDATE, force_recompile=True)
-
-    def _run_db_worker(self, mode: str, force_recompile: bool = False):
+    def _run_db_worker(self):
         root_str = self._dev_path.text().strip()
         if not root_str:
             QMessageBox.warning(self, "No device", "Set the device root path first."); return
@@ -4336,13 +4370,20 @@ class RockboxToolsPage(QWidget):
                 QMessageBox.warning(self, "Not found",
                     f"Library folder does not exist:\n{library_root}"); return
             c = self.conf(); c["db_library_root"] = str(library_root); save_conf(c)
+        else:
+            # Device mode: optional subfolder — if set, scan only that folder
+            dev_sub_str = self._db_dev_sub_path.text().strip()
+            if dev_sub_str:
+                library_root = Path(dev_sub_str)
+                if not library_root.exists():
+                    QMessageBox.warning(self, "Not found",
+                        f"Music folder does not exist:\n{library_root}"); return
+                c = self.conf(); c["db_device_sub"] = dev_sub_str; save_conf(c)
 
         c = self.conf(); c["device_root"] = str(root); save_conf(c)
 
         self._db_log.clear()
-        self._db_scan_btn.setEnabled(False)
-        self._db_init_btn.setEnabled(False)
-        self._db_recompile_btn.setEnabled(False)
+        self._db_build_btn.setEnabled(False)
         self._db_progress.setVisible(True)
         self._db_progress.setRange(0, 0)
         self._db_cancel_btn.setVisible(True)
@@ -4353,9 +4394,8 @@ class RockboxToolsPage(QWidget):
         self._db_paused = False
         self._db_dot.set_color(_current_theme["warning"])
 
-        self._db_worker = RockboxDbWorker(root, mode,
-                                          library_root=library_root,
-                                          force_recompile=force_recompile)
+        self._db_worker = RockboxDbWorker(root, RockboxDbWorker.MODE_INITIALIZE,
+                                          library_root=library_root)
         self._db_worker.progress.connect(lambda msg: self._db_log.append(msg))
         self._db_worker.count_update.connect(self._on_db_count)
         self._db_worker.finished.connect(self._on_db_done)
@@ -4373,9 +4413,7 @@ class RockboxToolsPage(QWidget):
             self._db_progress.setFormat(f"Building… {current:,}")
 
     def _on_db_done(self, result: dict):
-        self._db_scan_btn.setEnabled(True)
-        self._db_init_btn.setEnabled(True)
-        self._db_recompile_btn.setEnabled(True)
+        self._db_build_btn.setEnabled(True)
         self._db_progress.setVisible(False)
         self._db_cancel_btn.setVisible(False)
         self._db_pause_btn.setVisible(False)
@@ -4385,16 +4423,30 @@ class RockboxToolsPage(QWidget):
             self._db_log.append(f"\n⚠ Error: {result['error']}")
             self._db_dot.set_color(_current_theme["danger"]); return
 
+        # Already up to date — nothing was rebuilt
+        if result.get("up_to_date"):
+            self._db_dot.set_color(_current_theme["success"])
+            return
+
         total   = result.get("total", 0)
         written = result.get("written", [])
         errors  = result.get("write_errors", [])
+        n_new   = result.get("new_files", 0)
+        n_chg   = result.get("changed_files", 0)
+        n_rem   = result.get("removed_files", 0)
 
         if written:
             self._db_log.append(f"\n✓ Database written to device ({len(written)} files):")
             for fn in written:
                 self._db_log.append(f"   /.rockbox/{fn}")
+            # Show a summary of what changed
+            parts = []
+            if n_new:     parts.append(f"{n_new:,} new")
+            if n_chg:     parts.append(f"{n_chg:,} changed")
+            if n_rem:     parts.append(f"{n_rem:,} removed")
+            summary = (", ".join(parts) + " file(s)") if parts else "full rebuild"
             self._db_log.append(
-                "\n✓ Done. Safely eject your device — the database is ready.\n"
+                f"\n✓ Done ({summary}). Safely eject your device — the database is ready.\n"
                 "  No on-device scan required."
             )
             self._db_dot.set_color(_current_theme["success"])
@@ -4431,20 +4483,6 @@ class RockboxToolsPage(QWidget):
             self._db_paused = False
             self._db_pause_btn.setText("⏸  Pause")
             self._db_log.append("▶ Resumed.")
-
-    def _reset_snapshot(self):
-        # Remove cached compiled binary — forces recompile next run
-        deleted = []
-        if _RBX_TOOL_PATH.exists():
-            try:
-                _RBX_TOOL_PATH.unlink()
-                deleted.append(_RBX_TOOL_PATH.name)
-            except Exception as e:
-                self._db_log.append(f"⚠ Could not remove {_RBX_TOOL_PATH.name}: {e}")
-        if deleted:
-            self._db_log.append(f"✓ Removed cached tool binary — next build will recompile.")
-        else:
-            self._db_log.append("No cached tool binary found.")
 
 
     def _eject_device(self):
@@ -5451,8 +5489,8 @@ RSYNC_OPTIONS = [
      "Keep partially transferred files — allows resuming interrupted transfers"),
     ("inplace",        "--inplace",          "In-place file update",                "bool", False,
      "Update destination files in-place rather than creating a temp copy"),
-    ("fat_compat",     "--modify-window=1",  "FAT/exFAT timestamp tolerance",      "bool", False,
-     "Use a 1-second timestamp tolerance — needed when syncing to FAT/exFAT devices (iPod, SD cards)"),
+    ("fat_compat",     "--modify-window=2",  "FAT/exFAT timestamp tolerance",      "bool", False,
+     "Use a 2-second timestamp tolerance — required for FAT/exFAT devices (iPod, SD cards) whose filesystem has 2-second timestamp granularity"),
     ("itemize",        "--itemize-changes",  "Itemize changes",                     "bool", False,
      "Output a change-summary for every updated file"),
     ("stats",          "--stats",            "Print transfer statistics",           "bool", False,
@@ -5937,11 +5975,15 @@ class RsyncPage(QWidget):
         self._update_cmd_preview()
 
     def _preset_ipod(self):
-        """Sync music to iPod/FAT device — matches typical Grsync iPod profile."""
+        """Sync music to iPod/FAT device — fast skip of existing files via size-only + FAT32 timestamp tolerance."""
         self._preset_reset()
         for k in ("archive", "verbose", "progress", "delete", "human",
-                  "times", "ignore_existing", "fat_compat"):
+                  "ignore_existing", "size_only", "fat_compat"):
             self._set_bool(k, True)
+        # 2-second window handles FAT32's coarse timestamp resolution
+        w = self._option_widgets.get("fat_compat")
+        if isinstance(w, QCheckBox):
+            w.setChecked(True)
         self._update_cmd_preview()
 
     def _preset_ssh(self):
@@ -6055,17 +6097,6 @@ class RsyncPage(QWidget):
         try:
             dry = self._dry_run_toggle.isChecked() if hasattr(self, "_dry_run_toggle") else False
             cmd = self._build_cmd(dry_run_override=dry)
-
-            # Enable safe revert: backup files that would be overwritten/deleted into a timestamped folder.
-            if not dry:
-                try:
-                    backup_dir = self._make_backup_dir()
-                    # Insert backup flags right after 'rsync'
-                    if cmd and cmd[0] == "rsync":
-                        cmd = [cmd[0], "--backup", f"--backup-dir={str(backup_dir)}", "--suffix=.rsyncbak"] + cmd[1:]
-                except Exception:
-                    pass
-
             self._cmd_preview.setText(" \\\n  ".join(cmd))
         except Exception as e:
             self._cmd_preview.setText(f"(error: {e})")
@@ -12221,13 +12252,15 @@ class _CoverExtractWorker(QThread):
                             import tempfile, io as _io
                             with tempfile.NamedTemporaryFile(suffix=cover_ext, delete=False) as tf:
                                 tf.write(cover_data); tmp_in = tf.name
-                            subprocess.run(
-                                ["ffmpeg", "-y", "-i", tmp_in,
-                                 "-vf", f"scale={bmp_w}:{bmp_h}",
-                                 str(dest_bmp)],
-                                capture_output=True, timeout=15
-                            )
-                            Path(tmp_in).unlink(missing_ok=True)
+                            try:
+                                subprocess.run(
+                                    ["ffmpeg", "-y", "-i", tmp_in,
+                                     "-vf", f"scale={bmp_w}:{bmp_h}",
+                                     str(dest_bmp)],
+                                    capture_output=True, timeout=15
+                                )
+                            finally:
+                                Path(tmp_in).unlink(missing_ok=True)
                             saved += 1
                         except Exception as e:
                             errors += 1
@@ -12523,16 +12556,27 @@ class MusicTagEditorPage(QWidget):
         fhb.addWidget(self._file_count_lbl)
         fhb.addStretch()
 
-        # Sort combo
-        self._sort_combo = QComboBox()
-        self._sort_combo.setFixedHeight(24)
-        self._sort_combo.setFixedWidth(90)
-        self._sort_combo.setStyleSheet("font-size:11px;")
-        self._sort_combo.addItems(["Filename", "Title", "Artist", "Album", "Date"])
-        self._sort_combo.setToolTip("Sort file list by…")
-        self._sort_combo.activated.connect(self._sort_file_list)
-        fhb.addWidget(self._sort_combo)
         fv.addWidget(file_hdr)
+
+        # Search bar
+        search_bar = QWidget()
+        search_bar.setStyleSheet("background:rgba(5,7,11,0.50); border-bottom:1px solid rgba(255,255,255,0.07);")
+        sb_layout = QHBoxLayout(search_bar)
+        sb_layout.setContentsMargins(8, 4, 8, 4)
+        sb_layout.setSpacing(4)
+        self._search_box = QLineEdit()
+        self._search_box.setPlaceholderText("Search files…")
+        self._search_box.setFixedHeight(24)
+        self._search_box.setStyleSheet("font-size:12px; padding: 0 6px;")
+        self._search_box.setCompleter(None)
+        self._search_box.textChanged.connect(self._filter_file_list)
+        sb_layout.addWidget(self._search_box)
+        clr_search = QPushButton("✕"); clr_search.setObjectName("ghost")
+        clr_search.setFixedSize(24, 24)
+        clr_search.setToolTip("Clear search")
+        clr_search.clicked.connect(self._search_box.clear)
+        sb_layout.addWidget(clr_search)
+        fv.addWidget(search_bar)
 
         # Stacked widget: flat list vs cluster tree
         self._left_stack = QStackedWidget()
@@ -12599,6 +12643,11 @@ class MusicTagEditorPage(QWidget):
         clear_list_btn.setFixedHeight(26)
         clear_list_btn.clicked.connect(self._clear_file_list)
         sel_all_row.addWidget(clear_list_btn)
+        reload_btn = QPushButton("↻ Reload"); reload_btn.setObjectName("ghost")
+        reload_btn.setFixedHeight(26)
+        reload_btn.setToolTip("Reload file list from disk")
+        reload_btn.clicked.connect(self._reload_file_list)
+        sel_all_row.addWidget(reload_btn)
         sel_all_row.addStretch()
         self._cluster_btn = QPushButton("⊞ Cluster")
         self._cluster_btn.setObjectName("ghost")
@@ -13218,6 +13267,7 @@ class MusicTagEditorPage(QWidget):
         d = QFileDialog.getExistingDirectory(self, "Open Music Folder", str(Path.home()))
         if not d:
             return
+        self._loaded_folder = d
         exts = {".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".wma", ".wav", ".aiff"}
         self._files = sorted(p for p in Path(d).rglob("*") if p.suffix.lower() in exts)
         self._cluster_multi_paths = []
@@ -13245,38 +13295,21 @@ class MusicTagEditorPage(QWidget):
 
     def _populate_file_list(self):
         """Rebuild the list widget instantly with filenames."""
+        self._file_list.blockSignals(True)
         self._file_list.clear()
         self._file_count_lbl.setText(f"{len(self._files)} files" if self._files else "No folder loaded")
         for path in self._files:
             self._file_list.addItem(path.name)
+        self._file_list.blockSignals(False)
 
-    def _sort_file_list(self):
-        """Sort self._files by the selected tag field and repopulate."""
-        field = self._sort_combo.currentText().lower()
-        if field == "filename":
-            self._files.sort(key=lambda p: p.name.lower())
-            self._populate_file_list()
-            return
-
-        try:
-            import mutagen as _mut
-        except ImportError:
-            return
-
-        key_map = {"title": "title", "artist": "artist", "album": "album", "date": "date"}
-        tag_key = key_map.get(field, "title")
-
-        def _sort_key(path):
-            try:
-                audio = _mut.File(str(path), easy=True)
-                tags  = audio.tags if audio else {}
-                v = (tags or {}).get(tag_key)
-                return (str(v[0]).strip() if isinstance(v, list) and v else str(v).strip() if v else "").lower()
-            except Exception:
-                return ""
-
-        self._files.sort(key=_sort_key)
-        self._populate_file_list()
+    def _filter_file_list(self, text: str):
+        """Show only files whose name contains the search text (case-insensitive)."""
+        text = text.strip().lower()
+        self._file_list.blockSignals(True)
+        for i in range(self._file_list.count()):
+            item = self._file_list.item(i)
+            item.setHidden(bool(text) and text not in item.text().lower())
+        self._file_list.blockSignals(False)
 
     def _select_all(self):
         """Select all items in whichever list mode is active."""
@@ -13363,6 +13396,17 @@ class MusicTagEditorPage(QWidget):
                 lbl = getattr(self, attr, None)
                 if lbl: lbl.setText("—")
             self._status_bar.setText("Ready")
+
+    def _reload_file_list(self):
+        """Re-scan the original loaded folder and rebuild the list from scratch."""
+        folder = getattr(self, "_loaded_folder", None)
+        if not folder:
+            return
+        exts = {".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".wma", ".wav", ".aiff"}
+        self._files = sorted(p for p in Path(folder).rglob("*") if p.suffix.lower() in exts)
+        self._cluster_multi_paths = []
+        self._populate_file_list()
+        self._status_bar.setText(f"Reloaded — {len(self._files)} files")
 
     def _clear_file_list(self):
         self._files = []
@@ -14167,7 +14211,9 @@ class MusicTagEditorPage(QWidget):
         self._rename_btn.setEnabled(False)
         self._status_bar.setText("Renaming files…")
         worker = _FileRenameWorker(files, template)
-        worker.log_line.connect(self._log)
+        # Only connect errors/warnings to the log — skip per-file "Renamed: x → y"
+        # lines to avoid flooding the log table with 10k+ insertions and freezing the UI.
+        worker.log_line.connect(lambda msg, lvl: self._log(msg, lvl) if lvl in ("warn", "error") else None)
         worker.finished.connect(self._on_rename_done)
         worker.finished.connect(worker.deleteLater)
         self._rename_worker = worker
@@ -14180,24 +14226,6 @@ class MusicTagEditorPage(QWidget):
             msg += f"  ·  {errors} errors"
         self._status_bar.setText(msg)
         self._log(msg, "ok" if not errors else "warn", "Rename")
-        # Refresh file list — names may have changed
-        # Re-scan original directory if we have one
-        if self._files:
-            # Reconstruct from whatever paths still exist
-            self._files = [p for p in self._files if p.exists()]
-            # Also pick up renamed siblings — find new names in the same dirs
-            dirs = {p.parent for p in self._files}
-            exts = {".flac",".mp3",".m4a",".ogg",".opus",".aac",".wma",".wav",".aiff"}
-            new_files = sorted({
-                p for d in dirs for p in d.iterdir()
-                if p.suffix.lower() in exts and p not in set(self._files)
-            })
-            self._files = sorted(set(self._files) | set(new_files), key=lambda p: p.name)
-            self._populate_file_list()
-            # Rebuild cluster tree if active so it shows new filenames
-            if self._cluster_mode:
-                self._cluster_multi_paths = []
-                self._build_clusters()
 
     # ─────────────────────────────────────────────────────────
     #  COVER OPERATIONS (unchanged from original)
@@ -16567,6 +16595,39 @@ class _FileConvWorker(QThread):
 #  MAIN WINDOW
 # ─────────────────────────────────────────────────────────────
 
+class UpdateChecker(QThread):
+    """
+    Checks GitHub releases API in the background for a newer version.
+    Emits update_available(latest_version, release_url) if one is found.
+    Silently does nothing on network errors — never bothers the user on failure.
+    """
+    update_available = pyqtSignal(str, str)  # (latest_version, html_url)
+
+    def run(self):
+        try:
+            url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+            resp = requests.get(url, timeout=8,
+                                headers={"Accept": "application/vnd.github+json",
+                                         "User-Agent": f"{APP_NAME}/{APP_VERSION}"})
+            if resp.status_code != 200:
+                return
+            data = resp.json()
+            tag = data.get("tag_name", "").lstrip("v")
+            html_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/latest")
+            if not tag:
+                return
+            # Simple tuple comparison works for semver x.y.z
+            def _parse(v):
+                try:
+                    return tuple(int(x) for x in v.split("."))
+                except Exception:
+                    return (0,)
+            if _parse(tag) > _parse(APP_VERSION):
+                self.update_available.emit(tag, html_url)
+        except Exception:
+            pass  # network down, timeout, etc — stay silent
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -16590,6 +16651,11 @@ class MainWindow(QMainWindow):
         self._current_platform = conf.get("last_platform", P_LASTFM)
         self._build_ui()
         self._nav_to(0)
+
+        # Check for updates in the background — non-blocking
+        self._update_checker = UpdateChecker()
+        self._update_checker.update_available.connect(self._on_update_available)
+        self._update_checker.start()
 
     def _build_ui(self):
         root = QWidget(); self.setCentralWidget(root)
@@ -16701,6 +16767,36 @@ class MainWindow(QMainWindow):
         for i in range(9):
             sc = QShortcut(QKeySequence(f"Ctrl+{i+1}"), self)
             sc.activated.connect(lambda _, idx=i: self._nav_to(idx))
+
+    def _on_update_available(self, latest: str, url: str):
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Update Available")
+        dlg.setMinimumWidth(400)
+        dlg.setStyleSheet(self.styleSheet())
+        v = QVBoxLayout(dlg); v.setContentsMargins(24, 20, 24, 20); v.setSpacing(14)
+
+        icon_lbl = QLabel("🎉"); icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl.setStyleSheet("font-size:36px; background:transparent;")
+        v.addWidget(icon_lbl)
+
+        title = QLabel(f"Scrobbox {latest} is available")
+        title.setObjectName("heading"); title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        v.addWidget(title)
+
+        current_lbl = QLabel(f"You are running version {APP_VERSION}.")
+        current_lbl.setObjectName("secondary"); current_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        v.addWidget(current_lbl)
+
+        v.addSpacing(4)
+        btns = QHBoxLayout(); btns.setSpacing(10)
+        later_btn = QPushButton("Later"); later_btn.setObjectName("ghost"); later_btn.setFixedHeight(38)
+        download_btn = QPushButton("Download Update"); download_btn.setObjectName("primary"); download_btn.setFixedHeight(38)
+        later_btn.clicked.connect(dlg.reject)
+        download_btn.clicked.connect(lambda: (open_url(url), dlg.accept()))
+        btns.addWidget(later_btn); btns.addWidget(download_btn)
+        v.addLayout(btns)
+
+        dlg.exec()
 
     def _nav_to(self, idx: int):
         self._stack.setCurrentIndex(idx)
