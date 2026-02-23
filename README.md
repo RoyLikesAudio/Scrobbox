@@ -9,13 +9,13 @@ A desktop companion app for Rockbox players and music libraries. Scrobbles your 
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/statistics.png" alt="statistics" width="80%" />
-  <img src="screenshots/scrobble.png" alt="scrobble" width="80%" />
+  <img src="screenshots/statistics.png" alt="statistics" width="100%" />
+  <img src="screenshots/scrobble.png" alt="scrobble" width="100%" />
 </p>
 
 <p align="center">
-  <img src="screenshots/spectrogram.png" alt="Spectrogram" width="48%" />
-  <img src="screenshots/Tidal-dl.png" alt="TIDAL Downloader" width="48%" />
+  <img src="screenshots/Tidal-dl.png" alt="TIDAL Downloader" width="100%" />
+  <img src="screenshots/spectrogram.png" alt="Spectrogram" width="100%" />
 </p>
 
 <p align="center">
