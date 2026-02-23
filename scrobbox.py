@@ -143,25 +143,6 @@ DARK = {
     "bordhi":   "#c8861a50",
     "shadow":   "#00000060",
 }
-LIGHT = {
-    "bg0":      "#f2efe9",
-    "bg1":      "#eae7e0",
-    "bg2":      "#fdfbf8",
-    "bg3":      "#f0ede6",
-    "bg4":      "#e6e2d8",
-    "accent":   "#9a6200",
-    "accent2":  "#be7a08",
-    "accentlo": "#9a620014",
-    "success":  "#286e40",
-    "danger":   "#aa2828",
-    "warning":  "#886010",
-    "txt0":     "#16140e",
-    "txt1":     "#58524a",
-    "txt2":     "#9e9688",
-    "border":   "#d6d0c6",
-    "bordhi":   "#9a620040",
-    "shadow":   "#00000018",
-}
 _current_theme = DARK.copy()
 
 def tok(key: str) -> str:
@@ -169,187 +150,202 @@ def tok(key: str) -> str:
 
 
 def build_stylesheet(t: dict) -> str:
+    # Glass-dark aesthetic — structural colors are hardcoded rgba, only accent uses theme tokens
+    _a  = t["accent"]
+    _a2 = t["accent2"]
+    _alo= t["accentlo"]
+    _bhi= t["bordhi"]
+    _suc= t["success"]
+    _dan= t["danger"]
+    _war= t["warning"]
     return f"""
 * {{ font-family: 'Inter', 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', 'Helvetica Neue', sans-serif; }}
-QMainWindow, QDialog {{ background: {t['bg0']}; }}
-QWidget {{ background: {t['bg0']}; color: {t['txt0']}; font-size: 13px;
-          selection-background-color: {t['accent']}; selection-color: #0a0a0a; }}
-QWidget#sidebar {{ background: {t['bg1']}; border-right: 1px solid {t['border']}; }}
-QWidget#card {{ background: {t['bg2']}; border: 1px solid {t['border']}; border-radius: 6px; }}
-QWidget#panel {{ background: {t['bg1']}; border: 1px solid {t['border']}; border-radius: 8px; }}
-QWidget#page_hdr {{ background: {t['bg1']}; border-bottom: 1px solid {t['border']}; }}
-QWidget#card QLabel {{ background: transparent; color: {t['txt0']}; }}
-QWidget#card QLabel#muted {{ color: {t['txt2']}; }}
-QWidget#card QLabel#secondary {{ color: {t['txt1']}; }}
-QWidget#card QLabel#subheading {{ color: {t['txt0']}; font-weight: 600; }}
-QWidget#card_top {{ background: {t['bg2']}; border-bottom: 2px solid {t['border']}; }}
-QWidget#inset {{ background: {t['bg3']}; border-radius: 4px; }}
-QWidget#inset QLabel {{ background: transparent; color: {t['txt0']}; }}
-QWidget#queue_hdr {{ background: {t['bg2']}; border-bottom: 1px solid {t['border']}; }}
-QWidget#queue_hdr QLabel {{ background: transparent; color: {t['txt0']}; }}
-QWidget#queue_acts {{ background: {t['bg2']}; border-top: 1px solid {t['border']}; }}
-QWidget#queue_acts QLabel {{ background: transparent; color: {t['txt0']}; }}
+QMainWindow, QDialog {{ background: #0d0f13; }}
+QWidget {{ background: #111318; color: #e2ddd6; font-size: 13px;
+          selection-background-color: {_a}; selection-color: #0a0a0a; }}
 
-QLabel {{ color: {t['txt0']}; background: transparent; }}
-QLabel#muted      {{ color: {t['txt2']}; font-size: 11px; }}
-QLabel#secondary  {{ color: {t['txt1']}; font-size: 13px; }}
-QLabel#heading    {{ color: {t['txt0']}; font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }}
-QLabel#mono       {{ font-family: 'Cascadia Code','SF Mono','Consolas',monospace; font-size: 12px; color: {t['txt1']}; background: transparent; }}
-QLabel#subheading {{ color: {t['txt0']}; font-size: 13px; font-weight: 600; }}
-QLabel#success    {{ color: {t['success']}; }}
-QLabel#danger     {{ color: {t['danger']}; }}
-QLabel#warning    {{ color: {t['warning']}; }}
-QLabel#statnum    {{ color: {t['accent']}; font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }}
-QLabel#statlabel  {{ color: {t['txt2']}; font-size: 10px; font-weight: 600; letter-spacing: 1.2px; }}
-QLabel#sectiontitle {{ color: {t['txt2']}; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; background: transparent; }}
-QLabel#biglabel   {{ color: {t['txt0']}; font-size: 32px; font-weight: 700; letter-spacing: -1px; }}
+QWidget#sidebar {{ background: rgba(5,7,11,0.95); border-right: 1px solid rgba(255,255,255,0.06); }}
+QWidget#card {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }}
+QWidget#panel {{ background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; }}
+QWidget#page_hdr {{ background: rgba(5,7,11,0.65); border-bottom: 1px solid rgba(255,255,255,0.07); }}
+QWidget#card_top {{ background: rgba(5,7,11,0.65); border-bottom: 1px solid rgba(255,255,255,0.07); }}
+QWidget#inset {{ background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px; }}
 
-QLineEdit {{ background: {t['bg3']}; border: 1px solid {t['border']}; border-radius: 4px;
-             padding: 8px 11px; color: {t['txt0']}; font-size: 13px; }}
-QLineEdit:focus  {{ border-color: {t['accent']}; background: {t['bg4']}; }}
-QLineEdit:disabled {{ color: {t['txt2']}; }}
-QTextEdit {{ background: {t['bg3']}; border: 1px solid {t['border']}; border-radius: 4px;
-             padding: 8px; color: {t['txt0']}; font-size: 13px; }}
-QTextEdit:focus {{ border-color: {t['accent']}; }}
+QWidget#card QLabel {{ background: transparent; color: #e2ddd6; }}
+QWidget#card QLabel#muted {{ color: rgba(255,255,255,0.35); }}
+QWidget#card QLabel#secondary {{ color: rgba(255,255,255,0.55); }}
+QWidget#card QLabel#subheading {{ color: #e2ddd6; font-weight: 600; }}
+QWidget#inset QLabel {{ background: transparent; color: #e2ddd6; }}
+QWidget#queue_hdr {{ background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.07); }}
+QWidget#queue_hdr QLabel {{ background: transparent; color: #e2ddd6; }}
+QWidget#queue_acts {{ background: rgba(255,255,255,0.04); border-top: 1px solid rgba(255,255,255,0.07); }}
+QWidget#queue_acts QLabel {{ background: transparent; color: #e2ddd6; }}
 
-QSpinBox, QComboBox {{ background: {t['bg3']}; border: 1px solid {t['border']}; border-radius: 4px;
-                       padding: 6px 10px; color: {t['txt0']}; min-height: 30px; font-size: 13px; }}
-QSpinBox:focus, QComboBox:focus {{ border-color: {t['accent']}; }}
+QLabel {{ color: #e2ddd6; background: transparent; }}
+QLabel#muted      {{ color: rgba(255,255,255,0.35); font-size: 11px; }}
+QLabel#secondary  {{ color: rgba(255,255,255,0.55); font-size: 13px; }}
+QLabel#heading    {{ color: #fff; font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }}
+QLabel#mono       {{ font-family: 'Cascadia Code','SF Mono','Consolas',monospace; font-size: 12px; color: rgba(255,255,255,0.55); background: transparent; }}
+QLabel#subheading {{ color: #e2ddd6; font-size: 13px; font-weight: 600; }}
+QLabel#success    {{ color: {_suc}; }}
+QLabel#danger     {{ color: {_dan}; }}
+QLabel#warning    {{ color: {_war}; }}
+QLabel#statnum    {{ color: {_a}; font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }}
+QLabel#statlabel  {{ color: rgba(255,255,255,0.35); font-size: 10px; font-weight: 600; letter-spacing: 1.2px; }}
+QLabel#sectiontitle {{ color: rgba(255,255,255,0.30); font-size: 10px; font-weight: 700; letter-spacing: 2px; background: transparent; }}
+QLabel#biglabel   {{ color: #fff; font-size: 32px; font-weight: 700; letter-spacing: -1px; }}
+
+QLineEdit {{ background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 5px;
+             padding: 8px 11px; color: #e2ddd6; font-size: 13px; }}
+QLineEdit:focus  {{ border-color: {_a}; background: rgba(255,255,255,0.10); }}
+QLineEdit:disabled {{ color: rgba(255,255,255,0.25); }}
+QTextEdit {{ background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 5px;
+             padding: 8px; color: #e2ddd6; font-size: 13px; }}
+QTextEdit:focus {{ border-color: {_a}; }}
+QPlainTextEdit {{ background: rgba(0,0,0,0.30); border: 1px solid rgba(255,255,255,0.10); border-radius: 5px;
+                  padding: 8px; color: rgba(255,255,255,0.80); font-size: 13px; }}
+QPlainTextEdit:focus {{ border-color: {_a}; }}
+
+QSpinBox, QComboBox {{ background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px;
+                       padding: 6px 10px; color: #e2ddd6; min-height: 30px; font-size: 13px; }}
+QSpinBox:focus, QComboBox:focus {{ border-color: {_a}; }}
 QComboBox::drop-down {{ border: none; width: 22px; }}
-QComboBox QAbstractItemView {{ background: {t['bg2']}; border: 1px solid {t['border']};
-    selection-background-color: {t['accent']}; selection-color: #0a0a0a; outline: none; padding: 2px; }}
+QComboBox QAbstractItemView {{ background: #1e2128; border: 1px solid rgba(255,255,255,0.12);
+    selection-background-color: {_a}; selection-color: #0a0a0a; outline: none; padding: 2px; }}
 
-QPushButton {{ background: {t['bg3']}; color: {t['txt0']}; border: 1px solid {t['border']};
+QPushButton {{ background: rgba(255,255,255,0.07); color: #e2ddd6; border: 1px solid rgba(255,255,255,0.12);
                border-radius: 5px; padding: 0 14px; font-weight: 500; font-size: 13px;
                min-height: 32px; max-height: 44px; }}
-QPushButton:hover    {{ background: {t['bg4']}; border-color: {t['txt1']}; }}
-QPushButton:pressed  {{ background: {t['bg2']}; }}
-QPushButton:disabled {{ color: {t['txt2']}; background: {t['bg2']}; border-color: {t['border']}; }}
-QPushButton#primary {{ background: {t['accent']}; color: #0a0a0a; border: none; font-weight: 600;
+QPushButton:hover    {{ background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.25); }}
+QPushButton:pressed  {{ background: rgba(255,255,255,0.04); }}
+QPushButton:disabled {{ color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.07); }}
+QPushButton#primary {{ background: {_a}; color: #0a0a0a; border: none; font-weight: 600;
                         font-size: 13px; border-radius: 6px; padding: 0 18px;
                         min-height: 32px; max-height: 44px; }}
-QPushButton#primary:hover    {{ background: {t['accent2']}; }}
-QPushButton#primary:pressed  {{ background: {t['accent']}; }}
-QPushButton#primary:disabled {{ background: {t['bg4']}; color: {t['txt2']}; }}
-QPushButton#run {{ background: {t['success']}; color: #ffffff; border: none; font-weight: 600;
+QPushButton#primary:hover    {{ background: {_a2}; }}
+QPushButton#primary:pressed  {{ background: {_a}; }}
+QPushButton#primary:disabled {{ background: rgba(200,134,26,0.20); color: rgba(10,10,10,0.4); }}
+QPushButton#run {{ background: {_suc}; color: #ffffff; border: none; font-weight: 600;
                    font-size: 13px; border-radius: 5px; padding: 0 22px;
                    min-height: 34px; max-height: 44px; }}
-QPushButton#run:hover    {{ background: {t['success']}; border: 1px solid #ffffff22; }}
-QPushButton#run:disabled {{ background: {t['bg4']}; color: {t['txt2']}; }}
-QPushButton#ghost {{ background: transparent; border: 1px solid {t['border']}; color: {t['txt0']};
+QPushButton#run:hover    {{ background: {_suc}; border: 1px solid rgba(255,255,255,0.22); }}
+QPushButton#run:disabled {{ background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.25); }}
+QPushButton#ghost {{ background: transparent; border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.75);
                      font-size: 12px; padding: 0 12px; border-radius: 5px; font-weight: 500;
                      min-height: 28px; max-height: 44px; }}
-QPushButton#ghost:hover    {{ border-color: {t['accent']}; color: {t['accent']}; background: {t['accentlo']}; }}
-QPushButton#ghost:checked  {{ background: {t['accentlo']}; border-color: {t['accent']}; color: {t['accent']}; }}
-QPushButton#ghost:disabled {{ color: {t['txt2']}; border-color: {t['border']}; }}
-QPushButton#danger {{ background: {t['danger']}14; border: 1px solid {t['danger']}66; color: {t['danger']};
+QPushButton#ghost:hover    {{ border-color: {_a}; color: {_a}; background: {_alo}; }}
+QPushButton#ghost:checked  {{ background: {_alo}; border-color: {_a}; color: {_a}; }}
+QPushButton#ghost:disabled {{ color: rgba(255,255,255,0.20); border-color: rgba(255,255,255,0.07); }}
+QPushButton#danger {{ background: rgba(192,64,64,0.15); border: 1px solid rgba(192,64,64,0.35); color: rgba(210,110,110,0.90);
                        font-size: 12px; border-radius: 5px; padding: 0 12px; font-weight: 500;
                        min-height: 28px; max-height: 44px; }}
-QPushButton#danger:hover {{ background: {t['danger']}28; border-color: {t['danger']}cc; }}
-QPushButton#cancel {{ background: {t['danger']}14; border: 1px solid {t['danger']}66;
-    color: {t['danger']}; border-radius: 5px; font-size: 12px; padding: 0 10px; font-weight: 500;
+QPushButton#danger:hover {{ background: rgba(192,64,64,0.28); border-color: rgba(192,64,64,0.70); }}
+QPushButton#cancel {{ background: rgba(192,64,64,0.15); border: 1px solid rgba(192,64,64,0.35);
+    color: rgba(210,110,110,0.90); border-radius: 5px; font-size: 12px; padding: 0 10px; font-weight: 500;
     min-height: 28px; max-height: 44px; }}
-QPushButton#cancel:hover {{ background: {t['danger']}28; border-color: {t['danger']}cc; }}
-QPushButton#navbtn {{ background: transparent; border: none; border-radius: 5px; color: {t['txt0']};
+QPushButton#cancel:hover {{ background: rgba(192,64,64,0.28); border-color: rgba(192,64,64,0.70); }}
+QPushButton#navbtn {{ background: transparent; border: none; border-radius: 5px; color: rgba(255,255,255,0.65);
                        text-align: left; padding: 0 12px; font-size: 13px;
                        min-height: 34px; max-height: 44px; }}
-QPushButton#navbtn:hover {{ background: {t['bg3']}; color: {t['txt0']}; }}
-QPushButton#navbtn_active {{ background: {t['accentlo']}; border: none;
-    border-left: 3px solid {t['accent']}; border-radius: 0px;
+QPushButton#navbtn:hover {{ background: rgba(255,255,255,0.06); color: #e2ddd6; }}
+QPushButton#navbtn_active {{ background: {_alo}; border: none;
+    border-left: 3px solid {_a}; border-radius: 0px;
     border-top-right-radius: 5px; border-bottom-right-radius: 5px;
-    color: {t['accent']}; text-align: left; padding: 0 12px; padding-left: 9px;
+    color: {_a}; text-align: left; padding: 0 12px; padding-left: 9px;
     font-size: 13px; font-weight: 600; min-height: 34px; max-height: 44px; }}
 QPushButton#tabbtn {{ background: transparent; border: none; min-width: 60px;
-    border-bottom: 2px solid transparent; color: {t['txt1']};
+    border-bottom: 2px solid transparent; color: rgba(255,255,255,0.45);
     font-size: 13px; padding: 0 14px; border-radius: 0; font-weight: 500; }}
-QPushButton#tabbtn:checked {{ border-bottom-color: {t['accent']}; color: {t['accent']}; font-weight: 600; }}
-QPushButton#tabbtn:hover:!checked {{ color: {t['txt0']}; background: {t['bg3']}; }}
-QPushButton#toggle {{ background: {t['bg3']}; border: 1px solid {t['border']};
-    border-radius: 5px; color: {t['txt0']}; font-size: 12px; padding: 0 12px; font-weight: 500;
+QPushButton#tabbtn:checked {{ border-bottom-color: {_a}; color: {_a}; font-weight: 600; }}
+QPushButton#tabbtn:hover:!checked {{ color: #e2ddd6; background: rgba(255,255,255,0.05); }}
+QPushButton#toggle {{ background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 5px; color: #e2ddd6; font-size: 12px; padding: 0 12px; font-weight: 500;
     min-height: 28px; max-height: 44px; }}
-QPushButton#toggle:checked {{ background: {t['accentlo']}; border-color: {t['accent']};
-    color: {t['accent']}; font-weight: 600; }}
-QPushButton#toggle:hover:!checked {{ border-color: {t['txt1']}; }}
-QPushButton#icon_btn {{ background: transparent; border: 1px solid {t['border']};
-    border-radius: 5px; color: {t['txt0']}; font-size: 12px; padding: 0 10px; font-weight: 500;
+QPushButton#toggle:checked {{ background: {_alo}; border-color: {_a}; color: {_a}; font-weight: 600; }}
+QPushButton#toggle:hover:!checked {{ border-color: rgba(255,255,255,0.25); }}
+QPushButton#icon_btn {{ background: transparent; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 5px; color: #e2ddd6; font-size: 12px; padding: 0 10px; font-weight: 500;
     min-height: 28px; max-height: 44px; }}
-QPushButton#icon_btn:hover {{ border-color: {t['accent']}; color: {t['accent']};
-    background: {t['accentlo']}; }}
-QLabel#sectiontitle {{ color: {t['txt2']}; font-size: 9px; font-weight: 700;
-    letter-spacing: 2px; background: transparent; }}
-QWidget#queue_hdr QPushButton {{ background: transparent; border: 1px solid {t['border']};
-    color: {t['txt0']}; border-radius: 4px; font-size: 11px; padding: 0 8px;
+QPushButton#icon_btn:hover {{ border-color: {_a}; color: {_a}; background: {_alo}; }}
+
+QLabel#sectiontitle {{ color: rgba(255,255,255,0.30); font-size: 9px; font-weight: 700; letter-spacing: 2px; background: transparent; }}
+
+QWidget#queue_hdr QPushButton {{ background: transparent; border: 1px solid rgba(255,255,255,0.12);
+    color: #e2ddd6; border-radius: 4px; font-size: 11px; padding: 0 8px;
     min-height: 22px; max-height: 26px; font-weight: 500; }}
-QWidget#queue_hdr QPushButton:hover {{ border-color: {t['accent']}; color: {t['accent']};
-    background: {t['accentlo']}; }}
-QWidget#queue_hdr QPushButton#danger {{ background: {t['danger']}14;
-    border-color: {t['danger']}66; color: {t['danger']}; }}
-QWidget#queue_hdr QPushButton#danger:hover {{ background: {t['danger']}28;
-    border-color: {t['danger']}cc; }}
-QWidget#alb_row {{ background: {t['bg2']}; border: 1px solid {t['border']}; border-radius: 8px; }}
-QWidget#alb_row QLabel {{ background: transparent; border: none; color: {t['txt0']}; }}
-QWidget#alb_row QPushButton {{ background: transparent; border: 1px solid {t['border']};
-    color: {t['txt0']}; border-radius: 5px; font-size: 12px; padding: 0 12px;
+QWidget#queue_hdr QPushButton:hover {{ border-color: {_a}; color: {_a}; background: {_alo}; }}
+QWidget#queue_hdr QPushButton#danger {{ background: rgba(192,64,64,0.15); border-color: rgba(192,64,64,0.35); color: rgba(210,110,110,0.90); }}
+QWidget#queue_hdr QPushButton#danger:hover {{ background: rgba(192,64,64,0.28); border-color: rgba(192,64,64,0.70); }}
+
+QWidget#alb_row {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }}
+QWidget#alb_row QLabel {{ background: transparent; border: none; color: #e2ddd6; }}
+QWidget#alb_row QPushButton {{ background: transparent; border: 1px solid rgba(255,255,255,0.12);
+    color: #e2ddd6; border-radius: 5px; font-size: 12px; padding: 0 12px;
     min-height: 30px; max-height: 34px; font-weight: 500; }}
-QWidget#alb_row QPushButton:hover {{ border-color: {t['accent']}; color: {t['accent']};
-    background: {t['accentlo']}; }}
-QWidget#alb_row QPushButton#dl_btn {{ background: {t['accent']}; color: #0a0a0a; border: none;
+QWidget#alb_row QPushButton:hover {{ border-color: {_a}; color: {_a}; background: {_alo}; }}
+QWidget#alb_row QPushButton#dl_btn {{ background: {_a}; color: #0a0a0a; border: none;
     font-weight: 600; border-radius: 5px; padding: 0 14px;
     min-height: 30px; max-height: 34px; }}
-QWidget#alb_row QPushButton#dl_btn:hover {{ background: {t['accent2']}; }}
+QWidget#alb_row QPushButton#dl_btn:hover {{ background: {_a2}; }}
 
-QTableWidget {{ background: {t['bg2']}; alternate-background-color: {t['bg3']};
-                gridline-color: transparent; border: none; outline: none; font-size: 13px; }}
-QTableWidget::item {{ padding: 3px 12px; border-bottom: 1px solid {t['border']}; color: {t['txt0']}; }}
-QTableWidget::item:selected {{ background: {t['accentlo']}; color: {t['txt0']}; }}
-QTableWidget::item:hover {{ background: {t['bg4']}; }}
+QTableWidget {{ background: rgba(10,12,16,0.40); alternate-background-color: rgba(255,255,255,0.022);
+                gridline-color: transparent; border: none; outline: none; font-size: 13px; border-radius: 8px; }}
+QTableWidget::item {{ padding: 3px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); color: #e2ddd6; }}
+QTableWidget::item:selected {{ background: {_alo}; color: #e2ddd6; border: none; }}
+QTableWidget::item:hover {{ background: transparent; border: none; }}
 QHeaderView {{ border: none; background: transparent; }}
-QHeaderView::section {{ background: {t['bg1']}; color: {t['txt2']}; padding: 6px 12px;
-    border: none; border-bottom: 1px solid {t['border']}; border-right: 1px solid {t['border']};
-    font-size: 10px; font-weight: 600; letter-spacing: 1.2px; }}
+QHeaderView::section {{ background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.30); padding: 6px 12px;
+    border: none; border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 10px; font-weight: 700; letter-spacing: 1.2px; }}
 QHeaderView::section:last-child {{ border-right: none; }}
 
 QScrollBar:vertical {{ background: transparent; width: 6px; margin: 0; }}
-QScrollBar::handle:vertical {{ background: {t['border']}; border-radius: 3px; min-height: 24px; }}
-QScrollBar::handle:vertical:hover {{ background: {t['txt2']}; }}
+QScrollBar::handle:vertical {{ background: rgba(255,255,255,0.15); border-radius: 3px; min-height: 24px; }}
+QScrollBar::handle:vertical:hover {{ background: rgba(255,255,255,0.30); }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 QScrollBar:horizontal {{ background: transparent; height: 6px; }}
-QScrollBar::handle:horizontal {{ background: {t['border']}; border-radius: 3px; }}
+QScrollBar::handle:horizontal {{ background: rgba(255,255,255,0.15); border-radius: 3px; }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
 
-QProgressBar {{ background: {t['bg3']}; border: none; border-radius: 3px;
-                min-height: 5px; max-height: 5px; color: transparent; }}
-QProgressBar::chunk {{ background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-    stop:0 {t['accent']}, stop:1 {t['accent2']}); border-radius: 3px; }}
+QProgressBar {{ background: rgba(255,255,255,0.08); border: none; border-radius: 3px;
+                height: 6px; text-align: center; color: transparent; }}
+QProgressBar::chunk {{ background: {_a}; border-radius: 3px; }}
 
-QCheckBox {{ color: {t['txt0']}; spacing: 8px; font-size: 13px; }}
-QCheckBox::indicator {{ width: 15px; height: 15px; border-radius: 3px;
-                         border: 1px solid {t['txt2']}; background: {t['bg3']}; }}
-QCheckBox::indicator:checked {{ background: {t['accent']}; border-color: {t['accent']}; }}
-QCheckBox::indicator:hover   {{ border-color: {t['accent']}; }}
+QCheckBox {{ color: #e2ddd6; spacing: 8px; font-size: 13px; background: transparent; }}
+QCheckBox::indicator {{ width: 15px; height: 15px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.20); background: rgba(255,255,255,0.06); }}
+QCheckBox::indicator:checked {{ background: {_a}; border-color: {_a}; }}
+QCheckBox::indicator:hover {{ border-color: rgba(255,255,255,0.20); }}
+QCheckBox:disabled {{ color: rgba(255,255,255,0.25); }}
 
-QFrame[frameShape="4"] {{ color: {t['border']}; max-height: 1px; }}
-QFrame[frameShape="5"] {{ color: {t['border']}; max-width: 1px; }}
+QListWidget {{ background: rgba(10,12,16,0.40); border: none; outline: none; border-radius: 6px; }}
+QListWidget::item {{ padding: 6px 12px; border: none; color: #e2ddd6; }}
+QListWidget::item:selected {{ background: {_alo}; color: {_a}; border: none; }}
+QListWidget::item:hover {{ background: rgba(255,255,255,0.05); color: #e2ddd6; }}
 
-QListWidget {{ background: transparent; border: none; outline: none; font-size: 12px; }}
-QListWidget::item {{ padding: 5px 6px; border-radius: 3px; color: {t['txt1']}; }}
-QListWidget::item:hover {{ background: {t['bg3']}; color: {t['txt0']}; }}
-QListWidget::item:selected {{ background: {t['accentlo']}; color: {t['accent']}; }}
+QToolTip {{ background: #1e2128; color: #e2ddd6; border: 1px solid rgba(255,255,255,0.12);
+            padding: 5px 8px; border-radius: 5px; font-size: 12px; }}
 
-QScrollArea {{ border: none; background: transparent; }}
-QSplitter::handle {{ background: {t['border']}; }}
-QToolTip {{ background: {t['bg1']}; color: {t['txt0']}; border: 1px solid {t['border']};
-             padding: 5px 8px; border-radius: 4px; font-size: 12px; }}
-QGroupBox {{ border: 1px solid {t['border']}; border-radius: 5px; margin-top: 8px;
-             padding-top: 8px; color: {t['txt0']}; }}
-QGroupBox::title {{ subcontrol-origin: margin; left: 10px; color: {t['txt1']}; font-size: 11px; }}
-QPlainTextEdit {{ background: {t['bg3']}; border: 1px solid {t['border']}; border-radius: 4px;
-                  padding: 6px; color: {t['txt0']}; font-size: 12px; }}
-QTreeWidget {{ background: {t['bg2']}; border: none; outline: none; color: {t['txt0']}; }}
-QTreeWidget::item {{ padding: 4px; color: {t['txt0']}; }}
-QTreeWidget::item:hover {{ background: {t['bg3']}; }}
-QTreeWidget::item:selected {{ background: {t['accentlo']}; color: {t['accent']}; }}
-QTreeWidget::branch {{ background: {t['bg2']}; }}
+QTabWidget::pane {{ border: 1px solid rgba(255,255,255,0.10); border-radius: 6px;
+                    background: rgba(255,255,255,0.04); padding-top: 8px; color: #e2ddd6; }}
+QTabBar::tab {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
+                padding: 6px; color: rgba(255,255,255,0.55); font-size: 12px; }}
+QTabBar::tab:selected {{ background: rgba(255,255,255,0.10); color: #e2ddd6; }}
+
+QSplitter::handle {{ background: rgba(255,255,255,0.07); }}
+QTreeWidget {{ background: rgba(10,12,16,0.40); border: none; outline: none; border-radius: 6px; color: #e2ddd6; }}
+QTreeWidget::item {{ padding: 3px; }}
+QTreeWidget::item:selected {{ background: {_alo}; color: {_a}; }}
+QTreeWidget::item:hover {{ background: rgba(255,255,255,0.05); }}
+QTreeWidget QHeaderView::section {{ background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.35);
+    padding: 4px 8px; border: none; border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 10px; font-weight: 700; letter-spacing: 1.0px; }}
+QMenu {{ background: #1e2128; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 4px; }}
+QMenu::item {{ padding: 6px 18px; color: #e2ddd6; border-radius: 4px; }}
+QMenu::item:selected {{ background: {_alo}; color: {_a}; }}
+QMenu::separator {{ height: 1px; background: rgba(255,255,255,0.08); margin: 3px 8px; }}
+QScrollArea {{ background: transparent; border: none; }}
+QScrollArea > QWidget > QWidget {{ background: transparent; }}
 """
 
 
@@ -1092,627 +1088,626 @@ class Worker(QThread):
 
 # ─────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────
-#  ROCKBOX DATABASE BUILDER — powered by dap_db_manager
+# ─────────────────────────────────────────────────────────────
+#  ROCKBOX DATABASE BUILDER
+#  Uses the official Rockbox database tool compiled from source.
+#  Writes real .tcd files directly — no on-device scan needed.
 # ─────────────────────────────────────────────────────────────
 
-try:
-    from dap_db_manager.database import Database as _DdmDatabase
-    from dap_db_manager.config import Config as _DdmConfig
-    _HAS_DDM = True
-except ImportError:
-    _HAS_DDM = False
+# Rockbox target number used when compiling the database tool.
+# Any valid target works — the DB tool binary is host-native (x86_64/arm64)
+# and the target only affects minor compile-time constants.
+# We use 22 (iPod Video 5G) as a stable, well-tested reference target.
+_RBX_TOOL_TARGET = "22"
+
+# Where we cache the compiled binary
+_RBX_TOOL_PATH = CONFIG_DIR / "rockbox_dbtool"
+
+# Where we cache the Rockbox source checkout
+_RBX_SRC_PATH  = CONFIG_DIR / "rockbox_src"
+
+
+def _find_bundled_dbtool() -> Optional[Path]:
+    """
+    When running as an AppImage or PyInstaller bundle, the pre-compiled
+    database tool binary is bundled alongside the app.
+    Returns the path if found, else None.
+    """
+    # PyInstaller / cx_Freeze bundle
+    _base = Path(getattr(sys, "_MEIPASS", ""))
+    if _base and (_base / "rockbox_dbtool").exists():
+        return _base / "rockbox_dbtool"
+    # AppImage: binary next to the squashfs root
+    _appdir = os.environ.get("APPDIR", "")
+    if _appdir and (Path(_appdir) / "usr" / "bin" / "rockbox_dbtool").exists():
+        return Path(_appdir) / "usr" / "bin" / "rockbox_dbtool"
+    # Same directory as the script (dev convenience)
+    _script_dir = Path(__file__).parent
+    if (_script_dir / "rockbox_dbtool").exists():
+        return _script_dir / "rockbox_dbtool"
+    return None
 
 
 class RockboxDbWorker(QThread):
     """
-    Builds Rockbox tagcache database files (.tcd) on the PC using
-    dap_db_manager, then writes them directly to <device>/.rockbox/.
+    Builds a real Rockbox tagcache database on the PC by:
 
-    Requires: pip install dap-db-manager
+      1. Cloning the Rockbox source (once, cached in ~/.config/scrobbox/rockbox_src)
+      2. Compiling the official Rockbox database tool for the host platform
+         (once, cached at ~/.config/scrobbox/rockbox_dbtool)
+      3. Running the compiled binary against the device / local library root,
+         which walks the filesystem and writes real .tcd files to /.rockbox/
+
+    The compiled binary is host-native (Linux x86_64 or arm64) — it does NOT
+    run on the device. It simply reads files from the mounted path and writes
+    the database. No Docker, no on-device scan.
+
+    For AppImage distribution: bundle a pre-compiled rockbox_dbtool binary
+    inside the AppImage. The worker detects it automatically.
+
+    Requires: git, gcc, make  (standard on any Linux system)
     """
-    progress = pyqtSignal(str)
-    count_update = pyqtSignal(int, int)  # (current, total)
-    finished = pyqtSignal(dict)
+    progress     = pyqtSignal(str)
+    count_update = pyqtSignal(int, int)
+    finished     = pyqtSignal(dict)
 
-    MODE_UPDATE     = "update"      # incremental (new files only; stats not preserved)
-    MODE_INITIALIZE = "initialize"  # full fresh rebuild
+    MODE_UPDATE     = "update"
+    MODE_INITIALIZE = "initialize"
 
     def __init__(self, device_root: Path, mode: str = MODE_UPDATE,
-                 library_root: Optional[Path] = None):
+                 library_root: Optional[Path] = None,
+                 force_recompile: bool = False):
         super().__init__()
-        self.device_root  = device_root
-        self.mode         = mode
-        self.library_root = library_root
-        self._pause_event = _threading.Event()
-        self._pause_event.set()  # not paused initially
+        self.device_root    = device_root
+        self.mode           = mode
+        self.library_root   = library_root
+        self.force_recompile = force_recompile
+        self._pause_event   = _threading.Event()
+        self._pause_event.set()
+        self._proc: Optional[subprocess.Popen] = None  # currently running subprocess
 
-    def run(self):
-        if not _HAS_DDM:
-            self.finished.emit({"error":
-                "dap-db-manager is not installed.\n"
-                "Install it with:  pip install dap-db-manager\n"
-                "Then try again."})
+    # ── internal helpers ──────────────────────────────────────
+
+    def _emit(self, msg: str):
+        self.progress.emit(msg)
+
+    def _check(self):
+        self._pause_event.wait()
+        if self.isInterruptionRequested():
+            raise InterruptedError("Cancelled")
+
+    def _run_cmd(self, cmd: list, cwd=None, env=None, capture=False) -> subprocess.CompletedProcess:
+        """Run a command, streaming output to the log. Raises on non-zero exit."""
+        import subprocess as _sp
+        # Always run with a UTF-8 locale so the tool handles multibyte filenames
+        # (special chars, accented letters, unicode quotes, CJK, etc.) correctly.
+        # Without this, the C runtime's mbstowcs() fails on non-ASCII and writes
+        # null bytes into the .tcd paths, corrupting them.
+        _utf8_env = os.environ.copy()
+        _utf8_env["LANG"]     = "C.UTF-8"
+        _utf8_env["LC_ALL"]   = "C.UTF-8"
+        _utf8_env["LC_CTYPE"] = "C.UTF-8"
+        if env:
+            _utf8_env.update(env)
+        env = _utf8_env
+        self._emit(f"  $ {' '.join(str(c) for c in cmd)}")
+        if capture:
+            r = _sp.run(cmd, cwd=cwd, env=env,
+                        stdout=_sp.PIPE, stderr=_sp.STDOUT, text=True,
+                        encoding="utf-8", errors="replace")
+            if r.stdout:
+                for line in r.stdout.splitlines():
+                    self._emit(f"    {line}")
+            return r
+        # streaming
+        proc = _sp.Popen(cmd, cwd=cwd, env=env,
+                         stdout=_sp.PIPE, stderr=_sp.STDOUT, text=True,
+                         encoding="utf-8", errors="replace",
+                         bufsize=1)
+        self._proc = proc
+        try:
+            for line in proc.stdout:
+                self._check()
+                line = line.rstrip()
+                if line:
+                    self._emit(f"    {line}")
+            proc.wait()
+        finally:
+            self._proc = None
+        if proc.returncode != 0:
+            raise RuntimeError(f"Command failed (exit {proc.returncode}): {' '.join(str(c) for c in cmd)}")
+        return proc
+
+    # ── step 1: ensure source ─────────────────────────────────
+
+    def _ensure_source(self) -> Path:
+        """Clone or update the Rockbox source. Returns path to source root."""
+        src = _RBX_SRC_PATH
+        if src.exists() and (src / "tools" / "configure").exists():
+            self._emit(f"✓ Rockbox source found at {src}")
+            # Quick fetch to make sure configure script is current
+            # (skip if interrupted or offline — old source still works)
+            try:
+                self._emit("  Checking for source updates (git fetch)…")
+                self._run_cmd(["git", "fetch", "--depth=1", "origin"], cwd=src)
+                self._run_cmd(["git", "reset", "--hard", "origin/master"], cwd=src)
+            except Exception as _fe:
+                self._emit(f"  (Could not update source: {_fe} — using cached version)")
+            return src
+
+        self._emit("Cloning Rockbox source (shallow, ~60 MB, one-time)…")
+        src.parent.mkdir(parents=True, exist_ok=True)
+        self._run_cmd([
+            "git", "clone",
+            "--depth=1",
+            "--filter=blob:none",
+            "--no-checkout",
+            "https://github.com/Rockbox/rockbox.git",
+            str(src),
+        ])
+        # Sparse checkout — we only need tools/ and apps/ and firmware/
+        self._run_cmd(["git", "sparse-checkout", "init", "--cone"], cwd=src)
+        self._run_cmd(["git", "sparse-checkout", "set",
+                       "tools", "apps", "firmware", "lib", "uisimulator"], cwd=src)
+        self._run_cmd(["git", "checkout", "master"], cwd=src)
+        self._emit(f"✓ Source cloned to {src}")
+        return src
+
+    # ── step 2: compile ───────────────────────────────────────
+
+    def _patch_source_for_utf8(self, src: Path):
+        """
+        Patch tagcache.c to call setlocale(LC_ALL, "") at startup.
+        Without this the C runtime uses the "C" locale which cannot handle
+        multibyte UTF-8 — special chars in filenames get corrupted to null
+        bytes in the .tcd paths. setlocale(LC_ALL, "") uses the system
+        locale (UTF-8 on all modern Linux) fixing this completely.
+        """
+        tagcache_c = src / "apps" / "tagcache.c"
+        if not tagcache_c.exists():
+            self._emit("  Warning: could not find apps/tagcache.c to patch")
             return
 
+        text = tagcache_c.read_text(encoding='utf-8', errors='replace')
+
+        # Add locale.h include if not already present
+        if '#include <locale.h>' not in text:
+            idx = text.find('#include ')
+            if idx != -1:
+                eol = text.index('\n', idx)
+                text = text[:eol+1] + '#include <locale.h>\n' + text[eol+1:]
+
+        # Insert setlocale(LC_ALL, "") as first statement in main()
+        if 'setlocale(LC_ALL' not in text:
+            import re as _re
+            def _ins(m):
+                return m.group(0) + '\n    setlocale(LC_ALL, "");'
+            text = _re.sub(
+                r'int\s+main\s*\([^)]*\)\s*\{',
+                _ins,
+                text, count=1
+            )
+
+        tagcache_c.write_text(text, encoding='utf-8')
+        self._emit("  Patched tagcache.c for UTF-8 locale support.")
+
+
+    def _compile_tool(self, src: Path) -> Path:
+        """Configure and compile the database tool. Returns path to binary."""
+        import tempfile as _tf
+        tool_out = _RBX_TOOL_PATH
+
+        self._emit("Compiling Rockbox database tool…")
+        self._emit(f"  Source: {src}")
+        self._emit(f"  Target: {tool_out}")
+
+        # Patch the source for UTF-8 support before compiling
+        self._patch_source_for_utf8(src)
+
+        build_dir = Path(_tf.mkdtemp(prefix="scrobbox_rbxbuild_"))
+        try:
+            # Configure for database tool (--type=D), host-native binary
+            self._run_cmd([
+                str(src / "tools" / "configure"),
+                f"--target={_RBX_TOOL_TARGET}",
+                "--type=D",
+            ], cwd=build_dir)
+
+            self._check()
+
+            # Compile
+            cpu_count = str(max(1, os.cpu_count() or 1))
+            self._run_cmd(["make", f"-j{cpu_count}", "clean"], cwd=build_dir)
+            self._run_cmd(["make", f"-j{cpu_count}"], cwd=build_dir)
+
+            # Find the compiled binary (named database.<targetname>)
+            candidates = list(build_dir.glob("database.*"))
+            if not candidates:
+                raise RuntimeError(
+                    "Compilation succeeded but no database.* binary found in build dir.\n"
+                    f"Build dir contents: {list(build_dir.iterdir())}"
+                )
+            binary = candidates[0]
+            shutil.copy2(str(binary), str(tool_out))
+            tool_out.chmod(tool_out.stat().st_mode | 0o111)  # ensure executable
+            self._emit(f"✓ Compiled: {binary.name}  →  {tool_out}")
+        finally:
+            shutil.rmtree(str(build_dir), ignore_errors=True)
+
+        return tool_out
+
+    # ── step 3: run tool ──────────────────────────────────────
+
+    def _run_tool(self, tool: Path, scan_root: Path, rbdir: Path):
+        """
+        Run the compiled database tool.
+
+        The tool must be run with the DEVICE ROOT as cwd — it records paths
+        relative to cwd, which must match what Rockbox sees on the device.
+
+        Local library mode:
+          The library folder must mirror the music folder structure on the
+          device. We figure out where music lives on the device relative to
+          the device root (e.g. /Music), then create a fake device root where:
+            <fake_root>/
+              .rockbox/              (empty — tool writes .tcd files here)
+              <music_rel>/           (symlink → library_root)
+          This makes the tool record paths like /Music/Artist/song.mp3 which
+          is exactly what Rockbox expects on the device.
+        """
+        import tempfile as _tf
+
+        if self.library_root:
+            self._emit(f"Mode: local library  {self.library_root}")
+            self._emit(f"Output: {rbdir}")
+
+            # Work out where the music folder sits relative to the device root.
+            # e.g. device_root=/media/roy/IPOD, music on device at /media/roy/IPOD/Music
+            # → music_rel = "Music"
+            # We find this by looking at what subdirectory on the device contains
+            # audio files, excluding .rockbox. If we can't determine it, fall back
+            # to putting music directly under fake_root (rel = "").
+            device_root = rbdir.parent
+            music_rel = ""
+            try:
+                for item in device_root.iterdir():
+                    if item.name.startswith(".") or not item.is_dir():
+                        continue
+                    # Check if this dir contains audio files (one level deep)
+                    for sub in item.rglob("*"):
+                        if sub.suffix.lower() in {
+                            ".mp3", ".flac", ".ogg", ".m4a", ".aac",
+                            ".wv", ".ape", ".wav", ".opus", ".mpc",
+                            ".aiff", ".alac", ".wma", ".mod", ".spc"
+                        }:
+                            music_rel = item.name
+                            break
+                    if music_rel:
+                        break
+            except Exception:
+                pass
+
+            self._emit(
+                f"  Device music folder: /{music_rel if music_rel else '(root)'}"
+            )
+
+            fake_root = Path(_tf.mkdtemp(prefix="scrobbox_fakedev_"))
+            try:
+                (fake_root / ".rockbox").mkdir()
+
+                if music_rel:
+                    # Symlink library_root as the music subfolder
+                    # e.g. fake_root/Music -> /home/roy/Music
+                    # Use os.fsencode-safe paths so Unicode folder names
+                    # in the library path itself don't cause issues
+                    os.symlink(os.fsencode(str(self.library_root)),
+                               os.fsencode(str(fake_root / music_rel)))
+                else:
+                    # Music is at device root level — symlink each item
+                    for item in self.library_root.iterdir():
+                        if item.name != ".rockbox":
+                            os.symlink(os.fsencode(str(item)),
+                                       os.fsencode(str(fake_root / item.name)))
+
+                self._emit("Running database tool against local library…")
+                self._run_cmd([str(tool)], cwd=str(fake_root))
+
+                tcd_files = list((fake_root / ".rockbox").glob("database*.tcd"))
+                if not tcd_files:
+                    raise RuntimeError(
+                        "Database tool ran but produced no .tcd files.\n"
+                        "Check that your music directory contains supported audio files."
+                    )
+                # Fix FAT32 path issues in temp dir BEFORE copying to device.
+                # Pass the real device root so _fix_tcd_paths resolves path
+                # components against the actual FAT32 filesystem (not the fake
+                # temp dir which still has the original local names).
+                self._fix_tcd_paths(fake_root / ".rockbox", real_device_root=device_root)
+                # Verify fix worked
+                _tcd4 = fake_root / ".rockbox" / "database_4.tcd"
+                if _tcd4.exists():
+                    _raw = _tcd4.read_bytes()
+                    if b"Start Here." in _raw:
+                        self._emit("  WARNING: trailing dot still present after fix!")
+                    else:
+                        self._emit("  Verified: trailing dot removed from temp file")
+                self._emit(f"Copying {len(tcd_files)} .tcd file(s) to device…")
+                for tcd in tcd_files:
+                    shutil.copy2(str(tcd), str(rbdir / tcd.name))
+                    self._emit(f"  Wrote /.rockbox/{tcd.name}")
+                # Verify copy worked
+                _tcd4dev = rbdir / "database_4.tcd"
+                if _tcd4dev.exists():
+                    _raw2 = _tcd4dev.read_bytes()
+                    if b"Start Here." in _raw2:
+                        self._emit("  WARNING: trailing dot still present on device after copy!")
+                    else:
+                        self._emit("  Verified: device file has no trailing dot")
+            finally:
+                shutil.rmtree(str(fake_root), ignore_errors=True)
+        else:
+            # Device mode: run tool directly against device root
+            self._emit(f"Mode: device  {scan_root}")
+            self._emit("Running database tool directly on device…")
+            self._run_cmd([str(tool)], cwd=str(scan_root))
+            self._fix_tcd_paths(rbdir)
+
+    def _sanitize_library_for_fat32(self, library_root: Path):
+        """
+        Walk library_root and rename any file or folder whose name would be
+        mangled by FAT32 on the iPod, so local names match device names exactly.
+
+        Fixes:
+          - FAT32-illegal chars (\\ : * ? " < > |) → replaced with -
+          - Trailing dots and trailing spaces on name stems → stripped
+
+        Deepest paths first so parent renames don't break child paths.
+        Collisions resolved with _2, _3 … suffix.
+        """
+        self._emit(f"── Sanitizing local library for FAT32: {library_root}")
+
+        to_rename: list[Path] = []
+        try:
+            for fp in sorted(library_root.rglob("*"),
+                             key=lambda p: len(p.parts), reverse=True):
+                if _needs_sanitize(fp.name) or fp.name != fp.name.rstrip('. '):
+                    to_rename.append(fp)
+        except Exception as e:
+            self._emit(f"  ⚠ Scan error: {e}"); return
+
+        if not to_rename:
+            self._emit("  ✓ No FAT32-unsafe names found — library already clean"); return
+
+        self._emit(f"  Found {len(to_rename):,} item(s) to rename…")
+        renamed = 0; errors = 0
+
+        for fp in to_rename:
+            self._check()
+            if not fp.exists():
+                continue  # parent already renamed
+            # Build clean name: replace illegal chars then strip trailing dots/spaces
+            clean = _sanitize_fat32_name(fp.name)
+            stem, _, ext = clean.rpartition('.')
+            if not stem:
+                clean = clean.rstrip('. ') or fp.name
+            elif not ext or not ext.strip():
+                clean = stem.rstrip('. ') or fp.name
+            else:
+                clean = f"{stem.rstrip('. ')}.{ext}"
+            if clean == fp.name:
+                continue
+            new_path = fp.parent / clean
+            if new_path.exists() and new_path != fp:
+                base = new_path.stem; ext = new_path.suffix; n = 2
+                while new_path.exists():
+                    new_path = fp.parent / f"{base}_{n}{ext}"; n += 1
+            try:
+                fp.rename(new_path)
+                self._emit(f"  ✎ {fp.name!r}  →  {new_path.name!r}")
+                renamed += 1
+            except Exception as e:
+                self._emit(f"  ⚠ Could not rename {fp.name!r}: {e}"); errors += 1
+
+        if errors:
+            self._emit(f"  ⚠ Renamed {renamed:,}, {errors} failed — check permissions")
+        else:
+            self._emit(f"  ✓ Renamed {renamed:,} item(s) — library is FAT32-clean")
+
+    def _fix_tcd_paths(self, rbdir: Path, real_device_root: Optional[Path] = None):
+        """
+        Post-process database_4.tcd to fix paths that don't match what's actually
+        on the FAT32 device. Walks the real device filesystem and matches each
+        path component by case-insensitive comparison, using the actual name on disk.
+        Handles trailing dots, trailing spaces, and any other character differences
+        caused by FAT32 sanitization during sync.
+
+        In local-library mode, pass real_device_root so we resolve against the
+        actual FAT32 device instead of the fake temp dir (which still has the
+        original local names with dots, special chars, etc.).
+
+        IMPORTANT: modifies raw bytearray directly — do NOT use slices as they are copies.
+        """
+        tcd = rbdir / "database_4.tcd"
+        if not tcd.exists():
+            return
+        # In local mode, rbdir.parent is the fake temp dir — use the real device
+        # root so we walk the actual FAT32 filesystem for name resolution.
+        device_root = real_device_root if real_device_root is not None else rbdir.parent
+
+        def find_actual_name(parent: Path, wanted: str) -> str:
+            """Find the actual name on disk matching wanted (case-insensitive, fuzzy).
+            Handles FAT32 sanitization: trailing dots/spaces stripped, illegal chars
+            replaced with '-', as rsync's FAT32 sanitize step does."""
+            try:
+                entries = os.listdir(str(parent))
+            except Exception:
+                return wanted
+            # Exact match first
+            if wanted in entries:
+                return wanted
+            # Case-insensitive match
+            wanted_lower = wanted.lower()
+            for e in entries:
+                if e.lower() == wanted_lower:
+                    return e
+            # Strip trailing dots/spaces (FAT32 drops these) and try again
+            wanted_stripped = wanted.rstrip('. ')
+            if wanted_stripped != wanted:
+                if wanted_stripped in entries:
+                    return wanted_stripped
+                for e in entries:
+                    if e.lower() == wanted_stripped.lower():
+                        return e
+            # Try FAT32 illegal-char substitution (: ? < > | * " \ replaced with -)
+            # This mirrors what the rsync sanitize step does on the source.
+            import re as _re
+            _fat32_illegal = re.compile(r'[\\/:*?"<>|]')
+            wanted_sanitized = _fat32_illegal.sub('-', wanted_stripped if wanted_stripped != wanted else wanted)
+            if wanted_sanitized != wanted:
+                if wanted_sanitized in entries:
+                    return wanted_sanitized
+                for e in entries:
+                    if e.lower() == wanted_sanitized.lower():
+                        return e
+            # No match found — return original
+            return wanted
+
+        try:
+            raw   = bytearray(tcd.read_bytes())
+            magic, datasize, entry_count = struct.unpack_from('<III', raw, 0)
+            if entry_count <= 0 or entry_count > 10_000_000:
+                self._emit(f"  Warning: database_4.tcd looks invalid (entries={entry_count}) — skipping")
+                return
+            HDR    = 12
+            fixed  = 0
+            offset = HDR
+            for _ in range(entry_count):
+                str_start = offset + 4
+                null_pos  = raw.index(0, str_start)
+                old_bytes = bytes(raw[str_start:null_pos])
+                try:    old_path = old_bytes.decode('utf-8')
+                except: old_path = old_bytes.decode('latin-1')
+
+                # Walk the path components and resolve each against actual device
+                parts     = old_path.split('/')
+                new_parts = []
+                current   = device_root
+                for i, part in enumerate(parts):
+                    is_last = (i == len(parts) - 1)
+                    if part == '':
+                        new_parts.append(part)
+                        continue
+                    # Resolve every component (directories AND filename) against
+                    # the real device — handles trailing dots/spaces and FAT32
+                    # illegal-char substitution for both folder names and files.
+                    actual = find_actual_name(current, part)
+                    new_parts.append(actual)
+                    if not is_last:
+                        current = current / actual
+                new_path = '/'.join(new_parts)
+
+                if new_path != old_path:
+                    new_b = new_path.encode('utf-8')
+                    if len(new_b) <= len(old_bytes):
+                        pad = len(old_bytes) - len(new_b)
+                        raw[str_start : str_start + len(old_bytes)] = new_b + b'\x00' * pad
+                        fixed += 1
+
+                entry_len = ((null_pos - str_start + 1) + 3) & ~3
+                offset    = str_start + entry_len
+
+            if fixed:
+                self._emit(f"  Fixed {fixed} path(s) to match device filesystem")
+                tcd.write_bytes(raw)
+            else:
+                self._emit("  All paths already match device filesystem")
+        except Exception as e:
+            self._emit(f"  Warning: path fix failed: {e}")
+
+    # ── main run ──────────────────────────────────────────────────────────
+
+    def run(self):
         root  = self.device_root
         rbdir = root / ".rockbox"
 
         if not rbdir.exists():
             self.finished.emit({"error": f"No .rockbox directory found at {root}"}); return
 
-        # Determine which folder to scan for music
-        if self.library_root:
-            scan_root = self.library_root
-            dap_root  = str(self.library_root.parent)
-            self.progress.emit(f"Source: local library  {scan_root}")
-        else:
-            scan_root = root
-            dap_root  = str(root)
-            self.progress.emit(f"Source + output: device  {root}")
-
-        self.progress.emit(f"Output: {rbdir}")
+        scan_root = self.library_root if self.library_root else root
 
         written      = []
         write_errors = []
-        total        = 0
-        errors       = 0
-
-        # Per-library cache file keyed by hash of the scan root path so
-        # each library (iPod 1 FLAC, iPod 2 AAC, etc.) gets its own cache.
-        import hashlib as _hl, os as _os
-        # Cache key: use rockbox-info.txt content for device scans (stable across
-        # remounts), fall back to library path hash for local library scans.
-        # For local library scans, include the device root so different devices
-        # with the same library each get their own cache.
-        _rb_info = root / ".rockbox" / "rockbox-info.txt"
-        if not self.library_root and _rb_info.exists():
-            try:
-                _fingerprint = _rb_info.read_text(encoding="utf-8", errors="ignore")
-                _cache_key   = _hl.md5(_fingerprint.encode()).hexdigest()[:12]
-            except Exception:
-                _cache_key = _hl.md5(str(scan_root).encode()).hexdigest()[:12]
-        elif self.library_root:
-            # library path + device root → unique per (library, device) pair
-            _combined = f"{scan_root}::{root}"
-            _cache_key = _hl.md5(_combined.encode()).hexdigest()[:12]
-        else:
-            _cache_key = _hl.md5(str(scan_root).encode()).hexdigest()[:12]
-        _cache_file = str(CONFIG_DIR / f"ddm_tagcache_{_cache_key}.msgpack.gz")
-        self.progress.emit(f"Cache file: {Path(_cache_file).name}")
 
         try:
-            # Give the tag cache more headroom for large libraries
-            try:
-                from dap_db_manager.database.cache import TagCache as _TC
-                _TC.set_max_cache_memory(1024)
-            except Exception:
-                pass
-            config = _DdmConfig()
+            # ── Check for prerequisites ───────────────────────
+            for tool in ("git", "gcc", "make"):
+                if not shutil.which(tool):
+                    self.finished.emit({"error":
+                        f"'{tool}' is not installed.\n"
+                        f"Install it with your package manager, e.g.:\n"
+                        f"  sudo apt install build-essential git"}); return
 
-            import re as _re
-            _progress_re = _re.compile(r'(\d+)\s*/\s*(\d+)')
+            # ── Find or compile the database tool ─────────────
+            tool_path = _find_bundled_dbtool()
 
-            def _make_file_cb():
-                """Return a filecallback that checks pause/cancel and forwards progress."""
-                _scanned = [0]
-                _scan_total = [0]
-                def _file_cb(msg):
-                    self._pause_event.wait()
-                    if self.isInterruptionRequested():
-                        raise InterruptedError("Cancelled")
-                    _scanned[0] += 1
-                    msg_str = str(msg).strip() if msg else ""
-                    m = _progress_re.search(msg_str)
-                    if m:
-                        cur_val = int(m.group(1))
-                        tot_val = int(m.group(2))
-                        _scan_total[0] = tot_val
-                        self.count_update.emit(cur_val, tot_val)
-                        if cur_val % 100 == 0 or cur_val == tot_val:
-                            self.progress.emit(f"  {msg_str}")
-                    else:
-                        if msg_str:
-                            self.progress.emit(f"  {msg_str}")
-                        self.count_update.emit(_scanned[0], _scan_total[0])
-                return _file_cb
+            if tool_path:
+                self._emit(f"✓ Using bundled database tool: {tool_path}")
+            elif _RBX_TOOL_PATH.exists() and not self.force_recompile:
+                tool_path = _RBX_TOOL_PATH
+                self._emit(f"✓ Using cached database tool: {tool_path}")
+            else:
+                # Need to compile
+                self._check()
+                src = self._ensure_source()
+                self._check()
+                tool_path = self._compile_tool(src)
 
-            def _dir_cb(msg):
-                self._pause_event.wait()
-                if self.isInterruptionRequested():
-                    raise InterruptedError("Cancelled")
+            self._check()
 
-            def _write_cb(msg, **kwargs):
-                msg_str = str(msg)
-                if msg_str.strip():
-                    self.progress.emit(f"  {msg_str}")
-
-            # ══════════════════════════════════════════════════════
-            #  MODE_UPDATE — true incremental delta using existing DB
-            # ══════════════════════════════════════════════════════
-            if self.mode == self.MODE_UPDATE:
-                tcd_idx = rbdir / "database_idx.tcd"
-                has_existing_db = tcd_idx.exists()
-
-                if has_existing_db:
-                    # ── Load existing database from device ────────
-                    self.progress.emit("Loading existing database from device…")
-                    try:
-                        db = _DdmDatabase.read(str(rbdir), callback=_write_cb, dap_root=dap_root)
-                        self.progress.emit(f"  Loaded {db.index.count:,} existing entries.")
-                    except Exception as _re_err:
-                        self.progress.emit(f"  Could not read existing database ({_re_err}) — falling back to full build.")
-                        has_existing_db = False
-
-                if not has_existing_db:
-                    # ── No existing DB — do a full fresh build ────
-                    self.progress.emit("No existing database found — performing full build…")
-                    with _DdmDatabase(config=config, dap_root=dap_root) as db:
-
-                        if _os.path.exists(_cache_file):
-                            self.progress.emit("Loading tag cache…")
-                            try:
-                                db.load_tags(_cache_file)
-                                self.progress.emit(f"  Loaded cache for {len(db.paths):,} files.")
-                            except Exception as _e:
-                                self.progress.emit(f"  Cache load failed ({_e}), scanning from scratch.")
-
-                        self.progress.emit("Scanning for audio files…")
-                        db.add_dir(str(scan_root), dircallback=_dir_cb, filecallback=_make_file_cb())
-                        total  = len(db.paths)
-                        errors = len(db.failed)
-                        self.progress.emit(f"Found {total:,} audio files ({errors} failed to read).")
-                        if total == 0:
-                            self.finished.emit({"error": "No audio files found."}); return
-                        if self.isInterruptionRequested():
-                            self.finished.emit({"error": "Cancelled."}); return
-
-                        # Save cache BEFORE generate_database() — generator calls
-                        # TagCache.cleanup(keep_paths=paths) which wipes lowercase cache
-                        # keys not found in the original-case paths set.
+            # ── Clear old .tcd files if MODE_INITIALIZE ───────
+            if self.mode == self.MODE_INITIALIZE:
+                old_tcd = list(rbdir.glob("database*.tcd"))
+                if old_tcd:
+                    self._emit(f"Removing {len(old_tcd)} existing .tcd file(s)…")
+                    for f in old_tcd:
                         try:
-                            from dap_db_manager.database.cache import TagCache as _TC2
-                            _lp = {p.lower() for p in db.paths}
-                            _, _saved = _TC2.save(_cache_file, _lp)
-                            self.progress.emit(f"  Tag cache saved ({_saved:,} files).")
-                        except Exception as _se:
-                            self.progress.emit(f"  Could not save tag cache: {_se}")
-
-                        self.progress.emit("Building tag tables and master index…")
-                        last_pct = [-1]
-                        def _gen_cb(current, total_count):
-                            if total_count and total_count > 0:
-                                pct = int(current * 100 / total_count)
-                                if pct != last_pct[0] and pct % 5 == 0:
-                                    self.progress.emit(f"  Generating… {pct}%")
-                                    last_pct[0] = pct
-                                self.count_update.emit(current, total_count)
-                        db.generate_database(callback=_gen_cb)
-                        if self.isInterruptionRequested():
-                            self.finished.emit({"error": "Cancelled."}); return
-
-                        self.progress.emit("Writing database files to device…")
-                        try:
-                            db.write(str(rbdir), callback=_write_cb)
+                            f.unlink()
                         except Exception as e:
-                            self.finished.emit({"error": f"Failed to write database: {e}"}); return
+                            self._emit(f"  Warning: could not remove {f.name}: {e}")
 
-                        total  = len(db.paths); errors = len(db.failed)
-                        written = [f.name for f in sorted(rbdir.glob("database*.tcd"))]
-                        self.finished.emit({"total": total, "written": written,
-                                            "write_errors": [], "tag_errors": errors,
-                                            "mode": self.mode, "stats_loaded": 0})
-                        return
+            self._check()
 
-                # ── True delta update on existing DB ──────────────
-                with db:
-                    # Load tag cache directly into TagCache._cache (NOT db.paths)
-                    # so mtime lookups work without polluting db.paths with local paths.
-                    # db.paths at this point contains device paths from Database.read() —
-                    # we must not overwrite or mix them.
-                    if _os.path.exists(_cache_file):
-                        self.progress.emit("Loading tag cache…")
-                        try:
-                            from dap_db_manager.database.cache import TagCache as _TCLoad, SimpleTag
-                            import gzip as _gzip, struct as _struct
-                            _loaded_count = 0
+            # ── Run the tool ──────────────────────────────────
+            self._run_tool(tool_path, scan_root, rbdir)
 
-                            def _mini_load_cache(path):
-                                """Parse msgpack cache without relying on msgpack library quirks.
-                                The file is a sequence of msgpack objects: first an int (count),
-                                then N entries each being a 2-array [path, [[size, mtime], tags]].
-                                We parse it with a minimal hand-rolled decoder to avoid the bug in
-                                TagCache.load() where msgpack.Unpacker(use_list=True) throws
-                                ExtraData/StopIteration after ~16 entries and falls back to pickle."""
-                                with _gzip.open(path, 'rb') as _f:
-                                    _data = _f.read()
+            self._check()
 
-                                class _MP:
-                                    def __init__(self, d): self.d = d; self.p = 0
-                                    def rb(self):
-                                        b = self.d[self.p]; self.p += 1; return b
-                                    def rn(self, n):
-                                        r = self.d[self.p:self.p+n]; self.p += n; return r
-                                    def decode(self):
-                                        b = self.rb()
-                                        if b <= 0x7f: return b
-                                        if 0x80 <= b <= 0x8f:
-                                            return {self.decode(): self.decode() for _ in range(b & 0x0f)}
-                                        if 0x90 <= b <= 0x9f:
-                                            return [self.decode() for _ in range(b & 0x0f)]
-                                        if 0xa0 <= b <= 0xbf:
-                                            return self.rn(b & 0x1f).decode('utf-8', errors='replace')
-                                        if b == 0xc0: return None
-                                        if b == 0xc2: return False
-                                        if b == 0xc3: return True
-                                        if b == 0xca: return _struct.unpack('>f', self.rn(4))[0]
-                                        if b == 0xcb: return _struct.unpack('>d', self.rn(8))[0]
-                                        if b == 0xcc: return self.rb()
-                                        if b == 0xcd: return _struct.unpack('>H', self.rn(2))[0]
-                                        if b == 0xce: return _struct.unpack('>I', self.rn(4))[0]
-                                        if b == 0xcf: return _struct.unpack('>Q', self.rn(8))[0]
-                                        if b == 0xd0: return _struct.unpack('>b', self.rn(1))[0]
-                                        if b == 0xd1: return _struct.unpack('>h', self.rn(2))[0]
-                                        if b == 0xd2: return _struct.unpack('>i', self.rn(4))[0]
-                                        if b == 0xd3: return _struct.unpack('>q', self.rn(8))[0]
-                                        if b == 0xd9: n=self.rb(); return self.rn(n).decode('utf-8', errors='replace')
-                                        if b == 0xda: n=_struct.unpack('>H',self.rn(2))[0]; return self.rn(n).decode('utf-8', errors='replace')
-                                        if b == 0xdb: n=_struct.unpack('>I',self.rn(4))[0]; return self.rn(n).decode('utf-8', errors='replace')
-                                        if b == 0xdc: n=_struct.unpack('>H',self.rn(2))[0]; return [self.decode() for _ in range(n)]
-                                        if b == 0xdd: n=_struct.unpack('>I',self.rn(4))[0]; return [self.decode() for _ in range(n)]
-                                        if b == 0xde: n=_struct.unpack('>H',self.rn(2))[0]; return {self.decode(): self.decode() for _ in range(n)}
-                                        if b >= 0xe0: return b - 256
-                                        raise ValueError(f"Unknown msgpack byte: {hex(b)}")
+            # ── Collect results ───────────────────────────────
+            written = [f.name for f in sorted(rbdir.glob("database*.tcd"))]
+            if not written:
+                self.finished.emit({"error":
+                    "Database tool ran but no .tcd files found on device.\n"
+                    "Ensure the device root is correct and contains audio files."}); return
 
-                                _mp = _MP(_data)
-                                _n = _mp.decode()  # entry count
-                                _count = 0
-                                for _ in range(_n):
-                                    try:
-                                        _entry = _mp.decode()
-                                        _fp, ((_sz, _mt), _tags) = _entry
-                                        _lp = _fp.lower()
-                                        _restored = SimpleTag(_tags) if isinstance(_tags, dict) else _tags
-                                        _TCLoad.set(_lp, ((_sz, _mt), _restored))
-                                        _count += 1
-                                    except Exception:
-                                        continue
-                                return _count
-
-                            _loaded_count = _mini_load_cache(_cache_file)
-                        except Exception as _e:
-                            self.progress.emit(f"  Cache load failed ({_e}).")
-
-                    # ── Fast mtime pre-filter ─────────────────────────────
-                    # Walk filesystem with os.scandir (fast), compare mtime+size
-                    # against tag cache. Unchanged files go straight into db.paths
-                    # — no tag reading. Only new/changed files call add_files().
-                    self.progress.emit("Scanning music directory (fast mtime check)…")
-
-                    from dap_db_manager.database.cache import TagCache as _TagCache
-                    _AUDIO_EXTS = {".mp3", ".flac", ".m4a", ".aac", ".ogg",
-                                   ".opus", ".wv", ".ape", ".mpc", ".wav",
-                                   ".aiff", ".aif", ".alac", ".dsf", ".dff"}
-
-                    all_on_disk    = []  # (abs_path, size, mtime)
-                    new_or_changed = []
-                    unchanged_count = 0
-
-                    def _fast_walk(dir_path):
-                        try:
-                            with _os.scandir(dir_path) as _it:
-                                subdirs = []
-                                for _e in _it:
-                                    if self.isInterruptionRequested():
-                                        raise InterruptedError("Cancelled")
-                                    self._pause_event.wait()
-                                    try:
-                                        if _e.is_dir(follow_symlinks=False):
-                                            subdirs.append(_e.path)
-                                        elif _e.is_file(follow_symlinks=False):
-                                            if Path(_e.name).suffix.lower() in _AUDIO_EXTS:
-                                                _st = _e.stat()
-                                                all_on_disk.append((_e.path, int(_st.st_size), int(_st.st_mtime)))
-                                    except OSError:
-                                        continue
-                                for _sd in sorted(subdirs):
-                                    _fast_walk(_sd)
-                        except (OSError, PermissionError):
-                            pass
-
-                    _fast_walk(str(scan_root))
-
-                    if self.isInterruptionRequested():
-                        self.finished.emit({"error": "Cancelled."}); return
-
-                    total_on_disk = len(all_on_disk)
-                    self.progress.emit(f"  Found {total_on_disk:,} audio files on disk.")
-                    self.count_update.emit(total_on_disk, total_on_disk)
-
-                    # Classify: unchanged / modified (mtime changed) / new (not in cache)
-                    # Also track (path, size, mtime) for unchanged so we can ensure
-                    # they stay in TagCache._cache for the save step.
-                    modified  = []   # in cache but mtime/size changed
-                    unchanged_entries = []  # (lowerpath, size, mtime, tags) — keep in cache
-                    for _fpath, _fsize, _fmtime in all_on_disk:
-                        _lp = _fpath.lower()
-                        _cached = _TagCache.get(_lp)
-                        if _cached is not None:
-                            (_c_size, _c_mtime), _c_tags = _cached
-                            if _fsize == _c_size and _fmtime == _c_mtime:
-                                db.paths.add(_fpath)
-                                unchanged_entries.append((_lp, _fsize, _fmtime, _c_tags))
-                                unchanged_count += 1
-                                continue
-                            else:
-                                modified.append(_fpath)   # exists in cache but changed
-                        else:
-                            new_or_changed.append(_fpath)  # brand new file
-
-                    # Re-insert unchanged entries into TagCache so save_tags captures them.
-                    # (TagCache.get moves them to end for LRU but doesn't guarantee they
-                    # survive until save — re-setting ensures they're present.)
-                    for _lp, _sz, _mt, _tgs in unchanged_entries:
-                        _TagCache.set(_lp, ((_sz, _mt), _tgs))
-
-                    self.progress.emit(
-                        f"  {unchanged_count:,} unchanged, "
-                        f"{len(modified):,} tag-edited, "
-                        f"{len(new_or_changed):,} new (reading tags)…"
-                    )
-                    new_or_changed.extend(modified)  # read tags for both
-
-                    if self.isInterruptionRequested():
-                        self.finished.emit({"error": "Cancelled."}); return
-
-                    # Read tags only for new/changed files
-                    if new_or_changed:
-                        _nc_total = len(new_or_changed)
-                        _nc_done  = [0]
-                        def _nc_file_cb(msg):
-                            self._pause_event.wait()
-                            if self.isInterruptionRequested():
-                                raise InterruptedError("Cancelled")
-                            _nc_done[0] += 1
-                            msg_str = str(msg).strip() if msg else ""
-                            m = _progress_re.search(msg_str)
-                            if m:
-                                self.count_update.emit(int(m.group(1)), int(m.group(2)))
-                                if int(m.group(1)) % 100 == 0 or int(m.group(1)) == int(m.group(2)):
-                                    self.progress.emit(f"  {msg_str}")
-                            else:
-                                self.count_update.emit(_nc_done[0], _nc_total)
-                        db.add_files(new_or_changed, callback=_nc_file_cb)
-
-                    errors = len(db.failed)
-                    total  = len(db.paths)
-                    self.progress.emit(f"  Total: {total:,} files in library ({errors} failed).")
-
-                    if self.isInterruptionRequested():
-                        self.finished.emit({"error": "Cancelled."}); return
-
-                    # ── Diff against existing DB entries ─────────────────
-                    # db.paths now has ALL files (unchanged + new) from our fast
-                    # mtime walk. We replicate update_database's diff logic directly
-                    # — no second filesystem scan, no add_dir overhead.
-                    self.progress.emit("Diffing against existing database…")
-
-                    from dap_db_manager.database.rename_detector import detect_renames, apply_renames
-                    from dap_db_manager.constants import FLAG_DELETED as _FLAG_DELETED
-
-                    mount_notation = db.config.get_mount_notation() if db.config else ""
-
-                    def _norm_db_path(p):
-                        if mount_notation and p.startswith(mount_notation + "/"):
-                            return p[len(mount_notation):].lower()
-                        return p.lower()
-
-                    def _norm_scan_path(p):
-                        if dap_root:
-                            norm = p.replace("\\", "/")
-                            dr   = dap_root.replace("\\", "/").lower()
-                            if norm.lower().startswith(dr):
-                                clean = norm[len(dr):]
-                                if not clean.startswith("/"):
-                                    clean = "/" + clean
-                                return clean.lower()
-                        return p.lower()
-
-                    existing_paths = {_norm_db_path(e["path"].data)
-                                      for e in db.index.entries if not e.is_deleted()}
-                    new_paths      = {_norm_scan_path(p) for p in db.paths}
-
-                    paths_to_add    = new_paths - existing_paths
-                    paths_to_delete = existing_paths - new_paths
-
-                    # Force modified files (tag edits) to be re-added with fresh tags.
-                    # Mark their existing DB entry as deleted so the diff adds them back.
-                    _modified_norm = {_norm_scan_path(p) for p in modified}
-                    if _modified_norm:
-                        for _e in db.index.entries:
-                            if not _e.is_deleted():
-                                _ep = _norm_db_path(_e["path"].data)
-                                if _ep in _modified_norm:
-                                    _e.set_flag(_FLAG_DELETED)
-                        paths_to_add    |= _modified_norm
-                        paths_to_delete -= _modified_norm
-                        self.progress.emit(f"  {len(_modified_norm)} file(s) have updated tags — will be refreshed.")
-
-                    update_stats = {
-                        "added":    0,
-                        "renamed":  0,
-                        "deleted":  0,
-                        "unchanged": len(existing_paths & new_paths),
-                        "failed":   errors,
-                        "final_active": 0,
-                        "final_deleted": 0,
-                    }
-
-                    # Rename detection
-                    if paths_to_delete and paths_to_add:
-                        self.progress.emit("  Detecting renamed/moved files…")
-                        _del_entries = [e for e in db.index.entries
-                                        if not e.is_deleted()
-                                        and _norm_db_path(e["path"].data) in paths_to_delete]
-                        _new_info = {}
-                        for _p in db.paths:
-                            if _norm_scan_path(_p) in paths_to_add:
-                                try:
-                                    _st = _os.stat(_p)
-                                    _new_info[_p] = (_st.st_size, _st.st_mtime)
-                                except OSError:
-                                    pass
-                        _renames = detect_renames(_del_entries, _new_info, similarity_threshold=0.75)
-                        if _renames:
-                            _rc = apply_renames(db.index.entries, db.tagfiles, _renames)
-                            update_stats["renamed"] = _rc
-                            _old_np = set(_renames.keys())
-                            _new_np = {_norm_scan_path(np) for np, _ in _renames.values()}
-                            paths_to_delete -= _old_np
-                            paths_to_add    -= _new_np
-                            self.progress.emit(f"  {_rc} rename(s) detected, stats preserved.")
-
-                    # Mark deletions
-                    for e in db.index.entries:
-                        if not e.is_deleted() and _norm_db_path(e["path"].data) in paths_to_delete:
-                            e.set_flag(_FLAG_DELETED)
-                            update_stats["deleted"] += 1
-                    if update_stats["deleted"]:
-                        self.progress.emit(f"  Marked {update_stats['deleted']} deleted file(s).")
-
-                    # Generate entries for new files only
-                    if paths_to_add:
-                        self.progress.emit(f"  Adding {len(paths_to_add)} new file(s) to database…")
-                        _orig_paths = db.paths.copy()
-                        db.paths = {p for p in _orig_paths if _norm_scan_path(p) in paths_to_add}
-                        _old_count = db.index.count
-                        last_pct2 = [-1]
-                        def _add_cb(current, total_count=0):
-                            if isinstance(current, int) and total_count:
-                                pct = int(current * 100 / total_count)
-                                if pct != last_pct2[0] and pct % 10 == 0:
-                                    self.progress.emit(f"  Generating… {pct}%")
-                                    last_pct2[0] = pct
-                                self.count_update.emit(current, total_count)
-                        _new_fields = db._generator.generate(
-                            db.paths, db.formats, db.tagfiles, db.index,
-                            db.use_parallel, _add_cb, preserve_existing=True,
-                        )
-                        if hasattr(db, "multiple_fields"):
-                            db.multiple_fields.update(_new_fields)
-                        else:
-                            db.multiple_fields = _new_fields
-                        update_stats["added"] = db.index.count - _old_count
-                        db.paths = _orig_paths
-                    else:
-                        self.progress.emit("  No new files to add.")
-
-                    update_stats["final_active"]  = sum(1 for e in db.index.entries if not e.is_deleted())
-                    update_stats["final_deleted"] = sum(1 for e in db.index.entries if e.is_deleted())
-                    total  = update_stats["final_active"]
-
-                    if self.isInterruptionRequested():
-                        self.finished.emit({"error": "Cancelled."}); return
-
-                    self.progress.emit("Writing updated database to device…")
-                    try:
-                        db.write(str(rbdir), callback=_write_cb)
-                    except Exception as e:
-                        self.finished.emit({"error": f"Failed to write database: {e}"}); return
-
-                    try:
-                        _lp = {p.lower() for p in db.paths}
-                        _, _saved = _TagCache.save(_cache_file, _lp)
-                        self.progress.emit(f"  Tag cache saved ({_saved:,} files).")
-                    except Exception as _se:
-                        self.progress.emit(f"  Could not save tag cache: {_se}")
-
-                    written = [f.name for f in sorted(rbdir.glob("database*.tcd"))]
-                    self.finished.emit({
-                        "total":        total,
-                        "written":      written,
-                        "write_errors": [],
-                        "tag_errors":   errors,
-                        "mode":         self.mode,
-                        "stats_loaded": update_stats.get("unchanged", 0),
-                        "update_stats": update_stats,
-                    })
-                return
-
-            # ══════════════════════════════════════════════════════
-            #  MODE_INITIALIZE — full fresh build, ignore existing DB
-            # ══════════════════════════════════════════════════════
-            with _DdmDatabase(config=config, dap_root=dap_root) as db:
-
-                # ── Scan ──────────────────────────────────────────
-                self.progress.emit("Scanning for audio files…")
-
-                db.add_dir(str(scan_root), dircallback=_dir_cb, filecallback=_make_file_cb())
-
-                total  = len(db.paths)
-                errors = len(db.failed)
-                self.progress.emit(f"Found {total:,} audio files ({errors} failed to read).")
-
-                if total == 0:
-                    self.finished.emit({"error": "No audio files found."}); return
-
-                if self.isInterruptionRequested():
-                    self.finished.emit({"error": "Cancelled."}); return
-
-                # Save tag cache BEFORE generate_database() which calls
-                # TagCache.cleanup(keep_paths=paths) — that wipes all cache entries
-                # whose keys are not in paths. Since paths has original-case strings
-                # but cache keys are lowercase, it removes all but ~16 all-lowercase files.
-                try:
-                    from dap_db_manager.database.cache import TagCache as _TC3
-                    _lp3 = {p.lower() for p in db.paths}
-                    _, _saved = _TC3.save(_cache_file, _lp3)
-                    self.progress.emit(f"  Tag cache saved ({_saved:,} files) — next Build & Update will be faster.")
-                except Exception as _se:
-                    self.progress.emit(f"  Could not save tag cache: {_se}")
-
-                # ── Generate ──────────────────────────────────────
-                self.progress.emit("Building tag tables and master index…")
-                last_pct = [-1]
-
-                def _gen_cb(current, total_count):
-                    if total_count and total_count > 0:
-                        pct = int(current * 100 / total_count)
-                        if pct != last_pct[0] and pct % 5 == 0:
-                            self.progress.emit(f"  Generating… {pct}%")
-                            last_pct[0] = pct
-                        self.count_update.emit(current, total_count)
-
-                db.generate_database(callback=_gen_cb)
-
-                if self.isInterruptionRequested():
-                    self.finished.emit({"error": "Cancelled."}); return
-
-                # ── Write ─────────────────────────────────────────
-                self.progress.emit("Writing database files to device…")
-
-                try:
-                    db.write(str(rbdir), callback=_write_cb)
-                    # Collect written file names
-                    for f in sorted(rbdir.glob("database*.tcd")):
-                        written.append(f.name)
-                except Exception as e:
-                    write_errors.append(str(e))
-                    self.finished.emit({"error": f"Failed to write database: {e}"}); return
 
         except InterruptedError:
+            # Kill any running subprocess
+            if self._proc:
+                try: self._proc.kill()
+                except Exception: pass
             self.finished.emit({"error": "Cancelled."}); return
         except Exception as e:
-            self.finished.emit({"error": str(e)}); return
+            import traceback
+            self.finished.emit({"error": f"{e}\n\n{traceback.format_exc()}"}); return
 
         self.finished.emit({
-            "total":        total,
+            "total":        len(written),
             "written":      written,
             "write_errors": write_errors,
-            "tag_errors":   errors,
+            "tag_errors":   0,
             "mode":         self.mode,
             "stats_loaded": 0,
         })
-
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1950,6 +1945,121 @@ def _make_pixmap(raw: bytes, size: int = 120) -> Optional[QPixmap]:
                      Qt.TransformationMode.SmoothTransformation)
 
 
+def _dominant_color(raw: bytes) -> Optional[QColor]:
+    """Average mid-tone color from the image, saturation-boosted for tinting."""
+    if not raw:
+        return None
+    try:
+        img = QImage()
+        if not img.loadFromData(raw):
+            return None
+        small = img.scaled(16, 16, Qt.AspectRatioMode.IgnoreAspectRatio,
+                           Qt.TransformationMode.SmoothTransformation)
+        r_sum = g_sum = b_sum = n = 0
+        for y in range(small.height()):
+            for x in range(small.width()):
+                c = QColor(small.pixel(x, y))
+                if c.lightness() < 20 or c.lightness() > 235:
+                    continue
+                r_sum += c.red(); g_sum += c.green(); b_sum += c.blue(); n += 1
+        if n == 0:
+            return None
+        col = QColor(r_sum // n, g_sum // n, b_sum // n)
+        h, s, v, a = col.getHsv()
+        col.setHsv(h, min(255, int(s * 1.8 + 80)), min(255, int(v * 0.85)), a)
+        return col
+    except Exception:
+        return None
+
+
+def _blur_pixmap(px: QPixmap, radius: int = 32) -> QPixmap:
+    """
+    Multi-pass box blur approximation — smoother than single-pass at extreme radii.
+    Three successive downscale+upscale passes with decreasing factors avoids
+    the blocky pixelation that a single massive downsample produces.
+    """
+    if px.isNull():
+        return px
+    w, h = px.width(), px.height()
+    factor = max(2, radius // 4)
+    result = px
+    # Three passes: each halves the detail progressively
+    for divisor in (factor, max(2, factor // 2), max(2, factor // 3)):
+        small = result.scaled(max(1, w // divisor), max(1, h // divisor),
+                              Qt.AspectRatioMode.IgnoreAspectRatio,
+                              Qt.TransformationMode.SmoothTransformation)
+        result = small.scaled(w, h,
+                              Qt.AspectRatioMode.IgnoreAspectRatio,
+                              Qt.TransformationMode.SmoothTransformation)
+    return result
+
+
+class PageBackground(QWidget):
+    """
+    Full-page background layer: blurred album art + dark overlay.
+    Sits behind all content via self.lower(). Mouse-transparent.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._raw:   Optional[bytes]   = None
+        self._px:    Optional[QPixmap] = None
+        self._color: Optional[QColor]  = None
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.lower()
+
+    def set_art(self, raw: bytes, color: Optional[QColor] = None):
+        self._raw   = raw
+        self._color = color
+        self._px    = None
+        self.update()
+
+    def clear(self):
+        self._raw = self._px = self._color = None
+        self.update()
+
+    def resizeEvent(self, event):
+        self._px = None
+        super().resizeEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        t = _current_theme
+        painter.fillRect(self.rect(), QColor(t["bg0"]))
+        if self._raw:
+            if self._px is None:
+                img = QImage()
+                if img.loadFromData(self._raw):
+                    src = QPixmap.fromImage(img)
+                    if not src.isNull():
+                        filled = src.scaled(
+                            self.width(), self.height(),
+                            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                            Qt.TransformationMode.SmoothTransformation)
+                        cx = (filled.width()  - self.width())  // 2
+                        cy = (filled.height() - self.height()) // 2
+                        if cx > 0 or cy > 0:
+                            filled = filled.copy(max(0,cx), max(0,cy),
+                                                 self.width(), self.height())
+                        self._px = _blur_pixmap(filled, radius=80)
+            if self._px and not self._px.isNull():
+                painter.drawPixmap(0, 0, self._px)
+        # Heavy dark scrim — keeps text readable across entire page
+        grad = QLinearGradient(0, 0, 0, self.height())
+        grad.setColorAt(0.0, QColor(0, 0, 0, 195))
+        grad.setColorAt(0.5, QColor(0, 0, 0, 170))
+        grad.setColorAt(1.0, QColor(0, 0, 0, 205))
+        painter.fillRect(self.rect(), QBrush(grad))
+        if self._color and self._raw:
+            tint = QColor(self._color); tint.setAlpha(20)
+            painter.fillRect(self.rect(), tint)
+        painter.end()
+
+
+# Keep name alias so any leftover references don't crash
+HeroBanner = PageBackground
+
+
+
 def _id3_art_bytes(data: bytes) -> Optional[bytes]:
     try:
         if data[:3] != b"ID3":
@@ -2033,16 +2143,107 @@ def _m4a_art_bytes(data: bytes) -> Optional[bytes]:
     return None
 
 
+def _ogg_opus_art_bytes(data: bytes) -> Optional[bytes]:
+    """Extract embedded cover from Ogg Vorbis / Opus streams (METADATA_BLOCK_PICTURE in Vorbis comments)."""
+    import base64
+    try:
+        # Search for the METADATA_BLOCK_PICTURE key (case-insensitive) in the raw page data
+        marker = b"METADATA_BLOCK_PICTURE="
+        idx = data.upper().find(marker.upper())
+        if idx == -1:
+            return None
+        # The value runs until a null byte or next \x01 page boundary or end
+        start = idx + len(marker)
+        end = start
+        while end < len(data) and data[end] not in (0, 1, 0xFF):
+            end += 1
+        b64 = data[start:end]
+        # Strip any trailing zero-bytes / whitespace
+        b64 = b64.rstrip(b"\x00\r\n ")
+        raw = base64.b64decode(b64 + b"==")  # pad to avoid padding errors
+        # METADATA_BLOCK_PICTURE structure: 4 bytes type, then lengths + data
+        pos = 0
+        _type = int.from_bytes(raw[pos:pos+4], "big"); pos += 4
+        mime_len = int.from_bytes(raw[pos:pos+4], "big"); pos += 4 + mime_len
+        desc_len = int.from_bytes(raw[pos:pos+4], "big"); pos += 4 + desc_len
+        pos += 16  # width, height, color_depth, color_count
+        data_len = int.from_bytes(raw[pos:pos+4], "big"); pos += 4
+        img = raw[pos:pos+data_len]
+        return bytes(img) if img else None
+    except Exception:
+        return None
+
+
+def _apev2_art_bytes(data: bytes) -> Optional[bytes]:
+    """Extract cover from APEv2 tags (used by WavPack, Monkey's Audio, MPC)."""
+    try:
+        # APEv2 preamble can appear at start or end of file; search both
+        preamble = b"APETAGEX"
+        idx = data.rfind(preamble)   # prefer footer (end of file)
+        if idx == -1:
+            idx = data.find(preamble)
+        if idx == -1:
+            return None
+        # Header: 8 preamble + 4 version + 4 tag_size + 4 item_count + 4 flags + 8 reserved
+        version  = int.from_bytes(data[idx+8:idx+12],  "little")
+        tag_size = int.from_bytes(data[idx+12:idx+16], "little")
+        n_items  = int.from_bytes(data[idx+16:idx+20], "little")
+        # Items start right after the 32-byte header
+        pos = idx + 32
+        for _ in range(n_items):
+            if pos + 8 > len(data):
+                break
+            item_size  = int.from_bytes(data[pos:pos+4],   "little")
+            item_flags = int.from_bytes(data[pos+4:pos+8], "little")
+            pos += 8
+            # Key ends at null byte
+            key_end = data.find(b"\x00", pos)
+            if key_end == -1:
+                break
+            key = data[pos:key_end].decode("ascii", errors="ignore").lower()
+            pos = key_end + 1
+            value = data[pos:pos+item_size]
+            pos += item_size
+            if key in ("cover art (front)", "cover art (back)", "cover art (other)"):
+                # Value is null-terminated filename followed by binary image data
+                null = value.find(b"\x00")
+                img = value[null+1:] if null != -1 else value
+                return bytes(img) if img else None
+    except Exception:
+        pass
+    return None
+
+
 def _extract_art_bytes(path: Path) -> Optional[bytes]:
     ext = path.suffix.lower()
     if ext not in AUDIO_EXTS:
         return None
     try:
+        # Read up to 1 MB — FLAC PICTURE blocks can sit well past 256 KB
         with open(path, "rb") as f:
-            header = f.read(256_000)
-        if ext == ".mp3":              return _id3_art_bytes(header)
-        elif ext == ".flac":           return _flac_art_bytes(header)
-        elif ext in (".m4a",".aac",".mp4"): return _m4a_art_bytes(header)
+            header = f.read(1_048_576)
+        if ext == ".mp3":
+            return _id3_art_bytes(header)
+        elif ext == ".flac":
+            return _flac_art_bytes(header)
+        elif ext in (".m4a", ".aac", ".mp4"):
+            return _m4a_art_bytes(header)
+        elif ext in (".ogg", ".opus"):
+            return _ogg_opus_art_bytes(header)
+        elif ext in (".wv", ".ape", ".mpc"):
+            # APEv2 footer is at the end of the file — read the last 64 KB too
+            try:
+                fsize = path.stat().st_size
+                if fsize > 1_048_576:
+                    with open(path, "rb") as f:
+                        f.seek(max(0, fsize - 65536))
+                        tail = f.read()
+                    combined = header + tail
+                else:
+                    combined = header
+                return _apev2_art_bytes(combined)
+            except OSError:
+                return _apev2_art_bytes(header)
     except (OSError, PermissionError):
         pass
     return None
@@ -2155,12 +2356,17 @@ class ArtFetcher(QThread):
     def _try_embedded(self) -> Optional[bytes]:
         for dirpath in self._candidate_dirs():
             try:
-                for f in dirpath.iterdir():
-                    if f.is_file() and f.suffix.lower() in AUDIO_EXTS:
-                        raw = _extract_art_bytes(f)
-                        if raw:
-                            return raw
-                        # Only try the first audio file per dir; move on if it has no art
+                # Try up to 5 audio files per directory — the first one found
+                # might not have embedded art even if others in the same album do.
+                tried = 0
+                for f in sorted(dirpath.iterdir()):
+                    if not (f.is_file() and f.suffix.lower() in AUDIO_EXTS):
+                        continue
+                    raw = _extract_art_bytes(f)
+                    if raw:
+                        return raw
+                    tried += 1
+                    if tried >= 5:
                         break
             except (OSError, PermissionError):
                 pass
@@ -2271,7 +2477,7 @@ class Banner(QLabel):
         self.setText(text)
         self.setStyleSheet(
             f"border: 1px solid {fg}44; border-radius: 8px; padding: 9px 13px; "
-            f"background: {bg}; color: {t['txt1']}; font-size: 12px;"
+            f"background: {bg}; color: rgba(255,255,255,0.55); font-size: 12px;"
         )
         self.setVisible(bool(text))
 
@@ -2311,6 +2517,70 @@ class ColorSwatch(QPushButton):
         return self._color
 
 
+class ScalableArtLabel(QWidget):
+    """
+    Album art widget that scales the pixmap to fill its actual size.
+    Unlike AlbumArtLabel which is fixed-size, this expands with the layout.
+    Has the same fade-in animation and placeholder as AlbumArtLabel.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._raw:  Optional[bytes]   = None
+        self._img:  Optional[QImage]  = None   # decoded once, scaled in paintEvent
+        self._opacity  = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self._opacity)
+        self._opacity.setOpacity(1.0)
+        self._anim = QPropertyAnimation(self._opacity, b"opacity", self)
+        self._anim.setDuration(280)
+        self._anim.setStartValue(0.0); self._anim.setEndValue(1.0)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setMinimumSize(80, 80)
+
+    def hasHeightForWidth(self) -> bool:
+        return False
+
+    def set_art(self, raw: bytes):
+        if not raw:
+            self._raw = self._img = None
+            self.update(); return
+        img = QImage()
+        if img.loadFromData(raw):
+            self._raw = raw
+            self._img = img
+            self._anim.stop(); self._anim.start()
+        else:
+            self._raw = self._img = None
+        self.update()
+
+    def _show_placeholder(self):
+        self._raw = self._img = None
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        t = _current_theme
+        painter.fillRect(self.rect(), QColor(t["bg3"]))
+        if self._img:
+            iw, ih = self._img.width(), self._img.height()
+            ww, wh = self.width(), self.height()
+            # Fill + center-crop: no empty space, no distortion
+            scale = max(ww / iw, wh / ih)
+            sw, sh = int(iw * scale), int(ih * scale)
+            sx = (sw - ww) // 2
+            sy = (sh - wh) // 2
+            scaled = self._img.scaled(sw, sh,
+                                      Qt.AspectRatioMode.IgnoreAspectRatio,
+                                      Qt.TransformationMode.SmoothTransformation)
+            painter.drawImage(0, 0, scaled, sx, sy, ww, wh)
+        else:
+            painter.setPen(QColor(t["txt2"]))
+            f = painter.font(); f.setPointSize(20); painter.setFont(f)
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "♪")
+        painter.end()
+
+
 class AlbumArtLabel(QLabel):
     SIZE = 120
 
@@ -2332,8 +2602,8 @@ class AlbumArtLabel(QLabel):
     def _show_placeholder(self):
         t = _current_theme
         self.setStyleSheet(
-            f"background: {t['bg3']}; border: 1px solid {t['border']}; "
-            f"border-radius: 4px; color: {t['txt2']}; font-size: 22px;"
+            f"background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.09); "
+            f"border-radius: 4px; color: rgba(255,255,255,0.35); font-size: 22px;"
         )
         self.setText("♪"); self.setPixmap(QPixmap())
 
@@ -2547,6 +2817,7 @@ class LogLoader(QThread):
 
 class ScrobblePage(QWidget):
     status_changed = pyqtSignal()
+    art_ready = pyqtSignal(object)  # emitted when bg art is fetched (bytes) or cleared (None)
 
     def __init__(self, conf_ref: list, get_platform_fn, parent=None):
         super().__init__(parent)
@@ -2563,99 +2834,181 @@ class ScrobblePage(QWidget):
         return self.conf_ref[0]
 
     def _build(self):
+        t = _current_theme
         root = QVBoxLayout(self)
-        root.setContentsMargins(28, 24, 28, 20)
+        root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        hdr = QHBoxLayout()
-        title = QLabel("Scrobble"); title.setObjectName("heading")
-        hdr.addWidget(title); hdr.addStretch()
+        # ── Blurred background art ────────────────────────────────────
+        self._bg = PageBackground(self)
+        self._bg.setGeometry(self.rect())
+
+        # ── Glass header bar ──────────────────────────────────────────
+        hdr = QWidget()
+        hdr.setFixedHeight(52)
+        hdr.setStyleSheet("background: rgba(5,7,11,0.65); border-bottom: 1px solid rgba(255,255,255,0.07);")
+        hdr_hl = QHBoxLayout(hdr)
+        hdr_hl.setContentsMargins(28, 0, 20, 0); hdr_hl.setSpacing(10)
+
+        title = QLabel("Scrobble")
+        title.setStyleSheet("color:#fff; font-size:18px; font-weight:700; letter-spacing:-0.3px; background:transparent;")
+        hdr_hl.addWidget(title)
+
+        sub = QLabel("Load a .scrobbler.log and submit to your scrobbling platform.")
+        sub.setStyleSheet("color:rgba(255,255,255,0.35); font-size:12px; background:transparent;")
+        hdr_hl.addWidget(sub); hdr_hl.addStretch()
+
+        _opt_ss = ("QCheckBox { color:rgba(255,255,255,0.55); font-size:12px; background:transparent; spacing:5px; }"
+                   "QCheckBox::indicator { width:14px; height:14px; border-radius:3px; border:1px solid rgba(255,255,255,0.20); background:rgba(255,255,255,0.06); }"
+                   f"QCheckBox::indicator:checked {{ background:{tok('accent')}; border-color:{tok('accent')}; }}")
+        self._skip_confirm_cb = QCheckBox("Skip confirm")
+        self._skip_confirm_cb.setToolTip("Submit without asking for confirmation each time")
+        self._skip_confirm_cb.setStyleSheet(_opt_ss)
         self._dry_cb = QCheckBox("Dry run")
         self._dry_cb.setToolTip("Dry run: marks tracks as previewed only — nothing is actually sent to any platform")
         self._dry_cb.stateChanged.connect(self._refresh_queue_label)
-        self._skip_confirm_cb = QCheckBox("Skip confirm")
-        self._skip_confirm_cb.setToolTip("Submit without asking for confirmation each time")
-        hdr.addWidget(self._skip_confirm_cb)
-        hdr.addWidget(self._dry_cb)
-        root.addLayout(hdr)
+        self._dry_cb.setStyleSheet(_opt_ss)
+        hdr_hl.addWidget(self._skip_confirm_cb); hdr_hl.addSpacing(4); hdr_hl.addWidget(self._dry_cb)
+        root.addWidget(hdr)
 
-        root.addSpacing(6)
-        sub = QLabel("Load a .scrobbler.log from your Rockbox player and submit to your platform.")
-        sub.setObjectName("secondary"); root.addWidget(sub)
-        root.addSpacing(22)
+        # ── Log source card ───────────────────────────────────────────
+        body = QWidget(); body.setStyleSheet("background:transparent;")
+        body_vb = QVBoxLayout(body); body_vb.setContentsMargins(28, 18, 28, 0); body_vb.setSpacing(14)
+        root.addWidget(body)
 
-        # Log card
-        log_card = QWidget(); log_card.setObjectName("card")
-        lc = QVBoxLayout(log_card); lc.setContentsMargins(18,14,18,16); lc.setSpacing(10)
-        log_hdr = QHBoxLayout()
+        log_card = QWidget()
+        log_card.setObjectName("scrobble_log_card")
+        log_card.setStyleSheet(
+            "QWidget#scrobble_log_card { background:rgba(10,12,16,0.45); border-radius:10px; border:none; }"
+            "QWidget#scrobble_log_card QLabel { background:transparent; border:none; border-radius:0; }"
+            "QWidget#scrobble_log_card QCheckBox { background:transparent; border:none; border-radius:0; }")
+        lc = QVBoxLayout(log_card); lc.setContentsMargins(18, 14, 18, 14); lc.setSpacing(10)
+
+        log_top = QHBoxLayout()
+        log_icon = QLabel("◈")
+        log_icon.setStyleSheet(f"color:{tok('accent')}; font-size:14px; background:transparent; border:none;")
         log_title = QLabel("Log File")
-        log_title.setStyleSheet(f"font-weight: 700; font-size: 13px;")
-        log_hdr.addWidget(log_title); log_hdr.addStretch()
-        self._auto_btn   = QPushButton("Auto-detect")
+        log_title.setStyleSheet("color:#fff; font-weight:700; font-size:13px; background:transparent; border:none;")
+        log_top.addWidget(log_icon); log_top.addWidget(log_title); log_top.addStretch()
+
+        _glass_btn = ("QPushButton { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.75); "
+                      "border:1px solid rgba(255,255,255,0.12); border-radius:5px; font-size:12px; "
+                      "padding:0 12px; min-height:28px; max-height:28px; font-weight:500; }"
+                      "QPushButton:hover { background:rgba(255,255,255,0.13); border-color:rgba(255,255,255,0.25); color:#fff; }")
+        _danger_btn = ("QPushButton { background:rgba(192,64,64,0.15); color:rgba(210,100,100,0.85); "
+                       "border:1px solid rgba(192,64,64,0.35); border-radius:5px; font-size:12px; "
+                       "padding:0 12px; min-height:28px; max-height:28px; font-weight:500; }"
+                       "QPushButton:hover { background:rgba(192,64,64,0.28); border-color:rgba(192,64,64,0.7); }")
+        self._auto_btn   = QPushButton("⟳  Auto-detect")
         self._browse_btn = QPushButton("Browse…")
         self._clear_btn  = QPushButton("Clear")
-        self._auto_btn.setObjectName("ghost"); self._browse_btn.setObjectName("ghost")
-        self._clear_btn.setObjectName("danger")
+        self._auto_btn.setStyleSheet(_glass_btn)
+        self._browse_btn.setStyleSheet(_glass_btn)
+        self._clear_btn.setStyleSheet(_danger_btn)
         self._auto_btn.clicked.connect(self._auto_detect)
         self._browse_btn.clicked.connect(self._browse_log)
         self._clear_btn.clicked.connect(self._clear_logs)
         for b in [self._auto_btn, self._browse_btn, self._clear_btn]:
-            b.setFixedHeight(30); log_hdr.addWidget(b)
-        lc.addLayout(log_hdr)
-        self._log_label = QLabel("No log loaded  ·  Connect your device then Auto-detect, or browse manually.")
-        self._log_label.setObjectName("muted"); self._log_label.setWordWrap(True)
-        lc.addWidget(self._log_label)
-        self._archive_cb = QCheckBox("Archive log after submitting (renames to .scrobbler_YYYYMMDD.log)")
-        self._archive_cb.setStyleSheet("font-size: 12px;")
-        lc.addWidget(self._archive_cb)
-        log_card.setMaximumHeight(130)
-        root.addWidget(log_card)
-        root.addSpacing(14)
+            log_top.addWidget(b)
+        lc.addLayout(log_top)
 
-        tbl_hdr = QHBoxLayout()
-        self._queue_label = QLabel("Queue empty"); self._queue_label.setObjectName("secondary")
-        tbl_hdr.addWidget(self._queue_label); tbl_hdr.addStretch()
+        self._log_label = QLabel("No log loaded  ·  Connect your device then Auto-detect, or browse manually.")
+        self._log_label.setStyleSheet("color:rgba(255,255,255,0.38); font-size:12px; background:transparent; border:none;")
+        self._log_label.setWordWrap(True)
+        lc.addWidget(self._log_label)
+
+        self._archive_cb = QCheckBox("Archive log after submitting (renames to .scrobbler_YYYYMMDD.log)")
+        self._archive_cb.setStyleSheet(
+            "QCheckBox { color:rgba(255,255,255,0.45); font-size:11px; background:transparent; spacing:5px; }"
+            "QCheckBox::indicator { width:13px; height:13px; border-radius:3px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.05); }"
+            f"QCheckBox::indicator:checked {{ background:{tok('accent')}; border-color:{tok('accent')}; }}")
+        lc.addWidget(self._archive_cb)
+        body_vb.addWidget(log_card)
+
+        # ── Queue toolbar ─────────────────────────────────────────────
+        tbl_bar = QWidget()
+        tbl_bar.setStyleSheet("background:transparent;")
+        tbl_hl = QHBoxLayout(tbl_bar); tbl_hl.setContentsMargins(0,0,0,0); tbl_hl.setSpacing(8)
+        self._queue_label = QLabel("Queue empty")
+        self._queue_label.setStyleSheet("color:rgba(255,255,255,0.45); font-size:12px; background:transparent;")
+        tbl_hl.addWidget(self._queue_label); tbl_hl.addStretch()
         self._select_all_btn = QPushButton("Select all"); self._deselect_btn = QPushButton("Deselect all")
-        self._select_all_btn.setObjectName("ghost"); self._deselect_btn.setObjectName("ghost")
+        self._select_all_btn.setStyleSheet(_glass_btn); self._deselect_btn.setStyleSheet(_glass_btn)
         self._select_all_btn.clicked.connect(self._select_all)
         self._deselect_btn.clicked.connect(self._deselect_all)
-        for b in [self._select_all_btn, self._deselect_btn]:
-            b.setFixedHeight(28); tbl_hdr.addWidget(b)
-        root.addLayout(tbl_hdr); root.addSpacing(6)
+        tbl_hl.addWidget(self._select_all_btn); tbl_hl.addWidget(self._deselect_btn)
+        body_vb.addWidget(tbl_bar)
 
+        # ── Track table ───────────────────────────────────────────────
         self._table = QTableWidget(0, 7)
         self._table.setHorizontalHeaderLabels(["✓","ARTIST","TITLE","ALBUM","DUR",
             f"LOCAL TIME ({self._local_tz_label()})","UTC TIME"])
         self._table.setAlternatingRowColors(True)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.verticalHeader().setVisible(False)
-        self._table.verticalHeader().setDefaultSectionSize(30)
+        self._table.verticalHeader().setDefaultSectionSize(34)
         self._table.setShowGrid(False)
         self._table.setSortingEnabled(True)
+        self._table.setStyleSheet(
+            "QTableWidget { background:rgba(10,12,16,0.40); alternate-background-color:rgba(255,255,255,0.022);"
+            " border:none; border-radius:10px; outline:none; font-size:13px;"
+            " selection-background-color: rgba(255,255,255,0.08); selection-color: #fff; }"
+            "QTableWidget::item { padding:4px 14px; border-bottom:1px solid rgba(255,255,255,0.035); color:rgba(255,255,255,0.85); }"
+            "QTableWidget::item:selected { background:rgba(255,255,255,0.08); color:#fff; border:none; }"
+            "QTableWidget::item:hover { background:transparent; border:none; }"
+            "QHeaderView { border:none; background:transparent; }"
+            "QHeaderView::section { background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.30);"
+            " padding:6px 14px; border:none; border-bottom:1px solid rgba(255,255,255,0.06);"
+            " font-size:10px; font-weight:700; letter-spacing:1.3px; }"
+        )
+        self._table.setMouseTracking(False)
+        self._table.viewport().setMouseTracking(False)
+        self._table.viewport().setAttribute(Qt.WidgetAttribute.WA_Hover, False)
         h = self._table.horizontalHeader()
-        h.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed); self._table.setColumnWidth(0, 36)
+        h.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed); self._table.setColumnWidth(0, 40)
         for c in [1,2,3]: h.setSectionResizeMode(c, QHeaderView.ResizeMode.Stretch)
         for c in [4,5,6]: h.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
         self._table.cellClicked.connect(self._on_cell_click)
-        root.addWidget(self._table, stretch=1)
-        root.addSpacing(10)
+        body_vb.addWidget(self._table, stretch=1)
 
-        submit_row = QHBoxLayout()
-        left_col = QVBoxLayout(); left_col.setSpacing(6)
-        self._status_label = QLabel(""); self._status_label.setObjectName("secondary")
-        self._progress = QProgressBar(); self._progress.setVisible(False)
-        left_col.addWidget(self._status_label); left_col.addWidget(self._progress)
-        submit_row.addLayout(left_col, stretch=1)
+        # ── Submit footer ─────────────────────────────────────────────
+        foot = QWidget()
+        foot.setStyleSheet("background:transparent;")
+        foot_hl = QHBoxLayout(foot); foot_hl.setContentsMargins(0, 10, 0, 18); foot_hl.setSpacing(14)
+
+        left_col = QVBoxLayout(); left_col.setSpacing(5)
+        self._status_label = QLabel("")
+        self._status_label.setStyleSheet("color:rgba(255,255,255,0.50); font-size:12px; background:transparent;")
+        self._progress = QProgressBar()
+        self._progress.setVisible(False)
+        self._progress.setFixedHeight(4)
+        self._progress.setStyleSheet(
+            "QProgressBar { background:rgba(255,255,255,0.08); border:none; border-radius:2px; }"
+            f"QProgressBar::chunk {{ background:{tok('accent')}; border-radius:2px; }}")
+        left_col.addStretch(); left_col.addWidget(self._status_label); left_col.addWidget(self._progress)
+        foot_hl.addLayout(left_col, stretch=1)
+
         self._submit_btn = QPushButton("Submit")
-        self._submit_btn.setObjectName("primary")
-        self._submit_btn.setMinimumWidth(155); self._submit_btn.setMinimumHeight(44)
+        self._submit_btn.setFixedHeight(42)
+        self._submit_btn.setMinimumWidth(170)
+        self._submit_btn.setStyleSheet(
+            f"QPushButton {{ background:{tok('accent')}; color:#0a0a0a; border:none; border-radius:8px;"
+            " font-weight:700; font-size:14px; padding:0 22px; }"
+            f"QPushButton:hover {{ background:{tok('accent2')}; }}"
+            "QPushButton:pressed { background:#b87516; }"
+            f"QPushButton:disabled {{ background:{tok('accent')}40; color:rgba(10,10,10,0.4); }}")
         self._submit_btn.setToolTip("Submit selected tracks  (Ctrl+Return)")
         self._submit_btn.clicked.connect(self._submit)
         _sc = QShortcut(QKeySequence("Ctrl+Return"), self)
         _sc.activated.connect(self._submit)
-        submit_row.addWidget(self._submit_btn)
-        root.addLayout(submit_row)
+        foot_hl.addWidget(self._submit_btn)
+        body_vb.addWidget(foot)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, '_bg'):
+            self._bg.setGeometry(self.rect())
 
     def _local_tz_label(self) -> str:
         try:   return datetime.now().astimezone().strftime("%Z") or "local"
@@ -2680,6 +3033,8 @@ class ScrobblePage(QWidget):
         self._table.setRowCount(0)
         self._log_label.setText("No log loaded.")
         ArtFetcher._cache.clear()   # device changed — stale art gone
+        self._bg.clear()
+        self.art_ready.emit(None)   # tell other pages to clear their bg too
         self._refresh_queue_label()
 
     def _load_log(self, path: Path):
@@ -2710,6 +3065,7 @@ class ScrobblePage(QWidget):
         self.tracks.extend(tracks)
         self.tracks.sort(key=lambda t: t.timestamp)
         self._rebuild_table()
+        self._fetch_bg_art()
         paths_txt = "  ·  ".join(p.name for p in self.log_paths)
         total   = sum(1 for t in self.tracks if t.listened)
         skipped = sum(1 for t in self.tracks if t.skipped)
@@ -2724,6 +3080,37 @@ class ScrobblePage(QWidget):
                 "This usually means your device's clock is set incorrectly. "
                 "Fix the clock and re-scrobble the log if tracks are missing."
             )
+
+    def _fetch_bg_art(self):
+        """Fetch art for the top album in the loaded log and set it as the blurred background."""
+        lt = [t for t in self.tracks if t.listened]
+        if not lt:
+            return
+        from collections import Counter
+        top = Counter((t.artist, t.album) for t in lt).most_common(1)
+        if not top:
+            return
+        (artist, album), _ = top[0]
+        key = (artist.lower(), album.lower())
+        # Check cache first
+        if key in ArtFetcher._cache:
+            raw = ArtFetcher._cache[key]
+            if raw:
+                self._bg.set_art(raw, _dominant_color(raw))
+                self.art_ready.emit(raw)
+            return
+        log_paths = self.get_log_paths() if hasattr(self, 'get_log_paths') else list(self.log_paths)
+        api_key   = self.conf_ref[0].get("api_key", "")
+        f = ArtFetcher(artist, album, log_paths, lt, api_key=api_key)
+        def _on_result(art, alb, raw):
+            if raw:
+                QTimer.singleShot(0, lambda: (
+                    self._bg.set_art(raw, _dominant_color(raw)),
+                    self.art_ready.emit(raw)
+                ))
+        f.result.connect(_on_result)
+        self._log_loaders.append(f)   # keep reference alive
+        f.start()
 
     def _on_log_error(self, path_str: str, msg: str):
         self._auto_btn.setEnabled(True)
@@ -2750,7 +3137,13 @@ class ScrobblePage(QWidget):
             done = submitted[id(t)]
             cb = QCheckBox()
             cb.setChecked(t.enabled and not done)
-            cb.setStyleSheet("margin-left: 9px;")
+            cb.setStyleSheet(
+                "QCheckBox { background:transparent; margin-left:9px; }"
+                "QCheckBox::indicator { width:14px; height:14px; border-radius:3px;"
+                " border:1px solid rgba(255,255,255,0.22); background:rgba(255,255,255,0.06); }"
+                f"QCheckBox::indicator:checked {{ background:{tok('accent')}; border-color:{tok('accent')}; }}"
+                f"QCheckBox::indicator:checked:hover {{ background:{tok('accent')}; border-color:{tok('accent')}; }}"
+                "QCheckBox::indicator:hover { border-color:rgba(255,255,255,0.22); background:rgba(255,255,255,0.06); }")
             cb.stateChanged.connect(lambda st, tr=t, c=cb: self._on_cb_changed(tr, c))
             self._table.setCellWidget(row, 0, cb)
 
@@ -2903,111 +3296,229 @@ class StatsPage(QWidget):
 
     def _build(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(28, 24, 28, 20)
-        root.setSpacing(14)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        hdr = QHBoxLayout()
-        title = QLabel("Statistics"); title.setObjectName("heading")
-        hdr.addWidget(title); hdr.addStretch()
-        gap_lbl = QLabel("Session gap:"); gap_lbl.setObjectName("secondary")
-        self._gap_spin = QSpinBox(); self._gap_spin.setRange(1, 180)
-        self._gap_spin.setValue(20); self._gap_spin.setSuffix(" min")
-        self._gap_spin.setFixedWidth(90)
+        # ── Full-page blurred background ──────────────────────────────
+        # PageBackground is a WA_TransparentForMouseEvents child that paints
+        # behind everything. We keep a reference to resize it with the page.
+        self._bg = PageBackground(self)
+        self._bg.setGeometry(self.rect())
+
+        # ── Compact header bar (title + controls) ────────────────────
+        hdr = QWidget()
+        hdr.setStyleSheet("background: transparent;")
+        hdr.setFixedHeight(52)
+        hdr_hl = QHBoxLayout(hdr)
+        hdr_hl.setContentsMargins(28, 0, 20, 0); hdr_hl.setSpacing(10)
+
+        title = QLabel("Statistics")
+        title.setStyleSheet("color:#fff; font-size:18px; font-weight:700; "
+                            "letter-spacing:-0.3px; background:transparent;")
+        hdr_hl.addWidget(title); hdr_hl.addStretch()
+
+        gap_lbl = QLabel("Session gap")
+        gap_lbl.setStyleSheet("color:rgba(255,255,255,0.55); font-size:12px; background:transparent;")
+        self._gap_spin = QSpinBox()
+        self._gap_spin.setRange(1, 180); self._gap_spin.setValue(20)
+        self._gap_spin.setSuffix(" min"); self._gap_spin.setFixedWidth(88)
         self._gap_spin.valueChanged.connect(self.refresh)
-        refresh_btn = QPushButton("Refresh"); refresh_btn.setObjectName("ghost")
+        _glass = ("background:rgba(0,0,0,0.40); color:#fff; "
+                  "border:1px solid rgba(255,255,255,0.18); border-radius:4px; padding:4px 6px;")
+        self._gap_spin.setStyleSheet(f"QSpinBox {{ {_glass} }} "
+                                     "QSpinBox::up-button, QSpinBox::down-button { width:16px; }")
+        _btn_ss = (f"QPushButton {{ {_glass} font-size:12px; padding:5px 14px; }}"
+                   " QPushButton:hover { background:rgba(255,255,255,0.14); }")
+        refresh_btn = QPushButton("Refresh"); refresh_btn.setStyleSheet(_btn_ss)
         refresh_btn.clicked.connect(self.refresh)
-        hdr.addWidget(gap_lbl); hdr.addWidget(self._gap_spin); hdr.addSpacing(8); hdr.addWidget(refresh_btn)
-        root.addLayout(hdr)
+        exp_btn = QPushButton("Export..."); exp_btn.setStyleSheet(_btn_ss)
+        exp_btn.clicked.connect(self._export)
 
-        cards_row = QHBoxLayout(); cards_row.setSpacing(8)
-        self._card_total    = StatCard("Total",    "♫")
-        self._card_listened = StatCard("Listened", "▶")
-        self._card_skipped  = StatCard("Skipped",  "⏭")
-        self._card_sessions = StatCard("Sessions", "◎")
-        self._card_time     = StatCard("Play time","⏱")
+        hdr_hl.addWidget(gap_lbl); hdr_hl.addWidget(self._gap_spin)
+        hdr_hl.addSpacing(4); hdr_hl.addWidget(refresh_btn); hdr_hl.addWidget(exp_btn)
+        root.addWidget(hdr)
+
+        # ── Stat cards row ────────────────────────────────────────────
+        cards_wrap = QWidget(); cards_wrap.setStyleSheet("background:transparent;")
+        cards_hl = QHBoxLayout(cards_wrap)
+        cards_hl.setContentsMargins(28, 0, 28, 0); cards_hl.setSpacing(10)
+        self._card_total    = self._make_stat_card("TOTAL",    "TRACKS")
+        self._card_listened = self._make_stat_card("LISTENED", "TRACKS")
+        self._card_skipped  = self._make_stat_card("SKIPPED",  "TRACKS")
+        self._card_sessions = self._make_stat_card("SESSIONS", "")
+        self._card_time     = self._make_stat_card("PLAY",     "TIME")
         for c in [self._card_total, self._card_listened, self._card_skipped,
                   self._card_sessions, self._card_time]:
-            cards_row.addWidget(c)
-        root.addLayout(cards_row)
+            cards_hl.addWidget(c, stretch=1)
+        root.addWidget(cards_wrap)
 
-        content = QHBoxLayout(); content.setSpacing(12)
+        # ── Scrollable content ────────────────────────────────────────
+        scroll = QScrollArea(); scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { background: transparent; }"
+                             "QScrollArea > QWidget > QWidget { background: transparent; }")
+        body = QWidget(); body.setStyleSheet("background: transparent;")
+        body_vb = QVBoxLayout(body)
+        body_vb.setContentsMargins(28, 16, 28, 28); body_vb.setSpacing(20)
+        scroll.setWidget(body)
+        root.addWidget(scroll, stretch=1)
 
-        # Left: top albums with art
-        self._albums_card = QWidget(); self._albums_card.setObjectName("card")
-        albums_vb = QVBoxLayout(self._albums_card)
-        albums_vb.setContentsMargins(16,14,16,14); albums_vb.setSpacing(10)
-        albums_title = QLabel("Top Albums"); albums_title.setStyleSheet("font-weight: 600; font-size: 13px;")
-        albums_vb.addWidget(albums_title); albums_vb.addWidget(HDivider())
-        self._albums_scroll = QScrollArea(); self._albums_scroll.setWidgetResizable(True)
-        self._albums_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._albums_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._albums_inner  = QWidget()
-        self._albums_layout = QVBoxLayout(self._albums_inner)
-        self._albums_layout.setSpacing(6); self._albums_layout.setContentsMargins(0,0,0,0)
-        self._albums_layout.addStretch()
-        self._albums_scroll.setWidget(self._albums_inner)
-        albums_vb.addWidget(self._albums_scroll)
-        content.addWidget(self._albums_card, stretch=5)
+        # ── Top Albums ────────────────────────────────────────────────
+        sec_lbl = QLabel("TOP ALBUMS"); sec_lbl.setObjectName("sectiontitle")
+        body_vb.addWidget(sec_lbl)
 
-        right_col = QVBoxLayout(); right_col.setSpacing(12)
-        self._top_artists_w = self._make_list("Top Artists")
-        self._top_tracks_w  = self._make_list("Top Tracks")
-        right_col.addWidget(self._top_artists_w, stretch=1)
-        right_col.addWidget(self._top_tracks_w,  stretch=1)
-        content.addLayout(right_col, stretch=4)
-        root.addLayout(content, stretch=1)
+        # Fixed-size flashcards in a left-aligned HBox (max 5)
+        self._albums_inner  = QWidget(); self._albums_inner.setStyleSheet("background:transparent;")
+        self._albums_layout = QHBoxLayout(self._albums_inner)
+        self._albums_layout.setSpacing(10); self._albums_layout.setContentsMargins(0,0,0,0)
+        self._albums_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        body_vb.addWidget(self._albums_inner)
 
-        exp_row = QHBoxLayout(); exp_row.addStretch()
-        exp_btn = QPushButton("Export data…"); exp_btn.setObjectName("ghost")
-        exp_btn.clicked.connect(self._export); exp_row.addWidget(exp_btn)
-        root.addLayout(exp_row)
+        # ── Top Artists + Tracks ──────────────────────────────────────
+        bottom_row = QHBoxLayout(); bottom_row.setSpacing(14)
+        self._top_artists_w = self._make_ranked_list("TOP ARTISTS")
+        self._top_tracks_w  = self._make_ranked_list("TOP TRACKS")
+        bottom_row.addWidget(self._top_artists_w, stretch=1)
+        bottom_row.addWidget(self._top_tracks_w,  stretch=1)
+        body_vb.addLayout(bottom_row)
 
-    def _make_list(self, title: str) -> QWidget:
-        w = QWidget(); w.setObjectName("card")
-        vb = QVBoxLayout(w); vb.setContentsMargins(14,12,14,12); vb.setSpacing(6)
-        lbl = QLabel(title); lbl.setStyleSheet("font-weight: 600; font-size: 13px;")
-        vb.addWidget(lbl); vb.addWidget(HDivider())
-        lst = QListWidget()
-        lst.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        vb.addWidget(lst); w._lst = lst
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._bg.setGeometry(self.rect())
+
+    def _make_stat_card(self, line1: str, line2: str) -> QWidget:
+        """Compact glass-style stat card. No emoji, no per-card color."""
+        t = _current_theme
+        w = QWidget()
+        w.setMinimumHeight(72)
+        w.setMaximumHeight(90)
+        w.setStyleSheet(
+            "QWidget { background: rgba(10,12,16,0.55);"
+            " border: none;"
+            " border-radius: 7px; }")
+        vb = QVBoxLayout(w); vb.setContentsMargins(14, 10, 14, 10); vb.setSpacing(1)
+        num = QLabel("—")
+        num.setStyleSheet(f"color:{t['accent']}; font-size:22px; font-weight:700;"
+                          " letter-spacing:-0.5px; background:transparent;")
+        lbl_text = f"{line1} {line2}".strip()
+        lbl = QLabel(lbl_text)
+        lbl.setStyleSheet("color:rgba(255,255,255,0.45); font-size:9px; font-weight:600;"
+                          " letter-spacing:1.1px; background:transparent;")
+        vb.addStretch(); vb.addWidget(num); vb.addWidget(lbl)
+        w._num = num
         return w
 
+    def _make_ranked_list(self, title: str) -> QWidget:
+        w = QWidget()
+        w.setMinimumHeight(280)
+        w.setStyleSheet("QWidget { background:rgba(10,12,16,0.55);"
+                        " border:none; border-radius:8px; }")
+        vb = QVBoxLayout(w); vb.setContentsMargins(0, 0, 0, 0); vb.setSpacing(0)
+        hdr = QWidget()
+        hdr.setStyleSheet("background:rgba(255,255,255,0.05); border-top-left-radius:8px;"
+                          " border-top-right-radius:8px;")
+        hdr.setFixedHeight(38)
+        hdr_hl = QHBoxLayout(hdr); hdr_hl.setContentsMargins(16, 0, 16, 0)
+        lbl = QLabel(title)
+        lbl.setStyleSheet("color:rgba(255,255,255,0.40); font-size:10px; font-weight:600;"
+                          " letter-spacing:1.5px; background:transparent;")
+        hdr_hl.addWidget(lbl)
+        vb.addWidget(hdr)
+        lst = QListWidget()
+        lst.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        lst.setFrameShape(QFrame.Shape.NoFrame)
+        lst.setStyleSheet("QListWidget { background:transparent; border:none;"
+                          " border-bottom-left-radius:8px; border-bottom-right-radius:8px; }"
+                          "QListWidget::item { padding:0px; border:none; }"
+                          "QListWidget::item:hover { background:rgba(255,255,255,0.05); }")
+        vb.addWidget(lst, stretch=1)
+        w._lst = lst
+        return w
+
+    def _make_list(self, title: str) -> QWidget:
+        return self._make_ranked_list(title)
+
     def _clear_albums(self):
-        while self._albums_layout.count() > 1:
+        while self._albums_layout.count():
             item = self._albums_layout.takeAt(0)
             if item.widget(): item.widget().deleteLater()
         self._art_labels.clear()
+        self._bg.clear()
 
-    def _add_album_row(self, artist: str, album: str, count: int):
+    def _make_album_card(self, artist: str, album: str, count: int, rank: int) -> tuple:
+        """Square art card: art is always 1:1, compact info strip below."""
         t = _current_theme
-        row = QWidget()
-        row.setFixedHeight(72)  # Fixed height prevents scroll jump when art loads
-        row.setStyleSheet(f"QWidget{{background:{t['bg3']};border-radius:5px;}}"
-                          f"QWidget:hover{{background:{t['bg4']};}}")
-        hl = QHBoxLayout(row); hl.setContentsMargins(8,8,12,8); hl.setSpacing(12)
-        art = AlbumArtLabel(54)  # Smaller, consistent size
+
+        # Fixed flashcard: 160px wide art square + 62px info strip
+        CARD_W = 160
+        ART_H  = 160
+        INFO_H = 62
+
+        card = QWidget()
+        card.setFixedSize(CARD_W, ART_H + INFO_H)
+        card.setStyleSheet(
+            "QWidget { background:rgba(10,12,16,0.60); border-radius:8px; border:none; }"
+            "QWidget:hover { background:rgba(255,255,255,0.07); }")
+        vb = QVBoxLayout(card)
+        vb.setContentsMargins(0, 0, 0, 0); vb.setSpacing(0)
+
+        # Art: fixed square
+        art = ScalableArtLabel()
+        art.setFixedSize(CARD_W, ART_H)
         art.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        hl.addWidget(art)
-        info = QVBoxLayout(); info.setSpacing(2)
-        albl = QLabel(album); albl.setStyleSheet(f"font-weight:600;font-size:13px;color:{t['txt0']};background:transparent;")
-        albl.setWordWrap(True)
-        arlbl = QLabel(artist); arlbl.setStyleSheet(f"font-size:12px;color:{t['txt1']};background:transparent;")
-        clbl  = QLabel(f"{count} plays"); clbl.setStyleSheet(f"font-size:11px;color:{t['accent']};background:transparent;")
-        info.addWidget(albl); info.addWidget(arlbl); info.addWidget(clbl); info.addStretch()
-        hl.addLayout(info, stretch=1)
-        self._albums_layout.insertWidget(self._albums_layout.count()-1, row)
-        self._art_labels[(artist.lower(), album.lower())] = art
+        art._card = card
+        vb.addWidget(art)
+
+        # Info strip — fixed height directly below the square art
+        info = QWidget()
+        info.setFixedSize(CARD_W, INFO_H)
+        info.setStyleSheet("background:transparent;")
+        info_vb = QVBoxLayout(info)
+        info_vb.setContentsMargins(10, 6, 10, 8); info_vb.setSpacing(1)
+
+        meta_row = QHBoxLayout(); meta_row.setSpacing(4)
+        rank_lbl = QLabel(f"#{rank}")
+        rank_lbl.setStyleSheet(
+            f"color:{t['accent']}; font-size:10px; font-weight:700; background:transparent;")
+        cnt_lbl = QLabel(f"{count} play{'s' if count != 1 else ''}")
+        cnt_lbl.setStyleSheet(
+            "color:rgba(255,255,255,0.40); font-size:10px; background:transparent;")
+        meta_row.addWidget(rank_lbl); meta_row.addStretch(); meta_row.addWidget(cnt_lbl)
+        info_vb.addLayout(meta_row)
+
+        albl = QLabel(album); albl.setWordWrap(False)
+        fm = QFontMetrics(albl.font())
+        albl.setText(fm.elidedText(album, Qt.TextElideMode.ElideRight, CARD_W - 20))
+        albl.setStyleSheet(
+            "font-weight:700; font-size:12px; color:#fff; background:transparent;")
+        arlbl = QLabel(artist); arlbl.setWordWrap(False)
+        arlbl.setText(fm.elidedText(artist, Qt.TextElideMode.ElideRight, CARD_W - 20))
+        arlbl.setStyleSheet(
+            "font-size:11px; color:rgba(255,255,255,0.50); background:transparent;")
+        info_vb.addWidget(albl); info_vb.addWidget(arlbl)
+        vb.addWidget(info)
+        return card, art
+
+    def _add_album_card(self, artist: str, album: str, count: int, index: int = 0):
+        key = (artist.lower(), album.lower())
+        card, art = self._make_album_card(artist, album, count, rank=index + 1)
+        self._albums_layout.addWidget(card)
+        self._art_labels[key] = art
 
     _ART_CONCURRENCY = 2   # low enough to avoid disk I/O storms
 
-    def _fetch_art_for(self, artist: str, album: str, all_tracks: list):
-        # Skip if already cached — just apply immediately
+    def _fetch_art_for(self, artist: str, album: str, all_tracks: list, is_top: bool = False):
         key = (artist.lower(), album.lower())
+        if is_top:
+            self._top_key = key
         if key in ArtFetcher._cache:
             raw = ArtFetcher._cache[key]
             lbl = self._art_labels.get(key)
             if lbl:
                 lbl.set_art(raw)
+            if is_top and raw:
+                self._bg.set_art(raw, _dominant_color(raw))
             return
         f = ArtFetcher(artist, album, self.get_log_paths(), all_tracks, api_key=self._lfm_key())
         f.result.connect(self._on_art_result)
@@ -3026,13 +3537,14 @@ class StatsPage(QWidget):
         self._drain_art_queue()
 
     def _on_art_result(self, artist: str, album: str, raw: bytes):
-        # Signal arrives on main thread (Qt auto-queued across threads) but
-        # guard with singleShot anyway to avoid re-entrant paint calls
         key = (artist.lower(), album.lower())
         def _apply():
             lbl = self._art_labels.get(key)
             if lbl:
                 lbl.set_art(raw)
+            # Update page background with art from whichever is stored as is_top
+            if key == getattr(self, "_top_key", None) and raw:
+                self._bg.set_art(raw, _dominant_color(raw))
         QTimer.singleShot(0, _apply)
 
     def refresh(self, tracks=None):
@@ -3051,27 +3563,72 @@ class StatsPage(QWidget):
         sessions = len(detect_sessions(tracks, self._gap_spin.value())) if tracks else 0
         secs     = sum(t.length for t in tracks if t.listened and t.length > 0)
 
-        self._card_total.set_value(str(total)    if total else "—")
-        self._card_listened.set_value(str(listened) if total else "—")
-        self._card_skipped.set_value(str(skipped)   if total else "—")
-        self._card_sessions.set_value(str(sessions)  if sessions else "—")
-        if secs >= 3600:   self._card_time.set_value(f"{secs//3600}h {(secs%3600)//60}m")
-        elif secs > 0:     self._card_time.set_value(f"{secs//60}m")
-        else:              self._card_time.set_value("—")
+        self._card_total._num.setText(str(total)    if total else "—")
+        self._card_listened._num.setText(str(listened) if total else "—")
+        self._card_skipped._num.setText(str(skipped)   if total else "—")
+        self._card_sessions._num.setText(str(sessions)  if sessions else "—")
+        if secs >= 3600:   self._card_time._num.setText(f"{secs//3600}h {(secs%3600)//60}m")
+        elif secs > 0:     self._card_time._num.setText(f"{secs//60}m")
+        else:              self._card_time._num.setText("—")
 
         lt = [t for t in tracks if t.listened]
         self._clear_albums()
-        for (artist, album), cnt in Counter((t.artist, t.album) for t in lt).most_common(12):
-            self._add_album_row(artist, album, cnt)
-            self._fetch_art_for(artist, album, lt)
+        top_albums = Counter((t.artist, t.album) for t in lt).most_common(10)
+        # Max 5 fixed-size flashcards, left-aligned, no stretching
+        for i, ((artist, album), cnt) in enumerate(top_albums[:5]):
+            self._add_album_card(artist, album, cnt, index=i)
+            self._fetch_art_for(artist, album, lt, is_top=(i == 0))
 
-        self._top_artists_w._lst.clear()
-        for artist, cnt in Counter(t.artist for t in lt).most_common(15):
-            self._top_artists_w._lst.addItem(f"{cnt:4d}   {artist}")
+        t = _current_theme
 
-        self._top_tracks_w._lst.clear()
-        for label, cnt in Counter(f"{t.artist} — {t.title}" for t in lt).most_common(15):
-            self._top_tracks_w._lst.addItem(f"{cnt:4d}   {label}")
+        def _fill_ranked(widget, items):
+            lst = widget._lst; lst.clear()
+            if not items:
+                return
+            max_cnt = items[0][1] if items else 1
+            for rank, (label, cnt) in enumerate(items):
+                item_w = QWidget(); item_w.setStyleSheet("background: transparent;")
+                hl = QHBoxLayout(item_w); hl.setContentsMargins(14, 5, 14, 5); hl.setSpacing(10)
+
+                rank_lbl = QLabel(f"{rank+1:2d}"); rank_lbl.setFixedWidth(22)
+                rank_lbl.setStyleSheet("color:rgba(255,255,255,0.35); font-size:11px;"
+                                       " font-weight:600; background:transparent;")
+                hl.addWidget(rank_lbl)
+
+                bar_col = QVBoxLayout(); bar_col.setSpacing(2)
+                name_lbl = QLabel(label)
+                name_lbl.setStyleSheet("color:rgba(255,255,255,0.85); font-size:12px; background:transparent;")
+                name_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+                bar_bg = QWidget(); bar_bg.setFixedHeight(3)
+                bar_bg.setStyleSheet("background:rgba(255,255,255,0.10); border-radius:2px;")
+                bar_fill = QWidget(bar_bg); bar_fill.setFixedHeight(3)
+                bar_fill.setStyleSheet(f"background:{t['accent']}; border-radius:2px;")
+                fill_pct = cnt / max_cnt if max_cnt > 0 else 0
+                bar_fill._pct = fill_pct
+                def _resize_bar(e, bg=bar_bg, fill=bar_fill):
+                    fill.setFixedWidth(max(2, int(bg.width() * fill._pct)))
+                    # must return None for sip
+                bar_bg.resizeEvent = _resize_bar
+
+                bar_col.addWidget(name_lbl); bar_col.addWidget(bar_bg)
+                hl.addLayout(bar_col, stretch=1)
+
+                cnt_lbl = QLabel(str(cnt)); cnt_lbl.setFixedWidth(36)
+                cnt_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                cnt_lbl.setStyleSheet(f"color:{t['accent']}; font-size:11px;"
+                                      " font-weight:600; background:transparent;")
+                hl.addWidget(cnt_lbl)
+
+                li = QListWidgetItem(lst)
+                li.setSizeHint(QSize(0, 44))
+                lst.addItem(li)
+                lst.setItemWidget(li, item_w)
+
+        top_artists = Counter(t.artist for t in lt).most_common(15)
+        top_tracks  = Counter(f"{t.artist} — {t.title}" for t in lt).most_common(15)
+        _fill_ranked(self._top_artists_w, top_artists)
+        _fill_ranked(self._top_tracks_w,  top_tracks)
 
     def _export(self):
         tracks = self.get_tracks()
@@ -3130,72 +3687,150 @@ class HistoryPage(QWidget):
 
     def _build(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(28, 24, 28, 20)
-        root.setSpacing(14)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        hdr = QHBoxLayout()
-        title = QLabel("Submission History"); title.setObjectName("heading")
-        hdr.addWidget(title); hdr.addStretch()
-        self._search = QLineEdit(); self._search.setPlaceholderText("Filter artists, titles, albums…")
-        self._search.setFixedWidth(280); self._search.textChanged.connect(self._apply_filter)
-        hdr.addWidget(self._search)
-        refresh_btn = QPushButton("Refresh"); refresh_btn.setObjectName("ghost")
-        refresh_btn.clicked.connect(self.refresh); hdr.addWidget(refresh_btn)
-        root.addLayout(hdr)
+        # ── Blurred background art ────────────────────────────────────
+        self._bg = PageBackground(self)
+        self._bg.setGeometry(self.rect())
 
+        # ── Glass header ──────────────────────────────────────────────
+        hdr = QWidget()
+        hdr.setFixedHeight(52)
+        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
+        hdr_hl = QHBoxLayout(hdr)
+        hdr_hl.setContentsMargins(28, 0, 20, 0); hdr_hl.setSpacing(12)
+
+        title = QLabel("History")
+        title.setStyleSheet("color:#fff; font-size:18px; font-weight:700; letter-spacing:-0.3px; background:transparent;")
+        hdr_hl.addWidget(title); hdr_hl.addStretch()
+
+        self._search = QLineEdit()
+        self._search.setPlaceholderText("Search artists, titles, albums…")
+        self._search.setFixedWidth(240)
+        self._search.setFixedHeight(30)
+        self._search.setStyleSheet(
+            "QLineEdit { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);"
+            " border-radius:6px; padding:0 10px; color:#fff; font-size:12px; }"
+            "QLineEdit:focus { border-color:rgba(200,134,26,0.7); background:rgba(255,255,255,0.10); }")
+        self._search.textChanged.connect(self._apply_filter)
+
+        _glass_btn = ("QPushButton { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.75);"
+                      " border:1px solid rgba(255,255,255,0.12); border-radius:5px; font-size:12px;"
+                      " padding:0 12px; min-height:28px; max-height:28px; font-weight:500; }"
+                      "QPushButton:hover { background:rgba(255,255,255,0.13); color:#fff; border-color:rgba(255,255,255,0.25); }")
+        _danger_btn = ("QPushButton { background:rgba(192,64,64,0.15); color:rgba(210,100,100,0.85);"
+                       " border:1px solid rgba(192,64,64,0.35); border-radius:5px; font-size:12px;"
+                       " padding:0 12px; min-height:28px; max-height:28px; font-weight:500; }"
+                       "QPushButton:hover { background:rgba(192,64,64,0.28); border-color:rgba(192,64,64,0.7); }")
+
+        refresh_btn = QPushButton("↻  Refresh")
+        refresh_btn.setStyleSheet(_glass_btn)
+        refresh_btn.clicked.connect(self.refresh)
+        hdr_hl.addWidget(self._search); hdr_hl.addWidget(refresh_btn)
+        root.addWidget(hdr)
+
+        # ── Body ──────────────────────────────────────────────────────
+        body = QWidget()
+        body.setObjectName("hist_body")
+        body.setStyleSheet("QWidget#hist_body { background:transparent; border:none; }")
+        body_vb = QVBoxLayout(body); body_vb.setContentsMargins(28, 16, 28, 0); body_vb.setSpacing(10)
+        root.addWidget(body, stretch=1)
+
+        # Table
         self._tbl = QTableWidget(0, 6)
-        self._tbl.setHorizontalHeaderLabels(["ARTIST","TITLE","ALBUM","PLATFORM","LISTENED (LOCAL)","SUBMITTED"])
+        self._tbl.setHorizontalHeaderLabels(["ARTIST","TITLE","ALBUM","PLATFORM","LISTENED","SUBMITTED"])
         self._tbl.setAlternatingRowColors(True)
         self._tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._tbl.verticalHeader().setVisible(False)
-        self._tbl.verticalHeader().setDefaultSectionSize(30)
+        self._tbl.verticalHeader().setDefaultSectionSize(34)
         self._tbl.setShowGrid(False); self._tbl.setSortingEnabled(True)
         self._tbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._tbl.customContextMenuRequested.connect(self._show_context_menu)
+        self._tbl.setStyleSheet(
+            "QTableWidget { background:rgba(10,12,16,0.40); alternate-background-color:rgba(255,255,255,0.022);"
+            " border:none; border-radius:10px; outline:none; font-size:13px; }"
+            "QTableWidget::item { padding:4px 14px; border-bottom:1px solid rgba(255,255,255,0.035); color:rgba(255,255,255,0.85); }"
+            "QTableWidget::item:selected { background:rgba(200,134,26,0.15); color:#fff; border:none; }"
+            "QTableWidget::item:hover { background:transparent; border:none; }"
+            "QHeaderView { border:none; background:transparent; }"
+            "QHeaderView::section { background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.30);"
+            " padding:6px 14px; border:none; border-bottom:1px solid rgba(255,255,255,0.06);"
+            " font-size:10px; font-weight:700; letter-spacing:1.3px; }"
+        )
         h = self._tbl.horizontalHeader()
         for c in [0,1,2]: h.setSectionResizeMode(c, QHeaderView.ResizeMode.Stretch)
         for c in [3,4,5]: h.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
-        root.addWidget(self._tbl)
+        body_vb.addWidget(self._tbl, stretch=1)
 
-        foot = QHBoxLayout()
-        self._count_lbl = QLabel(""); self._count_lbl.setObjectName("muted")
-        foot.addWidget(self._count_lbl); foot.addStretch()
+        self._loading_lbl = QLabel("Loading…")
+        self._loading_lbl.setStyleSheet("color:rgba(255,255,255,0.35); font-size:13px; background:transparent;")
+        self._loading_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter); self._loading_lbl.setVisible(False)
+        body_vb.addWidget(self._loading_lbl)
 
-        self._select_all_btn = QPushButton("Select All"); self._select_all_btn.setObjectName("ghost")
-        self._select_all_btn.setToolTip("Select all visible rows")
-        self._select_all_btn.clicked.connect(self._tbl.selectAll)
-        foot.addWidget(self._select_all_btn)
+        # ── Footer toolbar ────────────────────────────────────────────
+        foot = QWidget(); foot.setStyleSheet("background:transparent;")
+        foot_hl = QHBoxLayout(foot); foot_hl.setContentsMargins(0, 4, 0, 18); foot_hl.setSpacing(8)
 
-        self._del_btn = QPushButton("Delete Selected"); self._del_btn.setObjectName("danger")
-        self._del_btn.setToolTip("Remove selected scrobble(s) from local history")
-        self._del_btn.clicked.connect(self._delete_selected)
-
-        self._del_all_btn = QPushButton("Delete All"); self._del_all_btn.setObjectName("danger")
-        self._del_all_btn.setToolTip("Remove ALL scrobbles from local history")
-        self._del_all_btn.clicked.connect(self._delete_all)
+        self._count_lbl = QLabel("")
+        self._count_lbl.setStyleSheet("color:rgba(255,255,255,0.35); font-size:12px; background:transparent;")
+        foot_hl.addWidget(self._count_lbl); foot_hl.addStretch()
 
         self._save_history_chk = QCheckBox("Save history")
         self._save_history_chk.setToolTip("When unchecked, scrobbles won't be saved to local history")
         save_hist = load_conf().get("save_history", True)
         self._save_history_chk.setChecked(save_hist)
         self._save_history_chk.toggled.connect(self._on_save_history_toggled)
+        self._save_history_chk.setStyleSheet(
+            "QCheckBox { color:rgba(255,255,255,0.45); font-size:12px; background:transparent; spacing:5px; }"
+            "QCheckBox::indicator { width:13px; height:13px; border-radius:3px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.05); }"
+            f"QCheckBox::indicator:checked {{ background:{tok('accent')}; border-color:{tok('accent')}; }}")
+        foot_hl.addWidget(self._save_history_chk); foot_hl.addSpacing(8)
 
-        self._prev_btn = QPushButton("← Prev"); self._next_btn = QPushButton("Next →")
-        self._prev_btn.setObjectName("ghost"); self._next_btn.setObjectName("ghost")
+        self._select_all_btn = QPushButton("Select All")
+        self._select_all_btn.setToolTip("Select all visible rows")
+        self._select_all_btn.setStyleSheet(_glass_btn)
+        self._select_all_btn.clicked.connect(self._tbl.selectAll)
+        foot_hl.addWidget(self._select_all_btn)
+
+        self._del_btn = QPushButton("Delete Selected")
+        self._del_btn.setToolTip("Remove selected scrobble(s) from local history")
+        self._del_btn.setStyleSheet(_danger_btn)
+        self._del_btn.clicked.connect(self._delete_selected)
+
+        self._del_all_btn = QPushButton("Delete All")
+        self._del_all_btn.setToolTip("Remove ALL scrobbles from local history")
+        self._del_all_btn.setStyleSheet(_danger_btn)
+        self._del_all_btn.clicked.connect(self._delete_all)
+        foot_hl.addWidget(self._del_btn); foot_hl.addWidget(self._del_all_btn)
+
+        foot_hl.addSpacing(8)
+        _pag_ss = ("QPushButton { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.60);"
+                   " border:1px solid rgba(255,255,255,0.10); border-radius:5px; font-size:12px;"
+                   " padding:0 14px; min-height:28px; max-height:28px; }"
+                   "QPushButton:hover:!disabled { background:rgba(255,255,255,0.12); color:#fff; }"
+                   "QPushButton:disabled { color:rgba(255,255,255,0.20); border-color:rgba(255,255,255,0.06); }")
+        self._prev_btn = QPushButton("‹  Prev")
+        self._next_btn = QPushButton("Next  ›")
+        self._prev_btn.setStyleSheet(_pag_ss); self._next_btn.setStyleSheet(_pag_ss)
         self._prev_btn.clicked.connect(self._prev_page)
         self._next_btn.clicked.connect(self._next_page)
+        foot_hl.addWidget(self._prev_btn); foot_hl.addWidget(self._next_btn)
+        body_vb.addWidget(foot)
 
-        foot.addWidget(self._del_btn)
-        foot.addWidget(self._del_all_btn)
-        foot.addSpacing(12)
-        foot.addWidget(self._save_history_chk)
-        foot.addSpacing(12)
-        foot.addWidget(self._prev_btn); foot.addWidget(self._next_btn)
-        root.addLayout(foot)
-        self._loading_lbl = QLabel("Loading…"); self._loading_lbl.setObjectName("muted")
-        self._loading_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter); self._loading_lbl.setVisible(False)
-        root.addWidget(self._loading_lbl)
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, '_bg'):
+            self._bg.setGeometry(self.rect())
+
+    def set_bg_art(self, raw):
+        """Called externally (e.g. from ScrobblePage) to share/clear blurred background art."""
+        if not hasattr(self, '_bg'): return
+        if raw:
+            self._bg.set_art(raw, _dominant_color(raw))
+        else:
+            self._bg.clear()
 
     def _on_save_history_toggled(self, checked: bool):
         c = load_conf(); c["save_history"] = checked; save_conf(c)
@@ -3236,6 +3871,13 @@ class HistoryPage(QWidget):
                           if q else self._all_rows)
         self._page = 0; self._render_page()
 
+    # Platform → (label, bg color, text color)
+    _PLAT_BADGE = {
+        "Last.fm":       ("#d51007", "#fff"),
+        "Libre.fm":      ("#2ecc71", "#0a0a0a"),
+        "ListenBrainz":  ("#eb743b", "#0a0a0a"),
+    }
+
     def _render_page(self):
         rows  = self._filtered; total = len(rows)
         start = self._page * self.PAGE_SIZE; end = min(start + self.PAGE_SIZE, total)
@@ -3243,6 +3885,7 @@ class HistoryPage(QWidget):
         self._page_rows = page_rows   # keep for delete lookup
         self._tbl.setSortingEnabled(False); self._tbl.setUpdatesEnabled(False)
         self._tbl.setRowCount(len(page_rows))
+        self._tbl.verticalHeader().setDefaultSectionSize(34)
         for i, (artist, album, title, ts, plat, sub_at) in enumerate(page_rows):
             try:    local_str = datetime.fromtimestamp(ts).strftime("%d %b %Y  %H:%M")
             except Exception: local_str = str(ts)
@@ -3250,13 +3893,18 @@ class HistoryPage(QWidget):
             except Exception: sub_str = "—"
             for col, val in enumerate([artist, title, album, plat, local_str, sub_str]):
                 item = QTableWidgetItem(val); item.setToolTip(val)
+                if col == 3:  # platform — colored badge via foreground
+                    bg, fg = self._PLAT_BADGE.get(val, ("#555", "#fff"))
+                    item.setForeground(QColor(fg))
+                    item.setBackground(QColor(bg + "33"))  # semi-transparent bg tint
                 self._tbl.setItem(i, col, item)
         self._tbl.setUpdatesEnabled(True); self._tbl.setSortingEnabled(True)
         pages = max(1, (total + self.PAGE_SIZE - 1) // self.PAGE_SIZE)
         self._prev_btn.setEnabled(self._page > 0)
         self._next_btn.setEnabled(self._page < pages - 1)
+        page_info = f"page {self._page+1} / {pages}" if pages > 1 else ""
         self._count_lbl.setText(
-            f"{total} records  ·  showing {start+1}–{end}  ·  page {self._page+1}/{pages}"
+            f"{total} scrobbles  ·  {start+1}–{end}  {page_info}".strip(" ·")
             if total else "No history yet")
 
     def _show_context_menu(self, pos):
@@ -3369,18 +4017,25 @@ class RockboxToolsPage(QWidget):
     def _build(self):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # Glass header
+        hdr = QWidget(); hdr.setFixedHeight(52)
+        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
+        hdr_hl = QHBoxLayout(hdr); hdr_hl.setContentsMargins(28, 0, 20, 0); hdr_hl.setSpacing(10)
+        hdr_title = QLabel("Rockbox Tools")
+        hdr_title.setStyleSheet("color:#fff; font-size:18px; font-weight:700; letter-spacing:-0.3px; background:transparent;")
+        hdr_sub = QLabel("Database rebuilder, config.cfg editor and tagnavi.config editor.")
+        hdr_sub.setStyleSheet("color:rgba(255,255,255,0.35); font-size:12px; background:transparent;")
+        hdr_hl.addWidget(hdr_title); hdr_hl.addWidget(hdr_sub); hdr_hl.addStretch()
+        outer.addWidget(hdr)
 
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         inner = QWidget()
         root  = QVBoxLayout(inner)
-        root.setContentsMargins(28, 24, 28, 24)
+        root.setContentsMargins(28, 20, 28, 24)
         root.setSpacing(20)
-
-        title = QLabel("Rockbox Tools"); title.setObjectName("heading")
-        root.addWidget(title)
-        sub = QLabel("Database rebuilder, config.cfg editor, and tagnavi.config editor for your Rockbox device.")
-        sub.setObjectName("secondary"); root.addWidget(sub)
 
         # ── Device selector ───────────────────────────────────
         dev_card = QWidget(); dev_card.setObjectName("card")
@@ -3400,7 +4055,7 @@ class RockboxToolsPage(QWidget):
         # ── Tab widget: DB rebuilder | Config editor | Tagnavi ──
         tabs = QTabWidget()
         tabs.setDocumentMode(True)
-        tabs.setStyleSheet(f"""
+        tabs.setStyleSheet("""
             QTabWidget::pane {{ border: 1px solid {_current_theme['border']}; border-radius: 6px;
                                 background: {_current_theme['bg0']}; }}
             QTabBar::tab {{ background: {_current_theme['bg2']}; color: {_current_theme['txt1']};
@@ -3434,10 +4089,11 @@ class RockboxToolsPage(QWidget):
         vb.addLayout(hdr)
 
         how = QLabel(
-            "Builds the Rockbox tagcache database on your PC and writes the .tcd files "
-            "directly to /.rockbox/ on your device — no on-device scanning required.\n\n"
-            "Build & Update preserves existing play counts and ratings. "
-            "Build Fresh resets all runtime stats.\n\n"
+            "Builds a real Rockbox tagcache database on your PC using the official "
+            "Rockbox database tool compiled from source — no on-device scan needed.\n\n"
+            "First run: clones Rockbox source (~60 MB) and compiles the tool. "
+            "Subsequent runs use the cached binary and are fast.\n\n"
+            "Requires:  git  gcc  make  (standard on Linux)"
         )
         how.setObjectName("secondary"); how.setWordWrap(True)
         vb.addWidget(how)
@@ -3456,10 +4112,11 @@ class RockboxToolsPage(QWidget):
             btn.setFixedHeight(32)
         self._db_src_device.setChecked(True)
         self._db_src_device.setToolTip(
-            "Read tags directly from the iPod.\nSlow — has to scan files over USB.")
+            "Scan audio files directly from the mounted device.\n"
+            "Works for any path structure.")
         self._db_src_local.setToolTip(
-            "Read tags from the same music library on your PC.\n"
-            "Much faster — reads from local disk, then writes DB to device.")
+            "Scan a local music library folder instead of the device.\n"
+            "Much faster — reads from local SSD, writes database to device.")
         self._db_src_device.clicked.connect(lambda: self._set_db_source("device"))
         self._db_src_local.clicked.connect(lambda:  self._set_db_source("local"))
         src_row.addWidget(self._db_src_device)
@@ -3467,20 +4124,27 @@ class RockboxToolsPage(QWidget):
         src_row.addStretch()
         vb.addLayout(src_row)
 
-        # ── Local library path (hidden until "local" chosen) ──────
+        # ── Local library path ────────────────────────────────────
         self._db_lib_widget = QWidget()
         lib_row = QHBoxLayout(self._db_lib_widget)
         lib_row.setContentsMargins(0, 0, 0, 0); lib_row.setSpacing(8)
         lib_lbl = QLabel("Library folder:"); lib_lbl.setObjectName("secondary"); lib_lbl.setFixedWidth(100)
         self._db_lib_path = QLineEdit()
-        self._db_lib_path.setPlaceholderText("/home/you/Music  or  D:\\Music")
+        self._db_lib_path.setPlaceholderText("/home/you/Music")
         saved_lib = self.conf().get("db_library_root", "")
         self._db_lib_path.setText(saved_lib)
         lib_browse = QPushButton("Browse…"); lib_browse.setObjectName("ghost")
         lib_browse.clicked.connect(self._browse_library)
+        self._db_sanitize_btn = QPushButton("🧹  Sanitize Names"); self._db_sanitize_btn.setObjectName("ghost")
+        self._db_sanitize_btn.setToolTip(
+            "Rename files and folders in the local library to be FAT32-safe.\n"
+            "Replaces : * ? \" < > | \\ with - and strips trailing dots/spaces.\n"
+            "Run this before building the database so local names match the iPod.")
+        self._db_sanitize_btn.clicked.connect(self._start_db_sanitize)
         lib_row.addWidget(lib_lbl)
         lib_row.addWidget(self._db_lib_path, stretch=1)
         lib_row.addWidget(lib_browse)
+        lib_row.addWidget(self._db_sanitize_btn)
         self._db_lib_widget.setVisible(False)
         vb.addWidget(self._db_lib_widget)
 
@@ -3488,42 +4152,57 @@ class RockboxToolsPage(QWidget):
 
         self._db_log = QTextEdit()
         self._db_log.setReadOnly(True)
-        self._db_log.setMinimumHeight(160)
-        self._db_log.setPlaceholderText("Scan output will appear here…")
+        self._db_log.setMinimumHeight(200)
+        self._db_log.setPlaceholderText("Build output will appear here…")
         self._db_log.setStyleSheet(
             f"background: {_current_theme['bg3']}; font-family: 'Cascadia Code','SF Mono','Consolas',monospace;"
             f"font-size: 11px; color: {_current_theme['txt1']}; border: none; border-radius: 4px;"
         )
         vb.addWidget(self._db_log, stretch=1)
 
-        self._db_progress = QProgressBar(); self._db_progress.setRange(0,0)
+        self._db_progress = QProgressBar(); self._db_progress.setRange(0, 0)
         self._db_progress.setVisible(False); vb.addWidget(self._db_progress)
 
         btn_row = QHBoxLayout()
-        self._db_scan_btn = QPushButton("⟳  Build & Update"); self._db_scan_btn.setObjectName("primary")
-        self._db_scan_btn.setToolTip("Rebuilds all .tcd database files on the PC.\nExisting play counts and ratings are preserved.")
+        self._db_scan_btn = QPushButton("⟳  Build Database"); self._db_scan_btn.setObjectName("primary")
+        self._db_scan_btn.setToolTip(
+            "Compile and run the Rockbox database tool.\n"
+            "Writes real .tcd files to /.rockbox/ on your device.\n"
+            "No on-device scan needed.")
         self._db_scan_btn.clicked.connect(self._start_db_scan)
+
         self._db_init_btn = QPushButton("⚠  Build Fresh"); self._db_init_btn.setObjectName("danger")
-        self._db_init_btn.setToolTip("Rebuilds the database from scratch.\nWarning: play counts and ratings will be reset.")
+        self._db_init_btn.setToolTip(
+            "Delete existing .tcd files then rebuild from scratch.\n"
+            "⚠ Resets all play counts and ratings.")
         self._db_init_btn.clicked.connect(self._start_db_initialize)
-        self._db_reset_btn = QPushButton("Reset snapshot"); self._db_reset_btn.setObjectName("ghost")
-        self._db_reset_btn.setToolTip("Clear tag cache and file list — next build re-reads all tags from disk")
-        self._db_reset_btn.clicked.connect(self._reset_snapshot)
-        self._db_eject_btn = QPushButton("⏏  Eject device"); self._db_eject_btn.setObjectName("ghost")
-        self._db_eject_btn.setToolTip("Safely unmount the device so you can unplug it")
+
+        self._db_recompile_btn = QPushButton("🔨  Recompile Tool"); self._db_recompile_btn.setObjectName("ghost")
+        self._db_recompile_btn.setToolTip(
+            "Force recompile the Rockbox database tool from source.\n"
+            "Use this after a Rockbox source update.")
+        self._db_recompile_btn.clicked.connect(self._start_db_recompile)
+
+        self._db_eject_btn = QPushButton("⏏  Eject"); self._db_eject_btn.setObjectName("ghost")
+        self._db_eject_btn.setToolTip("Safely unmount the device")
         self._db_eject_btn.clicked.connect(self._eject_device)
+
         self._db_cancel_btn = QPushButton("⏹  Cancel"); self._db_cancel_btn.setObjectName("ghost")
-        self._db_cancel_btn.setToolTip("Cancel the current database build")
         self._db_cancel_btn.clicked.connect(self._cancel_db_worker)
         self._db_cancel_btn.setVisible(False)
+
         self._db_pause_btn = QPushButton("⏸  Pause"); self._db_pause_btn.setObjectName("ghost")
-        self._db_pause_btn.setToolTip("Pause / resume the current database build")
         self._db_pause_btn.clicked.connect(self._toggle_db_pause)
         self._db_pause_btn.setVisible(False)
         self._db_paused = False
-        btn_row.addWidget(self._db_scan_btn); btn_row.addWidget(self._db_init_btn)
-        btn_row.addWidget(self._db_pause_btn); btn_row.addWidget(self._db_cancel_btn); btn_row.addStretch()
-        btn_row.addWidget(self._db_eject_btn); btn_row.addWidget(self._db_reset_btn)
+
+        btn_row.addWidget(self._db_scan_btn)
+        btn_row.addWidget(self._db_init_btn)
+        btn_row.addWidget(self._db_pause_btn)
+        btn_row.addWidget(self._db_cancel_btn)
+        btn_row.addStretch()
+        btn_row.addWidget(self._db_eject_btn)
+        btn_row.addWidget(self._db_recompile_btn)
         vb.addLayout(btn_row)
         return w
 
@@ -3532,7 +4211,6 @@ class RockboxToolsPage(QWidget):
         self._db_src_device.setChecked(not is_local)
         self._db_src_local.setChecked(is_local)
         self._db_lib_widget.setVisible(is_local)
-        # Update button styles to show active state
         accent = _current_theme["accent"]
         active_style  = f"background:{accent}22; color:{accent}; border:1px solid {accent}60; border-radius:4px;"
         default_style = ""
@@ -3546,19 +4224,100 @@ class RockboxToolsPage(QWidget):
             self._db_lib_path.setText(path)
             c = self.conf(); c["db_library_root"] = path; save_conf(c)
 
+    def _start_db_sanitize(self):
+        lib_str = self._db_lib_path.text().strip()
+        if not lib_str:
+            QMessageBox.warning(self, "No library", "Enter the path to your local music library folder first."); return
+        lib_path = Path(lib_str)
+        if not lib_path.exists():
+            QMessageBox.warning(self, "Not found", f"Library folder does not exist:\n{lib_path}"); return
+        ans = QMessageBox.question(self, "Sanitize Library Names",
+            f"This will permanently rename files and folders in:\n{lib_path}\n\n"
+            "Characters like : * ? \" < > | \\ will be replaced with -\n"
+            "and trailing dots/spaces will be stripped.\n\n"
+            "This cannot be undone automatically. Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+        if ans != QMessageBox.StandardButton.Yes:
+            return
+        self._db_log.clear()
+        self._db_sanitize_btn.setEnabled(False)
+        self._db_scan_btn.setEnabled(False)
+        self._db_init_btn.setEnabled(False)
+        self._db_recompile_btn.setEnabled(False)
+        self._db_progress.setVisible(True)
+        self._db_progress.setRange(0, 0)
+        # Run in a simple thread — reuse the worker's method via a thin QThread wrapper
+        class _SanitizeRun(QThread):
+            progress = pyqtSignal(str)
+            done     = pyqtSignal()
+            def __init__(self, root):
+                super().__init__(); self._root = root
+            def run(self):
+                # Inline the logic here so we don't need the full worker
+                import os as _os
+                _FAT32 = re.compile(r'[\\/:*?"<>|]')
+                def _clean(name):
+                    c = _FAT32.sub('-', name)
+                    stem, _, ext = c.rpartition('.')
+                    if not stem:
+                        return c.rstrip('. ') or name
+                    if not ext or not ext.strip():
+                        return stem.rstrip('. ') or name
+                    return f"{stem.rstrip('. ')}.{ext}"
+                self.progress.emit(f"── Sanitizing: {self._root}")
+                try:
+                    items = sorted(self._root.rglob("*"), key=lambda p: len(p.parts), reverse=True)
+                except Exception as e:
+                    self.progress.emit(f"  ⚠ Scan error: {e}"); self.done.emit(); return
+                to_do = [fp for fp in items if _clean(fp.name) != fp.name]
+                if not to_do:
+                    self.progress.emit("  ✓ Nothing to rename — already clean"); self.done.emit(); return
+                self.progress.emit(f"  Found {len(to_do):,} item(s)…")
+                renamed = 0; errors = 0
+                for fp in to_do:
+                    if not fp.exists(): continue
+                    clean = _clean(fp.name)
+                    new_path = fp.parent / clean
+                    if new_path.exists() and new_path != fp:
+                        base = new_path.stem; ext = new_path.suffix; n = 2
+                        while new_path.exists():
+                            new_path = fp.parent / f"{base}_{n}{ext}"; n += 1
+                    try:
+                        fp.rename(new_path)
+                        self.progress.emit(f"  ✎ {fp.name!r}  →  {new_path.name!r}")
+                        renamed += 1
+                    except Exception as e:
+                        self.progress.emit(f"  ⚠ {fp.name!r}: {e}"); errors += 1
+                self.progress.emit(f"  ✓ Done — {renamed:,} renamed, {errors} failed")
+                self.done.emit()
+        self._sanitize_thread = _SanitizeRun(lib_path)
+        self._sanitize_thread.progress.connect(lambda msg: self._db_log.append(msg))
+        self._sanitize_thread.done.connect(self._on_sanitize_done)
+        self._sanitize_thread.start()
+
+    def _on_sanitize_done(self):
+        self._db_sanitize_btn.setEnabled(True)
+        self._db_scan_btn.setEnabled(True)
+        self._db_init_btn.setEnabled(True)
+        self._db_recompile_btn.setEnabled(True)
+        self._db_progress.setVisible(False)
+
     def _start_db_scan(self):
         self._run_db_worker(RockboxDbWorker.MODE_UPDATE)
 
     def _start_db_initialize(self):
         ans = QMessageBox.warning(self, "Build Fresh Database",
-            "This will rebuild the Rockbox database from scratch.\n\n"
+            "This will delete existing .tcd files and rebuild from scratch.\n\n"
             "⚠ All play counts, ratings, and runtime stats will be reset to zero.\n\n"
             "Continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
         if ans == QMessageBox.StandardButton.Yes:
             self._run_db_worker(RockboxDbWorker.MODE_INITIALIZE)
 
-    def _run_db_worker(self, mode: str):
+    def _start_db_recompile(self):
+        self._run_db_worker(RockboxDbWorker.MODE_UPDATE, force_recompile=True)
+
+    def _run_db_worker(self, mode: str, force_recompile: bool = False):
         root_str = self._dev_path.text().strip()
         if not root_str:
             QMessageBox.warning(self, "No device", "Set the device root path first."); return
@@ -3566,7 +4325,6 @@ class RockboxToolsPage(QWidget):
         if not root.exists():
             QMessageBox.warning(self, "Not found", f"Path does not exist:\n{root}"); return
 
-        # Determine library source
         library_root: Optional[Path] = None
         if self._db_src_local.isChecked():
             lib_str = self._db_lib_path.text().strip()
@@ -3584,17 +4342,20 @@ class RockboxToolsPage(QWidget):
         self._db_log.clear()
         self._db_scan_btn.setEnabled(False)
         self._db_init_btn.setEnabled(False)
+        self._db_recompile_btn.setEnabled(False)
         self._db_progress.setVisible(True)
-        self._db_progress.setRange(0, 0)  # indeterminate until first file
-        self._db_progress.setFormat("Starting…")
+        self._db_progress.setRange(0, 0)
         self._db_cancel_btn.setVisible(True)
-        self._db_cancel_btn.setEnabled(True)   # re-enable in case prev run cancelled
+        self._db_cancel_btn.setEnabled(True)
         self._db_pause_btn.setVisible(True)
         self._db_pause_btn.setEnabled(True)
         self._db_pause_btn.setText("⏸  Pause")
         self._db_paused = False
         self._db_dot.set_color(_current_theme["warning"])
-        self._db_worker = RockboxDbWorker(root, mode, library_root=library_root)
+
+        self._db_worker = RockboxDbWorker(root, mode,
+                                          library_root=library_root,
+                                          force_recompile=force_recompile)
         self._db_worker.progress.connect(lambda msg: self._db_log.append(msg))
         self._db_worker.count_update.connect(self._on_db_count)
         self._db_worker.finished.connect(self._on_db_done)
@@ -3602,20 +4363,19 @@ class RockboxToolsPage(QWidget):
 
     def _on_db_count(self, current: int, total: int):
         if total > 0:
-            # Known total — show determinate bar (scan or generate phase)
             self._db_progress.setRange(0, total)
             self._db_progress.setValue(current)
             self._db_progress.setFormat(f"{current:,} / {total:,}")
         else:
-            # Scanning, total not yet known — advance bar with a growing ceiling
             SCAN_CEIL = max(current + 200, 500)
             self._db_progress.setRange(0, SCAN_CEIL)
             self._db_progress.setValue(current)
-            self._db_progress.setFormat(f"Scanning… {current:,} files")
+            self._db_progress.setFormat(f"Building… {current:,}")
 
     def _on_db_done(self, result: dict):
         self._db_scan_btn.setEnabled(True)
         self._db_init_btn.setEnabled(True)
+        self._db_recompile_btn.setEnabled(True)
         self._db_progress.setVisible(False)
         self._db_cancel_btn.setVisible(False)
         self._db_pause_btn.setVisible(False)
@@ -3628,51 +4388,33 @@ class RockboxToolsPage(QWidget):
         total   = result.get("total", 0)
         written = result.get("written", [])
         errors  = result.get("write_errors", [])
-        tag_err = result.get("tag_errors", 0)
-        stats_loaded = result.get("stats_loaded", 0)
-        mode    = result.get("mode", "")
-
-        self._db_log.append(f"\n📁 Indexed {total:,} audio files.")
-        if tag_err:
-            self._db_log.append(f"⚠ {tag_err} file(s) could not be read (skipped).")
-        update_stats = result.get("update_stats")
-        if update_stats:
-            added     = update_stats.get("added", 0)
-            renamed   = update_stats.get("renamed", 0)
-            deleted   = update_stats.get("deleted", 0)
-            unchanged = update_stats.get("unchanged", 0)
-            self._db_log.append(
-                f"♻ Delta update: +{added} added, {renamed} renamed, "
-                f"{deleted} removed, {unchanged:,} unchanged."
-            )
-        elif mode == RockboxDbWorker.MODE_UPDATE and stats_loaded:
-            self._db_log.append(f"♻ Preserved runtime stats for {stats_loaded:,} tracks.")
 
         if written:
-            self._db_log.append(f"\n✓ Wrote {len(written)} database file(s) to device:")
+            self._db_log.append(f"\n✓ Database written to device ({len(written)} files):")
             for fn in written:
                 self._db_log.append(f"   /.rockbox/{fn}")
             self._db_log.append(
-                "\n✓ Database is ready.\n"
-                "  Safely eject your iPod — it will load the database immediately on boot.\n"
+                "\n✓ Done. Safely eject your device — the database is ready.\n"
                 "  No on-device scan required."
             )
             self._db_dot.set_color(_current_theme["success"])
         if errors:
-            self._db_log.append(f"\n⚠ Failed to write {len(errors)} file(s) — check permissions:")
-            for fn in errors:
-                self._db_log.append(f"   {fn}")
+            self._db_log.append(f"\n⚠ Write errors:")
+            for e in errors:
+                self._db_log.append(f"   {e}")
             self._db_dot.set_color(_current_theme["warning"])
 
     def _cancel_db_worker(self):
         if self._db_worker and self._db_worker.isRunning():
-            # If paused, unblock the thread so it can see the interruption flag.
-            # Do this directly (not via _toggle_db_pause) to avoid noisy log/state flip.
             if self._db_paused:
                 self._db_worker._pause_event.set()
                 self._db_paused = False
                 self._db_pause_btn.setText("⏸  Pause")
             self._db_worker.requestInterruption()
+            # Also kill any running subprocess immediately
+            if self._db_worker._proc:
+                try: self._db_worker._proc.kill()
+                except Exception: pass
             self._db_log.append("\n⏹ Cancelling…")
             self._db_cancel_btn.setEnabled(False)
 
@@ -3680,35 +4422,30 @@ class RockboxToolsPage(QWidget):
         if not self._db_worker or not self._db_worker.isRunning():
             return
         if not self._db_paused:
-            self._db_worker._pause_event.clear()  # block the worker
+            self._db_worker._pause_event.clear()
             self._db_paused = True
             self._db_pause_btn.setText("▶  Resume")
             self._db_log.append("⏸ Paused.")
         else:
-            self._db_worker._pause_event.set()  # unblock the worker
+            self._db_worker._pause_event.set()
             self._db_paused = False
             self._db_pause_btn.setText("⏸  Pause")
             self._db_log.append("▶ Resumed.")
 
     def _reset_snapshot(self):
-        # Clear in-memory TagCache if available
-        try:
-            from dap_db_manager.database.cache import TagCache
-            TagCache.clear()
-        except Exception:
-            pass
-        # Delete all on-disk cache files for every library
-        deleted = 0
-        for f in CONFIG_DIR.glob("ddm_tagcache_*.msgpack.gz"):
+        # Remove cached compiled binary — forces recompile next run
+        deleted = []
+        if _RBX_TOOL_PATH.exists():
             try:
-                f.unlink()
-                deleted += 1
+                _RBX_TOOL_PATH.unlink()
+                deleted.append(_RBX_TOOL_PATH.name)
             except Exception as e:
-                self._db_log.append(f"⚠ Could not delete {f.name}: {e}")
+                self._db_log.append(f"⚠ Could not remove {_RBX_TOOL_PATH.name}: {e}")
         if deleted:
-            self._db_log.append(f"✓ Tag cache cleared ({deleted} file(s) removed) — next build will re-read all tags from disk.")
+            self._db_log.append(f"✓ Removed cached tool binary — next build will recompile.")
         else:
-            self._db_log.append("Tag cache cleared — next build will re-read all tags from disk.")
+            self._db_log.append("No cached tool binary found.")
+
 
     def _eject_device(self):
         root_str = self._dev_path.text().strip()
@@ -3871,17 +4608,17 @@ class RockboxToolsPage(QWidget):
         t    = _current_theme
         row  = QWidget()
         row.setStyleSheet(
-            f"QWidget{{background:{t['bg3']};border-radius:4px;}}"
-            f"QWidget:hover{{background:{t['bg4']};}}"
+            f"QWidget{{background:rgba(255,255,255,0.08);border-radius:4px;}}"
+            f"QWidget:hover{{background:rgba(255,255,255,0.12);}}"
         )
         hl   = QHBoxLayout(row); hl.setContentsMargins(10, 6, 10, 6); hl.setSpacing(12)
 
         info = QVBoxLayout(); info.setSpacing(1)
         key_lbl = QLabel(key)
-        key_lbl.setStyleSheet(f"font-family:'Cascadia Code','SF Mono','Consolas',monospace;"
-                               f"font-size:12px;color:{t['txt0']};font-weight:600;background:transparent;")
+        key_lbl.setStyleSheet("font-family:'Cascadia Code','SF Mono','Consolas',monospace;"
+                               f"font-size:12px;color:rgba(255,255,255,0.87);font-weight:600;background:transparent;")
         desc_lbl = QLabel(desc)
-        desc_lbl.setStyleSheet(f"font-size:11px;color:{t['txt2']};background:transparent;")
+        desc_lbl.setStyleSheet("font-size:11px;color:rgba(255,255,255,0.35);background:transparent;")
         desc_lbl.setWordWrap(True)
         info.addWidget(key_lbl); info.addWidget(desc_lbl)
         hl.addLayout(info, stretch=1)
@@ -4039,7 +4776,7 @@ class RockboxToolsPage(QWidget):
         self._tagnavi_tree = QTreeWidget()
         self._tagnavi_tree.setHeaderHidden(True)
         self._tagnavi_tree.setIndentation(16)
-        self._tagnavi_tree.setStyleSheet(f"""
+        self._tagnavi_tree.setStyleSheet("""
             QTreeWidget {{ background: {_current_theme['bg2']}; border: 1px solid {_current_theme['border']};
                            border-radius: 4px; outline: none; font-size: 12px; }}
             QTreeWidget::item {{ padding: 4px 6px; border-radius: 3px; color: {_current_theme['txt0']}; }}
@@ -4573,7 +5310,7 @@ class WebAuthDialog(QDialog):
         self._approved = False
 
         t = _current_theme
-        self.setStyleSheet(f"background: {t['bg0']}; color: {t['txt0']};")
+        self.setStyleSheet("background: rgba(5,7,11,0.95); color: rgba(255,255,255,0.85);")
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -4581,12 +5318,12 @@ class WebAuthDialog(QDialog):
 
         # ── Top bar ──────────────────────────────────────────
         bar = QWidget()
-        bar.setStyleSheet(f"background: {t['bg1']}; border-bottom: 1px solid {t['border']};")
+        bar.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         bar.setFixedHeight(46)
         bl = QHBoxLayout(bar); bl.setContentsMargins(14, 0, 14, 0); bl.setSpacing(10)
 
         self._url_lbl = QLabel(url)
-        self._url_lbl.setStyleSheet(f"color: {t['txt2']}; font-size: 11px; background: transparent;")
+        self._url_lbl.setStyleSheet("color: rgba(255,255,255,0.35); font-size: 11px; background: transparent;")
         self._url_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         bl.addWidget(self._url_lbl, stretch=1)
 
@@ -4631,7 +5368,7 @@ class WebAuthDialog(QDialog):
             )
             info.setWordWrap(True)
             info.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-            info.setStyleSheet(f"color: {t['txt1']}; font-size: 13px; background: transparent; line-height: 1.6;")
+            info.setStyleSheet("color: rgba(255,255,255,0.55); font-size: 13px; background: transparent; line-height: 1.6;")
             fl.addWidget(info)
             fl.addStretch()
 
@@ -4848,7 +5585,7 @@ class RsyncPage(QWidget):
 
         # ── Top bar ───────────────────────────────────────────
         top = QWidget()
-        top.setStyleSheet(f"background:{t['bg1']};border-bottom:1px solid {t['border']};")
+        top.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         top.setFixedHeight(60)
         tb = QHBoxLayout(top); tb.setContentsMargins(24, 0, 24, 0); tb.setSpacing(16)
         title_lbl = QLabel("Rsync"); title_lbl.setObjectName("heading")
@@ -4875,19 +5612,19 @@ class RsyncPage(QWidget):
         # ── Main split ────────────────────────────────────────
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setHandleWidth(1)
-        splitter.setStyleSheet(f"QSplitter::handle{{background:{t['border']};}}")
+        splitter.setStyleSheet(f"QSplitter::handle{{background:rgba(255,255,255,0.09);}}")
 
         # Left: profile panel
         left = QWidget()
         left.setFixedWidth(215)
-        left.setStyleSheet(f"background:{t['bg1']};border-right:1px solid {t['border']};")
+        left.setStyleSheet("background:rgba(5,7,11,0.50); border-right:1px solid rgba(255,255,255,0.07);")
         lv = QVBoxLayout(left); lv.setContentsMargins(10, 14, 10, 12); lv.setSpacing(8)
         lv.addWidget(SectionLabel("Saved Profiles"))
         self._profile_list = QListWidget()
         self._profile_list.setStyleSheet(
             f"QListWidget{{background:transparent;border:none;outline:none;}}"
-            f"QListWidget::item{{padding:7px 8px;border-radius:5px;color:{t['txt1']};}}"
-            f"QListWidget::item:hover{{background:{t['bg2']};color:{t['txt0']};}}"
+            f"QListWidget::item{{padding:7px 8px;border-radius:5px;color:rgba(255,255,255,0.55);}}"
+            f"QListWidget::item:hover{{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.87);}}"
             f"QListWidget::item:selected{{background:{t['accentlo']};color:{t['accent']};}}")
         self._profile_list.currentRowChanged.connect(self._on_profile_select)
         lv.addWidget(self._profile_list, stretch=1)
@@ -5006,9 +5743,9 @@ class RsyncPage(QWidget):
         self._cmd_preview.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self._cmd_preview.setWordWrap(True)
         self._cmd_preview.setStyleSheet(
-            f"background:{t['bg1']};border:1px solid {t['border']};border-radius:5px;"
+            f"background:rgba(5,7,11,0.50);border:1px solid rgba(255,255,255,0.09);border-radius:5px;"
             f"padding:10px 14px;font-family:'Cascadia Code','SF Mono','Consolas',monospace;"
-            f"font-size:12px;color:{t['txt1']};")
+            f"font-size:12px;color:rgba(255,255,255,0.55);")
         cc.addWidget(self._cmd_preview)
         ev.addWidget(cmd_card)
         ev.addStretch()
@@ -5018,7 +5755,7 @@ class RsyncPage(QWidget):
 
         # ── Bottom run bar ────────────────────────────────────
         run_bar = QWidget()
-        run_bar.setStyleSheet(f"background:{t['bg1']};border-top:1px solid {t['border']};")
+        run_bar.setStyleSheet("background:rgba(5,7,11,0.60); border-top:1px solid rgba(255,255,255,0.07);")
         rb = QHBoxLayout(run_bar); rb.setContentsMargins(16, 8, 20, 8); rb.setSpacing(10)
         self._save_btn = QPushButton("💾  Save Profile"); self._save_btn.setObjectName("ghost")
         self._save_btn.setFixedHeight(38); self._save_btn.clicked.connect(self._save_profile)
@@ -5044,7 +5781,7 @@ class RsyncPage(QWidget):
 
         # ── Terminal output ───────────────────────────────────
         term_hdr = QWidget()
-        term_hdr.setStyleSheet(f"background:{t['bg1']};border-top:1px solid {t['border']};")
+        term_hdr.setStyleSheet("background:rgba(5,7,11,0.60); border-top:1px solid rgba(255,255,255,0.07);")
         th = QHBoxLayout(term_hdr); th.setContentsMargins(16, 5, 14, 5)
         th.addWidget(SectionLabel("Output")); th.addStretch()
         self._status_dot = StatusDot(t["txt2"]); th.addWidget(self._status_dot)
@@ -5058,7 +5795,7 @@ class RsyncPage(QWidget):
         self._output.setReadOnly(True); self._output.setMinimumHeight(200)
         self._output.setPlaceholderText("rsync output will appear here…")
         self._output.setStyleSheet(
-            f"QPlainTextEdit{{background:{t['bg0']};color:{t['txt0']};"
+            f"QPlainTextEdit{{background:rgba(0,0,0,0.30);color:rgba(255,255,255,0.87);"
             f"font-family:'Cascadia Code','SF Mono','Consolas',monospace;font-size:12px;"
             f"border:none;border-radius:0px;padding:10px;}}")
         rv.addWidget(self._output, stretch=2)
@@ -5757,16 +6494,7 @@ class AppearancePage(QWidget):
         title = QLabel("Appearance"); title.setObjectName("heading"); root.addWidget(title)
 
         # Color scheme card
-        sc_card = QWidget(); sc_card.setObjectName("card")
-        sc = QVBoxLayout(sc_card); sc.setContentsMargins(18,14,18,16); sc.setSpacing(14)
-        sc.addWidget(SectionLabel("Color scheme"))
-        scheme_row = QHBoxLayout(); scheme_row.setSpacing(10)
-        for label, td in [("  Dark", DARK), ("  Light", LIGHT)]:
-            btn = QPushButton(label); btn.setObjectName("ghost")
-            btn.setMinimumWidth(100); btn.setMinimumHeight(36)
-            btn.clicked.connect(lambda _, t=td, n=label.strip(): self._apply_base(t, n))
-            scheme_row.addWidget(btn)
-        scheme_row.addStretch(); sc.addLayout(scheme_row); root.addWidget(sc_card)
+
 
         # Accent card
         ac_card = QWidget(); ac_card.setObjectName("card")
@@ -5787,28 +6515,6 @@ class AppearancePage(QWidget):
         custom_row.addWidget(custom_lbl); custom_row.addWidget(self._accent_swatch)
         custom_row.addWidget(self._accent_hex); custom_row.addStretch()
         ac.addLayout(custom_row); root.addWidget(ac_card)
-
-        # Advanced colors card
-        cc_card = QWidget(); cc_card.setObjectName("card")
-        cc = QVBoxLayout(cc_card); cc.setContentsMargins(18,14,18,16); cc.setSpacing(14)
-        cc.addWidget(SectionLabel("Advanced color overrides"))
-        self._color_rows: dict[str, ColorSwatch] = {}
-        color_defs = [("bg0","Background (deep)"),("bg1","Background (sidebar)"),("bg2","Background (cards)"),
-                      ("txt0","Text (primary)"),("txt1","Text (secondary)"),("border","Border"),
-                      ("success","Success"),("danger","Danger")]
-        cgrid = QGridLayout(); cgrid.setHorizontalSpacing(16); cgrid.setVerticalSpacing(8)
-        for ri, (key, label) in enumerate(color_defs):
-            ci = (ri % 2) * 3; ri2 = ri // 2
-            lbl = QLabel(label); lbl.setObjectName("secondary")
-            sw = ColorSwatch(_current_theme.get(key,"#888")); sw.setFixedSize(34,26)
-            sw.color_changed.connect(lambda c, k=key: self._apply_color_override(k, c))
-            self._color_rows[key] = sw
-            cgrid.addWidget(sw, ri2, ci); cgrid.addWidget(lbl, ri2, ci+1)
-        cgrid.setColumnStretch(2, 1); cgrid.setColumnStretch(5, 1)
-        cc.addLayout(cgrid)
-        reset_btn = QPushButton("Reset to defaults"); reset_btn.setObjectName("ghost"); reset_btn.setFixedWidth(150)
-        reset_btn.clicked.connect(self._reset_colors)
-        cc.addWidget(reset_btn, alignment=Qt.AlignmentFlag.AlignRight); root.addWidget(cc_card)
 
         root.addStretch()
         scroll.setWidget(inner); outer.addWidget(scroll)
@@ -5831,22 +6537,15 @@ class AppearancePage(QWidget):
         self._accent_swatch.set_color(c1); self._accent_hex.setText(c1)
         self.theme_changed.emit(_current_theme)
 
-    def _apply_color_override(self, key: str, color: str):
-        global _current_theme
-        _current_theme[key] = color; conf = self.conf()
-        overrides = conf.get("color_overrides", {}); overrides[key] = color
-        conf["color_overrides"] = overrides; save_conf(conf); self.theme_changed.emit(_current_theme)
-
     def _reset_colors(self):
         global _current_theme
-        conf = self.conf(); base = LIGHT if conf.get("theme") == "light" else DARK
-        _current_theme = base.copy()
+        _current_theme = DARK.copy()
+        conf = self.conf()
         conf.pop("custom_accent", None); conf.pop("custom_accent2", None); conf.pop("color_overrides", None)
         save_conf(conf); self._sync_swatches(); self.theme_changed.emit(_current_theme)
 
     def _sync_swatches(self):
         self._accent_swatch.set_color(_current_theme["accent"]); self._accent_hex.setText(_current_theme["accent"])
-        for key, sw in self._color_rows.items(): sw.set_color(_current_theme.get(key,"#888"))
 
 
 
@@ -5877,13 +6576,13 @@ class SettingsPage(QWidget):
         # Page header
         hdr = QWidget()
         hdr.setFixedHeight(56)
-        hdr.setStyleSheet(f"background:{tok('bg1')};border-bottom:1px solid {tok('border')};")
+        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         hb = QHBoxLayout(hdr)
         hb.setContentsMargins(28, 0, 28, 0)
         title = QLabel("Settings")
         tf = QFont(); tf.setPointSize(14); tf.setBold(True)
         title.setFont(tf)
-        title.setStyleSheet(f"color:{tok('txt0')};background:transparent;")
+        title.setStyleSheet("color:#fff;background:transparent;")
         hb.addWidget(title)
         hb.addStretch()
         outer.addWidget(hdr)
@@ -5891,7 +6590,7 @@ class SettingsPage(QWidget):
         # Tab bar
         tab_bar = QWidget()
         tab_bar.setFixedHeight(40)
-        tab_bar.setStyleSheet(f"background:{tok('bg1')};border-bottom:1px solid {tok('border')};")
+        tab_bar.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         tb = QHBoxLayout(tab_bar)
         tb.setContentsMargins(24, 0, 24, 0)
         tb.setSpacing(0)
@@ -6072,7 +6771,7 @@ class SettingsPage(QWidget):
         self._lbz_tok_in.setPlaceholderText("Paste your ListenBrainz user token here…")
         self._lbz_tok_in.setEchoMode(QLineEdit.EchoMode.Password)
         vb.addWidget(self._lbz_tok_in)
-        link = QLabel('<a href="https://listenbrainz.org/profile/" style="color:#c8861a;font-size:12px;">'
+        link = QLabel(f'<a href="https://listenbrainz.org/profile/" style="color:{tok("accent")};font-size:12px;">'
                       'Get your token at listenbrainz.org/profile/ →</a>')
         link.setOpenExternalLinks(False)
         link.linkActivated.connect(lambda url: open_url(QUrl(url)))
@@ -6129,16 +6828,7 @@ class SettingsPage(QWidget):
         root.setContentsMargins(28,24,28,20); root.setSpacing(20)
 
         # Color scheme card
-        sc_card = QWidget(); sc_card.setObjectName("card")
-        sc = QVBoxLayout(sc_card); sc.setContentsMargins(18,14,18,16); sc.setSpacing(14)
-        sc.addWidget(SectionLabel("Color scheme"))
-        scheme_row = QHBoxLayout(); scheme_row.setSpacing(10)
-        for label, td in [("  Dark", DARK), ("  Light", LIGHT)]:
-            btn = QPushButton(label); btn.setObjectName("ghost")
-            btn.setMinimumWidth(100); btn.setMinimumHeight(36)
-            btn.clicked.connect(lambda _, t=td, n=label.strip(): self._apply_base(t, n))
-            scheme_row.addWidget(btn)
-        scheme_row.addStretch(); sc.addLayout(scheme_row); root.addWidget(sc_card)
+
 
         # Accent card
         ac_card = QWidget(); ac_card.setObjectName("card")
@@ -6159,28 +6849,6 @@ class SettingsPage(QWidget):
         custom_row.addWidget(custom_lbl); custom_row.addWidget(self._accent_swatch)
         custom_row.addWidget(self._accent_hex); custom_row.addStretch()
         ac.addLayout(custom_row); root.addWidget(ac_card)
-
-        # Advanced colors card
-        cc_card = QWidget(); cc_card.setObjectName("card")
-        cc = QVBoxLayout(cc_card); cc.setContentsMargins(18,14,18,16); cc.setSpacing(14)
-        cc.addWidget(SectionLabel("Advanced color overrides"))
-        self._color_rows: dict[str, ColorSwatch] = {}
-        color_defs = [("bg0","Background (deep)"),("bg1","Background (sidebar)"),("bg2","Background (cards)"),
-                      ("txt0","Text (primary)"),("txt1","Text (secondary)"),("border","Border"),
-                      ("success","Success"),("danger","Danger")]
-        cgrid = QGridLayout(); cgrid.setHorizontalSpacing(16); cgrid.setVerticalSpacing(8)
-        for ri, (key, label) in enumerate(color_defs):
-            ci = (ri % 2) * 3; ri2 = ri // 2
-            lbl = QLabel(label); lbl.setObjectName("secondary")
-            sw = ColorSwatch(_current_theme.get(key,"#888")); sw.setFixedSize(34,26)
-            sw.color_changed.connect(lambda c, k=key: self._apply_color_override(k, c))
-            self._color_rows[key] = sw
-            cgrid.addWidget(sw, ri2, ci); cgrid.addWidget(lbl, ri2, ci+1)
-        cgrid.setColumnStretch(2, 1); cgrid.setColumnStretch(5, 1)
-        cc.addLayout(cgrid)
-        reset_btn = QPushButton("Reset to defaults"); reset_btn.setObjectName("ghost"); reset_btn.setFixedWidth(150)
-        reset_btn.clicked.connect(self._reset_colors)
-        cc.addWidget(reset_btn, alignment=Qt.AlignmentFlag.AlignRight); root.addWidget(cc_card)
 
         root.addStretch()
         scroll.setWidget(inner); outer.addWidget(scroll)
@@ -6204,22 +6872,15 @@ class SettingsPage(QWidget):
         self._accent_swatch.set_color(c1); self._accent_hex.setText(c1)
         self.theme_changed.emit(_current_theme)
 
-    def _apply_color_override(self, key: str, color: str):
-        global _current_theme
-        _current_theme[key] = color; conf = self.conf()
-        overrides = conf.get("color_overrides", {}); overrides[key] = color
-        conf["color_overrides"] = overrides; save_conf(conf); self.theme_changed.emit(_current_theme)
-
     def _reset_colors(self):
         global _current_theme
-        conf = self.conf(); base = LIGHT if conf.get("theme") == "light" else DARK
-        _current_theme = base.copy()
+        _current_theme = DARK.copy()
+        conf = self.conf()
         conf.pop("custom_accent", None); conf.pop("custom_accent2", None); conf.pop("color_overrides", None)
         save_conf(conf); self._sync_swatches(); self.theme_changed.emit(_current_theme)
 
     def _sync_swatches(self):
         self._accent_swatch.set_color(_current_theme["accent"]); self._accent_hex.setText(_current_theme["accent"])
-        for key, sw in self._color_rows.items(): sw.set_color(_current_theme.get(key,"#888"))
 
     # ── Miscellaneous tab ─────────────────────────────────────
 
@@ -6768,7 +7429,10 @@ class _TidalDlWorker(QThread):
         self._dest   = dest
         self._track  = track or {}
         self._prefs  = prefs or {}
-        self._stream = stream_data or {}
+        sd = stream_data or {}
+        if isinstance(sd.get("data"), dict):
+            sd = sd["data"]
+        self._stream = sd
         self._cancel = False
         self._pause_event = _threading.Event()
         self._pause_event.set()   # not paused initially
@@ -6821,9 +7485,7 @@ class _TidalDlWorker(QThread):
                     continue
             return None
 
-        # DASH (Hi-Res / Lossless) handling:
-        # Many backends return a DASH MPD manifest (base64 in playbackinfo). Directly downloading the resolved URL
-        # often yields a single segment or init fragment. For DASH, use ffmpeg to fetch + assemble the whole stream.
+        # ── DASH download (HI_RES_LOSSLESS / LOSSLESS via MPD manifest) ──────
         mime = (self._stream.get("manifestMimeType") or self._stream.get("manifest_mime_type") or "").lower()
         manifest_b64 = self._stream.get("manifest") or self._stream.get("encodedManifest") or ""
         if manifest_b64 and "dash+xml" in mime:
@@ -6835,74 +7497,114 @@ class _TidalDlWorker(QThread):
             tmp_mpd = str(Path(self._dest).with_suffix(".mpd"))
             with open(tmp_mpd, "w", encoding="utf-8") as f:
                 f.write(decoded)
-
+            # Use -progress pipe:1 so we can parse time and emit progress signals
+            duration_s = float(self._track.get("duration") or 0)
             cmd = [
-                "ffmpeg", "-y", "-loglevel", "error",
+                "ffmpeg", "-y",
                 "-protocol_whitelist", "file,https,tls,tcp,crypto",
                 "-i", tmp_mpd,
-                "-vn",
-                "-c:a", "flac",
+                "-vn", "-c:a", "flac",
+                "-progress", "pipe:1",
+                "-loglevel", "error",
                 self._dest,
             ]
-            p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ff_stderr_lines = []
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+            # Emit progress from ffmpeg -progress output (out_time_ms=...)
+            try:
+                for line in proc.stdout:
+                    self._pause_event.wait()
+                    if self._cancel:
+                        proc.kill()
+                        try:
+                            Path(self._dest).unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                        self.done.emit(False, "Cancelled")
+                        return
+                    line = line.strip()
+                    if line.startswith("out_time_ms=") and duration_s > 0:
+                        try:
+                            elapsed_ms = int(line.split("=", 1)[1])
+                            elapsed_s  = elapsed_ms / 1_000_000
+                            pct = min(int(elapsed_s / duration_s * 100), 99)
+                            # Emit as fraction of duration (recv/total in bytes equivalent)
+                            self.progress.emit(pct, 100)
+                        except Exception:
+                            pass
+                proc.wait()
+            except Exception:
+                proc.wait()
+            # Collect any stderr
+            try:
+                raw_err = proc.stderr.read()
+                if raw_err:
+                    ff_stderr_lines.append(raw_err.decode("utf-8", "ignore").strip())
+            except Exception:
+                pass
             try:
                 Path(tmp_mpd).unlink(missing_ok=True)
             except Exception:
                 pass
-            if p.returncode != 0:
-                err = (p.stderr or b"").decode("utf-8", "ignore").strip()
+            if proc.returncode != 0:
+                err = " ".join(ff_stderr_lines).strip()
                 raise RuntimeError(f"ffmpeg DASH download failed: {err or 'unknown error'}")
-            # Fall through to post-processing (tags, cover, lyrics) below
+            self.progress.emit(100, 100)
+            # DASH done — skip plain HTTP download, go straight to post-processing
 
-        # For DASH streams, we may need to follow redirects or re-fetch
-        headers = {
-            "User-Agent": "Scrobbox/4.0",
-            "Accept": "audio/flac, audio/mp4, audio/*, */*",
-        }
-        try:
-            r = requests.get(self._url, stream=True, timeout=90, headers=headers)
-            r.raise_for_status()
-        except requests.RequestException as e:
-            raise RuntimeError(f"Download failed: {e}")
+        else:
+            # ── Plain HTTP download (AAC / non-DASH streams) ─────────────────
+            headers = {
+                "User-Agent": "Scrobbox/4.0",
+                "Accept": "audio/flac, audio/mp4, audio/*, */*",
+            }
+            try:
+                r = requests.get(self._url, stream=True, timeout=90, headers=headers)
+                r.raise_for_status()
+            except requests.RequestException as e:
+                raise RuntimeError(f"Download failed: {e}")
 
-        content_type = r.headers.get("content-type", "").lower()
-        total = int(r.headers.get("content-length", 0))
+            content_type = r.headers.get("content-type", "").lower()
+            total = int(r.headers.get("content-length", 0))
 
-        # Reject if server returned a manifest/XML instead of audio
-        if any(bad in content_type for bad in ("xml", "mpd", "json", "text/html", "text/plain")):
-            raise RuntimeError(
-                f"Server returned non-audio content ({content_type}). "
-                "Try a different quality setting (CD Lossless instead of Hi-Res)."
-            )
+            if any(bad in content_type for bad in ("xml", "mpd", "json", "text/html", "text/plain")):
+                raise RuntimeError(
+                    f"Server returned non-audio content ({content_type}). "
+                    "Try a different quality setting (CD Lossless instead of Hi-Res)."
+                )
 
-        recv  = 0
-        with open(self._dest, "wb") as f:
-            for chunk in r.iter_content(65536):
-                self._pause_event.wait()   # blocks while paused
-                if self._cancel:
-                    # Clean up partial file
-                    try:
-                        Path(self._dest).unlink(missing_ok=True)
-                    except Exception:
-                        pass
-                    self.done.emit(False, "Cancelled")
-                    return
-                if chunk:
-                    f.write(chunk)
-                    recv += len(chunk)
-                    if total:
-                        self.progress.emit(recv, total)
+            recv = 0
+            with open(self._dest, "wb") as f:
+                for chunk in r.iter_content(65536):
+                    self._pause_event.wait()
+                    if self._cancel:
+                        try:
+                            Path(self._dest).unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                        self.done.emit(False, "Cancelled")
+                        return
+                    if chunk:
+                        f.write(chunk)
+                        recv += len(chunk)
+                        if total:
+                            self.progress.emit(recv, total)
 
-        # Validate file size — anything under 50 KB is almost certainly corrupt/wrong
-        min_bytes = 50 * 1024
-        actual_size = Path(self._dest).stat().st_size
-        if actual_size < min_bytes:
-            Path(self._dest).unlink(missing_ok=True)
-            raise RuntimeError(
-                f"Downloaded file is too small ({actual_size} bytes) — "
-                "likely a manifest or error response, not audio. "
-                "Try a different quality setting."
-            )
+            min_bytes = 50 * 1024
+            actual_size = Path(self._dest).stat().st_size
+            if actual_size < min_bytes:
+                Path(self._dest).unlink(missing_ok=True)
+                raise RuntimeError(
+                    f"Downloaded file is too small ({actual_size} bytes) — "
+                    "likely a manifest or error response, not audio. "
+                    "Try a different quality setting."
+                )
 
         # ── Post-processing ───────────────────────────────────
         dim_str = p.get("metadata_cover_dimension", "Px1280")
@@ -6931,8 +7633,9 @@ class _TidalDlWorker(QThread):
         if tid and (p.get("lyrics_file", True) or p.get("lyrics_embed", True)):
             try:
                 lrc_data = _tidal_req(f"/lyrics/?id={tid}")
-                if lrc_data:
-                    lyrics_obj = lrc_data.get("lyrics") or lrc_data
+                if isinstance(lrc_data, dict):
+                    inner = lrc_data.get("lyrics")
+                    lyrics_obj   = inner if isinstance(inner, dict) else lrc_data
                     plain_lyrics = lyrics_obj.get("lyrics") or ""
             except Exception:
                 pass
@@ -6973,10 +7676,11 @@ class _TidalDlWorker(QThread):
         if album:   lines.append(f"[al:{album}]")
         lines.append("")
 
-        # Tidal returns lyricsLines as list of {offset, text}
-        lyric_lines = lyrics_obj.get("lyricsLines") or lyrics_obj.get("subtitlesLines") or []
-        if lyric_lines:
-            for line in lyric_lines:
+        # Priority 1: parsed synced lines
+        synced = lyrics_obj.get("subtitlesLines") or lyrics_obj.get("lyricsLines") or []
+        if synced and isinstance(synced, list):
+            lines.append("")
+            for line in synced:
                 try:
                     offset_ms = int(line.get("offset", 0) or 0)
                     text      = line.get("text", "") or ""
@@ -6985,11 +7689,22 @@ class _TidalDlWorker(QThread):
                     lines.append(f"[{mins:02d}:{secs:05.2f}]{text}")
                 except Exception:
                     continue
-        else:
-            # Plain/unsynced lyrics — just write as text block
-            plain = lyrics_obj.get("lyrics") or ""
-            if plain:
-                lines.append(plain)
+            return "\n".join(lines)
+
+        # Priority 2: pre-built LRC string
+        subtitles = lyrics_obj.get("subtitles") or ""
+        if isinstance(subtitles, str) and subtitles.strip():
+            sub_lines = [l for l in subtitles.splitlines()
+                         if not l.startswith(("[ti:", "[ar:", "[al:", "[re:"))]
+            lines.append("")
+            lines.extend(sub_lines)
+            return "\n".join(lines)
+
+        # Priority 3: plain unsynced
+        plain = lyrics_obj.get("lyrics") or ""
+        if isinstance(plain, str) and plain.strip():
+            lines.append("")
+            lines.append(plain)
         return "\n".join(lines)
 
     def _embed_tags(self, dest: Path, track: dict, p: dict,
@@ -7108,6 +7823,7 @@ class _TidalSettingsPanel(QScrollArea):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         inner = QWidget()
+        inner.setStyleSheet("background: #0a0c10;")
         self._root = QVBoxLayout(inner)
         self._root.setContentsMargins(14, 12, 14, 12)
         self._root.setSpacing(8)
@@ -7115,7 +7831,7 @@ class _TidalSettingsPanel(QScrollArea):
 
         # Floating frame look
         self.setStyleSheet(
-            f"QScrollArea{{background:{tok('bg1')};border:1px solid {tok('bordhi')};border-radius:10px;}}"
+            f"QScrollArea{{background:#0a0c10;border:1px solid rgba(255,255,255,0.25);border-radius:10px;}}"
         )
 
         self._build()
@@ -7133,7 +7849,7 @@ class _TidalSettingsPanel(QScrollArea):
         f = QFrame()
         f.setFrameShape(QFrame.Shape.HLine)
         f.setFixedHeight(1)
-        f.setStyleSheet(f"background:{tok('border')};")
+        f.setStyleSheet("background:rgba(255,255,255,0.09);")
         return f
 
     def _build(self):
@@ -7161,7 +7877,7 @@ class _TidalSettingsPanel(QScrollArea):
         def _row_lbl(text):
             lbl = QLabel(text)
             lbl.setFixedWidth(185)
-            lbl.setStyleSheet(f"color:{tok('txt1')};font-size:11px;background:transparent;")
+            lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:11px;background:transparent;")
             return lbl
 
         # ── Audio Quality ─────────────────────────────────────
@@ -7221,7 +7937,7 @@ class _TidalSettingsPanel(QScrollArea):
         r.addWidget(self._heading("Paths"))
 
         lbl_dl = QLabel("Download folder")
-        lbl_dl.setStyleSheet(f"color:{tok('txt1')};font-size:10px;background:transparent;margin-top:3px;")
+        lbl_dl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:10px;background:transparent;margin-top:3px;")
         r.addWidget(lbl_dl)
         hb_dl = QHBoxLayout(); hb_dl.setSpacing(4); hb_dl.setContentsMargins(0,0,0,0)
         self._le_dl_base_path = _le(str(Path.home() / "Music" / "TIDAL"), "dl_base_path")
@@ -7235,7 +7951,7 @@ class _TidalSettingsPanel(QScrollArea):
 
         lbl_api = QLabel("Custom hifi-api URL  (leave blank to use public proxies)")
         lbl_api.setWordWrap(True)
-        lbl_api.setStyleSheet(f"color:{tok('txt1')};font-size:10px;background:transparent;margin-top:6px;")
+        lbl_api.setStyleSheet("color:rgba(255,255,255,0.55);font-size:10px;background:transparent;margin-top:6px;")
         r.addWidget(lbl_api)
         self._le_custom_api_url = _le("http://localhost:8000", "custom_api_url")
         r.addWidget(self._le_custom_api_url)
@@ -7336,14 +8052,201 @@ class _TidalSettingsPanel(QScrollArea):
 
 
 
-def _load_cover_into_label(cover_id: str, label: QLabel, size: int,
-                           corner_radius: int = 4, circle: bool = False):
-    """Async cover art loader — same pattern as _TidalAlbumCard._fetch_art which is known-good."""
-    if not cover_id:
-        return
-    cid = _tidal_normalize_cover_id(cover_id)
-    if not cid:
-        return
+class _AlbumFlowWidget(QWidget):
+    """
+    Responsive album grid that reflows into as many columns as fit.
+    Cards are fixed width (CARD_W); column count is recalculated on every
+    resizeEvent so the grid always fills the available width.
+    """
+    CARD_W  = 190
+    COVER_H = 190
+    GAP     = 14
+    MIN_COLS = 2
+
+    _GRAD_PAIRS = [
+        ("#1a1a2e", "#e94560"), ("#0f3460", "#533483"),
+        ("#16213e", "#0f3460"), ("#1b262c", "#0a3d62"),
+        ("#2c003e", "#8e24aa"), ("#1a237e", "#283593"),
+        ("#880e4f", "#4a0072"), ("#004d40", "#00695c"),
+        ("#bf360c", "#e64a19"), ("#37474f", "#546e7a"),
+    ]
+
+    def __init__(self, albums: list, on_open, on_dl, on_queue, parent=None):
+        super().__init__(parent)
+        self._cards   = []
+        self._on_open  = on_open
+        self._on_dl    = on_dl
+        self._on_queue = on_queue
+        self.setStyleSheet("background:transparent;")
+        self._build_cards(albums)
+
+    def _build_cards(self, albums):
+        t = _current_theme
+        CW = self.CARD_W
+        CH = self.COVER_H
+
+        for alb in albums[:200]:
+            title  = (alb.get("title") or alb.get("name") or "Untitled").strip()
+            artist = ""
+            if isinstance(alb.get("artist"), dict):
+                artist = (alb["artist"].get("name") or alb["artist"].get("title") or "").strip()
+            if not artist and isinstance(alb.get("artists"), list) and alb["artists"]:
+                a0 = alb["artists"][0]
+                if isinstance(a0, dict):
+                    artist = (a0.get("name") or a0.get("title") or "").strip()
+            year = str(alb.get("releaseDate") or alb.get("release_date") or alb.get("year") or "")
+            year = year.split("-")[0] if year else ""
+
+            card = QFrame(self)
+            card.setFixedWidth(CW)
+            card.setStyleSheet(
+                "QFrame#alb_card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"
+                f"border-radius:10px;}}"
+                f"QFrame#alb_card:hover{{border-color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);}}"
+                f"QFrame#alb_card QLabel{{background:transparent;border:none;}}"
+                f"QFrame#alb_card QPushButton{{font-size:11px;padding:3px 8px;}}"
+            )
+            card.setObjectName("alb_card")
+            card.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            vb = QVBoxLayout(card)
+            vb.setContentsMargins(0, 0, 0, 8)
+            vb.setSpacing(0)
+
+            # Cover art
+            art_container = QWidget()
+            art_container.setFixedSize(CW, CH)
+            art_container.setStyleSheet("background:transparent;")
+            cover_lbl = QLabel(art_container)
+            cover_lbl.setFixedSize(CW, CH)
+            cover_lbl.move(0, 0)
+            cover_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            cover_lbl.setStyleSheet("background:transparent;border:none;")
+
+            c1, c2 = self._GRAD_PAIRS[abs(hash(title)) % len(self._GRAD_PAIRS)]
+            first  = (title[:1] or "♪").upper()
+            pix    = QPixmap(CW, CH)
+            pp = QPainter(pix)
+            pp.setRenderHint(QPainter.RenderHint.Antialiasing)
+            grad = QLinearGradient(0, 0, CW, CH)
+            grad.setColorAt(0.0, QColor(c1)); grad.setColorAt(1.0, QColor(c2))
+            pp.fillRect(0, 0, CW, CH, QBrush(grad))
+            pp.setPen(QColor(255, 255, 255, 50))
+            ff = QFont(); ff.setPointSize(52); ff.setWeight(QFont.Weight.Black)
+            pp.setFont(ff)
+            pp.drawText(pix.rect(), Qt.AlignmentFlag.AlignCenter, first)
+            pp.end()
+            rounded = QPixmap(CW, CH); rounded.fill(Qt.GlobalColor.transparent)
+            rp = QPainter(rounded); rp.setRenderHint(QPainter.RenderHint.Antialiasing)
+            path = QPainterPath()
+            path.addRoundedRect(QRectF(0, 0, CW, CH), 9, 9)
+            rp.setClipPath(path); rp.drawPixmap(0, 0, pix); rp.end()
+            cover_lbl.setPixmap(rounded)
+
+            alb_cover_id = (alb.get("cover") or alb.get("coverId") or alb.get("cover_id")
+                            or _tidal_find_cover_id(alb))
+            if alb_cover_id:
+                _load_cover_into_label(str(alb_cover_id), cover_lbl, CW, corner_radius=9)
+
+            vb.addWidget(art_container)
+
+            # Text
+            info = QWidget(); info.setStyleSheet("background:transparent;")
+            iv = QVBoxLayout(info); iv.setContentsMargins(10, 6, 10, 0); iv.setSpacing(1)
+            ttl_lbl = QLabel()
+            ttl_lbl.setStyleSheet("color:rgba(255,255,255,0.85);font-weight:600;font-size:12px;background:transparent;border:none;")
+            fm = QFontMetrics(ttl_lbl.font())
+            ttl_lbl.setText(fm.elidedText(title, Qt.TextElideMode.ElideRight, CW - 20))
+            sub_parts = ([artist] if artist else []) + ([year] if year else [])
+            sub_lbl = QLabel()
+            sub_lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;border:none;")
+            fm2 = QFontMetrics(sub_lbl.font())
+            sub_lbl.setText(fm2.elidedText(" · ".join(sub_parts), Qt.TextElideMode.ElideRight, CW - 20))
+            iv.addWidget(ttl_lbl); iv.addWidget(sub_lbl)
+            vb.addWidget(info)
+
+            # Actions
+            acts = QWidget(); acts.setStyleSheet("background:transparent;")
+            ah = QHBoxLayout(acts); ah.setContentsMargins(8, 4, 8, 0); ah.setSpacing(4)
+            open_btn = QPushButton("Open"); open_btn.setFixedHeight(26)
+            open_btn.clicked.connect(lambda _=False, a=alb: self._on_open(a))
+            dl_btn = QPushButton("⬇"); dl_btn.setFixedSize(26, 26)
+            dl_btn.setToolTip("Download album"); dl_btn.setObjectName("dl_btn")
+            dl_btn.clicked.connect(lambda _=False, a=alb: self._on_dl(a))
+            q_btn = QPushButton("+"); q_btn.setFixedSize(26, 26)
+            q_btn.setToolTip("Add to queue")
+            q_btn.clicked.connect(lambda _=False, a=alb: self._on_queue(a))
+            ah.addWidget(open_btn, stretch=1); ah.addWidget(dl_btn); ah.addWidget(q_btn)
+            vb.addWidget(acts)
+
+            card.mousePressEvent = (lambda e, a=alb:
+                self._on_open(a) if e.button() == Qt.MouseButton.LeftButton else None)
+
+            card.hide()   # positioned manually in _reflow
+            self._cards.append(card)
+
+        self._reflow_cols = 0   # force reflow on first show
+
+    def _cols_for_width(self, w: int) -> int:
+        if w <= 0:
+            return self.MIN_COLS
+        cols = max(self.MIN_COLS, (w + self.GAP) // (self.CARD_W + self.GAP))
+        return cols
+
+    def _reflow(self):
+        w = self.width()
+        cols = self._cols_for_width(w)
+        if cols == self._reflow_cols and self._cards and self._cards[0].isVisible():
+            return   # nothing changed
+        self._reflow_cols = cols
+
+        # Centre the grid block horizontally
+        total_w = cols * self.CARD_W + (cols - 1) * self.GAP
+        x0 = max(0, (w - total_w) // 2)
+
+        card_h = self._cards[0].sizeHint().height() if self._cards else 260
+        row_h  = card_h + self.GAP
+        y0     = self.GAP
+
+        for i, card in enumerate(self._cards):
+            col = i % cols
+            row = i // cols
+            card.move(x0 + col * (self.CARD_W + self.GAP), y0 + row * row_h)
+            card.show()
+
+        rows  = (len(self._cards) + cols - 1) // cols if self._cards else 0
+        total_h = y0 + rows * row_h + self.GAP
+        self.setMinimumHeight(total_h)
+        self.updateGeometry()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._reflow()
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self._reflow()
+
+
+# Module-level set that holds all live _CoverFetchWorker instances.
+# This is the only reliable way to prevent PyQt6/Qt from destroying a QThread
+# while it is still running: keep a Python-side strong reference so the GC
+# (and Qt's parent-child ownership) cannot collect it prematurely.
+_active_cover_workers: set = set()
+
+
+class _CoverFetchWorker(QThread):
+    """
+    Fetches a TIDAL cover on a background QThread and delivers raw bytes to
+    the main thread via a Qt signal.  QTimer.singleShot() posted from a plain
+    Python threading.Thread silently drops the callback in PyQt6 because plain
+    threads have no Qt event-loop affinity — signals are the correct mechanism.
+
+    Lifetime is managed by _active_cover_workers: the worker adds itself on
+    start and removes itself (via finished signal) when the thread exits,
+    preventing "QThread destroyed while still running" SIGABRT crashes.
+    """
+    done = pyqtSignal(bytes)
 
     _HEADERS = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
@@ -7351,33 +8254,76 @@ def _load_cover_into_label(cover_id: str, label: QLabel, size: int,
         "Referer": "https://listen.tidal.com/",
     }
 
-    def _run():
-        # Try sizes from desired down to smaller fallbacks
-        for sz in sorted({size, 320, 640, 160}, reverse=True):
-            url = f"https://resources.tidal.com/images/{cid.replace('-', '/')}/{sz}x{sz}.jpg"
+    def __init__(self, cid: str, size: int):
+        super().__init__(None)   # no QObject parent — avoids cross-thread ownership crash
+        self._cid  = cid
+        self._size = size
+        # Keep ourselves alive until the thread finishes
+        _active_cover_workers.add(self)
+        self.finished.connect(self._on_finished)
+
+    def _on_finished(self):
+        _active_cover_workers.discard(self)
+        self.deleteLater()
+
+    def run(self):
+        for sz in sorted({self._size, 640, 320, 160}, reverse=True):
+            url = f"https://resources.tidal.com/images/{self._cid.replace('-', '/')}/{sz}x{sz}.jpg"
             try:
-                r = requests.get(url, timeout=10, headers=_HEADERS)
+                r = requests.get(url, timeout=10, headers=self._HEADERS)
                 ct = r.headers.get("content-type", "")
-                ok = r.status_code == 200 and len(r.content) > 500
-                ok = ok and ("image" in ct or r.content[:3] in (b"\xff\xd8\xff", b"\x89PN"))
+                ok = (r.status_code == 200 and len(r.content) > 500
+                      and ("image" in ct or r.content[:3] in (b"\xff\xd8\xff", b"\x89PN")))
                 if ok:
-                    raw = r.content
-                    QTimer.singleShot(0, lambda raw=raw: _set_cover_on_label(
-                        label, raw, size, corner_radius, circle))
+                    self.done.emit(r.content)
                     return
             except Exception:
                 continue
 
-    _threading.Thread(target=_run, daemon=True).start()
+
+def _load_cover_into_label(cover_id: str, label: QLabel, size: int,
+                           corner_radius: int = 4, circle: bool = False):
+    """
+    Async cover art loader.  Uses a QThread + signal so Qt guarantees the
+    callback runs on the main thread.  The old plain-threading.Thread approach
+    with QTimer.singleShot() is unreliable in PyQt6 and silently drops covers.
+    Worker lifetime is managed by _active_cover_workers to prevent SIGABRT.
+    """
+    if not cover_id:
+        return
+    cid = _tidal_normalize_cover_id(cover_id)
+    if not cid:
+        return
+
+    worker = _CoverFetchWorker(cid, size)
+
+    def _on_done(raw: bytes):
+        try:
+            if not sip.isdeleted(label):
+                _set_cover_on_label(label, raw, size, corner_radius, circle)
+        except Exception:
+            pass
+        try:
+            worker.done.disconnect(_on_done)
+        except Exception:
+            pass
+
+    worker.done.connect(_on_done, Qt.ConnectionType.QueuedConnection)
+    worker.start()
 
 
 def _set_cover_on_label(label: QLabel, raw: bytes, size: int,
                         corner_radius: int = 4, circle: bool = False):
     """Paint cover bytes onto a QLabel — must be called on the main thread."""
     try:
-        img = QImage()
-        img.loadFromData(raw)
-        if img.isNull():
+        # Guard: widget may have been destroyed between the thread finishing and
+        # this QTimer callback firing (common when cards are rebuilt rapidly).
+        if sip.isdeleted(label):
+            return
+        # Use the plugin-free decoder so covers work in AppImage/PyInstaller
+        # where Qt imageformat plugins are often absent.
+        img = _qimage_from_bytes_plugin_free(raw)
+        if img is None or img.isNull():
             return
         w = size
         h = size
@@ -7398,9 +8344,11 @@ def _set_cover_on_label(label: QLabel, raw: bytes, size: int,
         painter.setClipPath(path)
         painter.drawPixmap(0, 0, src)
         painter.end()
-        label.setPixmap(result)
-        label.setText("")
-        label.setStyleSheet("background:transparent;border:none;")
+        # Final guard before touching the widget
+        if not sip.isdeleted(label):
+            label.setPixmap(result)
+            label.setText("")
+            label.setStyleSheet("background:transparent;border:none;")
     except Exception:
         pass
 
@@ -7507,6 +8455,7 @@ def _apply_cover_raw(lbl: QLabel, size: int, corner_radius: int = 4, circle: boo
 class _TidalTrackRow(QWidget):
     download_req = pyqtSignal(dict)
     queue_req    = pyqtSignal(dict)
+    album_open   = pyqtSignal(dict)   # emitted when cover thumbnail is clicked
 
     def __init__(self, track: dict, parent=None):
         super().__init__(parent)
@@ -7521,16 +8470,16 @@ class _TidalTrackRow(QWidget):
         hb.setContentsMargins(12, 0, 10, 0)
         hb.setSpacing(8)
         self.setStyleSheet(
-            f"_TidalTrackRow{{background:transparent;border-bottom:1px solid {t['border']};}}"
-            f"_TidalTrackRow:hover{{background:{t['bg3']};}}"
+            f"_TidalTrackRow{{background:transparent;border-bottom:1px solid rgba(255,255,255,0.09);}}"
+            f"_TidalTrackRow:hover{{background:rgba(255,255,255,0.08);}}"
             f"_TidalTrackRow QLabel{{background:transparent;border:none;}}"
-            f"_TidalTrackRow QPushButton{{background:transparent;border:1px solid {t['border']};"
-            f"color:{t['txt0']};border-radius:5px;font-size:12px;padding:0 10px;"
+            f"_TidalTrackRow QPushButton{{background:transparent;border:1px solid rgba(255,255,255,0.09);"
+            f"color:rgba(255,255,255,0.87);border-radius:5px;font-size:12px;padding:0 10px;"
             f"min-height:26px;max-height:28px;font-weight:500;}}"
             f"_TidalTrackRow QPushButton:hover{{border-color:{t['accent']};color:{t['accent']};"
             f"background:{t['accentlo']};}}"
-            f"_TidalTrackRow QPushButton:disabled{{color:{t['txt2']};background:transparent;"
-            f"border-color:{t['border']}66;}}"
+            f"_TidalTrackRow QPushButton:disabled{{color:rgba(255,255,255,0.35);background:transparent;"
+            f"border-color:rgba(255,255,255,0.09)66;}}"
         )
 
         # Track number or placeholder
@@ -7538,20 +8487,31 @@ class _TidalTrackRow(QWidget):
         num_lbl = QLabel(str(tnum) if tnum else "·")
         num_lbl.setFixedWidth(24)
         num_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        num_lbl.setStyleSheet(f"color:{t['txt2']};font-size:12px;background:transparent;")
+        num_lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:12px;background:transparent;")
         hb.addWidget(num_lbl)
 
-        # Cover
+        # Cover — clickable to open the parent album
         self._cover = QLabel("♪")
         self._cover.setFixedSize(40, 40)
         self._cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._cover.setStyleSheet(f"background:{t['bg3']};border-radius:6px;color:{t['txt2']};font-size:16px;")
+        self._cover.setStyleSheet(
+            f"background:rgba(255,255,255,0.08);border-radius:6px;color:rgba(255,255,255,0.35);font-size:16px;"
+        )
+        self._cover.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._cover.setToolTip("Open album")
         hb.addWidget(self._cover)
 
         alb = self._track.get("album") or {}
         cid = alb.get("cover") or alb.get("coverId") or alb.get("cover_id") or self._track.get("cover") or self._track.get("coverId") or ""
         if cid:
             _load_cover_into_label(cid, self._cover, 40, corner_radius=6)
+
+        # Make cover emit album_open when clicked
+        _alb_ref = dict(alb)
+        def _cover_press(event, _a=_alb_ref):
+            if event.button() == Qt.MouseButton.LeftButton and _a.get("id"):
+                self.album_open.emit(_a)
+        self._cover.mousePressEvent = _cover_press
 
         # Info column
         info = QVBoxLayout()
@@ -7562,7 +8522,7 @@ class _TidalTrackRow(QWidget):
         if self._track.get("version"):
             title += f"  ({self._track['version']})"
         tl = QLabel(title)
-        tl.setStyleSheet(f"font-weight:600;color:{t['txt0']};font-size:13px;background:transparent;")
+        tl.setStyleSheet("font-weight:600;color:rgba(255,255,255,0.85);font-size:13px;background:transparent;")
         tl.setMaximumWidth(500)
         info.addWidget(tl)
 
@@ -7573,7 +8533,7 @@ class _TidalTrackRow(QWidget):
         alb_title = alb.get("title", "")
         sub_text  = "  ·  ".join(filter(None, [artists, alb_title]))
         sl = QLabel(sub_text)
-        sl.setStyleSheet(f"color:{t['txt1']};font-size:11px;background:transparent;")
+        sl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:11px;background:transparent;")
         info.addWidget(sl)
 
         hb.addLayout(info, stretch=1)
@@ -7602,7 +8562,7 @@ class _TidalTrackRow(QWidget):
             dl = QLabel(_fmt_dur(dur))
             dl.setFixedWidth(38)
             dl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            dl.setStyleSheet(f"color:{t['txt2']};font-size:11px;background:transparent;")
+            dl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;")
             hb.addWidget(dl)
 
         # Progress bar (hidden until downloading)
@@ -7703,9 +8663,9 @@ class _TidalAlbumCard(QFrame):
         vb.setContentsMargins(0, 0, 0, 0)
         vb.setSpacing(0)
         self.setStyleSheet(
-            f"_TidalAlbumCard{{background:{t['bg2']};border:1px solid {t['border']};"
+            f"_TidalAlbumCard{{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"
             f"border-radius:10px;}}"
-            f"_TidalAlbumCard:hover{{border-color:{t['bordhi']};background:{t['bg3']};}}"
+            f"_TidalAlbumCard:hover{{border-color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);}}"
         )
 
         # Art container — absolute positioning
@@ -7775,7 +8735,7 @@ class _TidalAlbumCard(QFrame):
         title_lbl.setWordWrap(True)
         title_lbl.setMaximumHeight(36)
         title_lbl.setStyleSheet(
-            f"font-weight:700;color:{t['txt0']};font-size:11px;background:transparent;"
+            f"font-weight:700;color:rgba(255,255,255,0.87);font-size:11px;background:transparent;"
         )
         info_l.addWidget(title_lbl)
 
@@ -7784,7 +8744,7 @@ class _TidalAlbumCard(QFrame):
         meta   = "  ·  ".join(filter(None, [artist, year]))
         if meta:
             ml = QLabel(meta)
-            ml.setStyleSheet(f"color:{t['txt2']};font-size:10px;background:transparent;")
+            ml.setStyleSheet("color:rgba(255,255,255,0.35);font-size:10px;background:transparent;")
             info_l.addWidget(ml)
         vb.addWidget(info_w)
 
@@ -8036,11 +8996,11 @@ class _TidalQueueSidebar(QWidget):
         row.setObjectName("active_dl_row")
         row.setFixedHeight(66)
         row.setStyleSheet(
-            f"QWidget#active_dl_row {{ background:{t['bg2']}; border:1px solid {t['accent']}44;"
+            f"QWidget#active_dl_row {{ background:rgba(255,255,255,0.05); border:1px solid {t['accent']}44;"
             f" border-radius:6px; }}"
             f"QWidget#active_dl_row QLabel {{ background:transparent; border:none; }}"
-            f"QWidget#active_dl_row QPushButton {{ background:transparent; border:1px solid {t['border']};"
-            f" color:{t['txt0']}; border-radius:4px; font-size:13px; padding:0; "
+            f"QWidget#active_dl_row QPushButton {{ background:transparent; border:1px solid rgba(255,255,255,0.09);"
+            f" color:rgba(255,255,255,0.87); border-radius:4px; font-size:13px; padding:0; "
             f" min-height:22px; max-height:22px; min-width:22px; max-width:22px; }}"
             f"QWidget#active_dl_row QPushButton:hover {{ border-color:{t['accent']}; color:{t['accent']};"
             f" background:{t['accentlo']}; }}"
@@ -8059,7 +9019,7 @@ class _TidalQueueSidebar(QWidget):
 
         title = track.get("title", "Unknown")
         tl = QLabel(title)
-        tl.setStyleSheet(f"font-weight:600; color:{t['txt0']}; font-size:11px;")
+        tl.setStyleSheet("font-weight:600; color:rgba(255,255,255,0.85); font-size:11px;")
         tl.setMaximumWidth(140)
         top.addWidget(tl, stretch=1)
 
@@ -8093,7 +9053,7 @@ class _TidalQueueSidebar(QWidget):
         pct_lbl = QLabel("0%")
         pct_lbl.setFixedWidth(30)
         pct_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        pct_lbl.setStyleSheet(f"color:{t['txt2']}; font-size:9px;")
+        pct_lbl.setStyleSheet("color:rgba(255,255,255,0.35); font-size:9px;")
         bot.addWidget(pct_lbl)
 
         vb.addLayout(bot)
@@ -8160,7 +9120,7 @@ class _TidalQueueSidebar(QWidget):
             row.setObjectName("queue_row")
             row.setFixedHeight(48)
             row.setStyleSheet(
-                f"QWidget#queue_row {{ background:{t['bg2']}; border:1px solid {t['border']};"
+                f"QWidget#queue_row {{ background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09);"
                 f" border-radius:6px; }}"
                 f"QWidget#queue_row QLabel {{ background:transparent; border:none; }}"
                 f"QWidget#queue_row QPushButton {{ background:{t['danger']}14;"
@@ -8177,13 +9137,13 @@ class _TidalQueueSidebar(QWidget):
             n = QLabel(str(idx + 1))
             n.setFixedWidth(16)
             n.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            n.setStyleSheet(f"color:{t['txt2']}; font-size:10px;")
+            n.setStyleSheet("color:rgba(255,255,255,0.35); font-size:10px;")
             hb.addWidget(n)
 
             info = QVBoxLayout()
             info.setSpacing(1)
             tl = QLabel(track.get("title", "Unknown"))
-            tl.setStyleSheet(f"font-weight:600; color:{t['txt0']}; font-size:11px;")
+            tl.setStyleSheet("font-weight:600; color:rgba(255,255,255,0.85); font-size:11px;")
             tl.setMaximumWidth(150)
             info.addWidget(tl)
 
@@ -8192,7 +9152,7 @@ class _TidalQueueSidebar(QWidget):
                 artists = (track.get("artist") or {}).get("name", "")
             if artists:
                 al = QLabel(artists)
-                al.setStyleSheet(f"color:{t['txt2']}; font-size:10px;")
+                al.setStyleSheet("color:rgba(255,255,255,0.35); font-size:10px;")
                 al.setMaximumWidth(150)
                 info.addWidget(al)
             hb.addLayout(info, stretch=1)
@@ -8229,7 +9189,7 @@ class _TidalNowPlayingBar(QWidget):
         self.setFixedHeight(68)
         t = _current_theme
         self.setStyleSheet(
-            f"background:{t['bg1']};border-top:1px solid {t['bordhi']};"
+            f"background:rgba(5,7,11,0.50);border-top:1px solid rgba(255,255,255,0.25);"
         )
         hb = QHBoxLayout(self)
         hb.setContentsMargins(14, 10, 14, 10)
@@ -8239,23 +9199,23 @@ class _TidalNowPlayingBar(QWidget):
         self._cover.setFixedSize(48, 48)
         self._cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._cover.setStyleSheet(
-            f"background:{t['bg3']};border-radius:6px;color:{t['txt2']};font-size:18px;"
+            f"background:rgba(255,255,255,0.08);border-radius:6px;color:rgba(255,255,255,0.35);font-size:18px;"
         )
         hb.addWidget(self._cover)
 
         info = QVBoxLayout()
         info.setSpacing(3)
         self._title  = QLabel("—")
-        self._title.setStyleSheet(f"font-weight:600;color:{t['txt0']};font-size:13px;")
+        self._title.setStyleSheet("font-weight:600;color:rgba(255,255,255,0.85);font-size:13px;")
         info.addWidget(self._title)
         self._artist = QLabel("—")
-        self._artist.setStyleSheet(f"color:{t['txt1']};font-size:11px;")
+        self._artist.setStyleSheet("color:rgba(255,255,255,0.55);font-size:11px;")
         info.addWidget(self._artist)
         hb.addLayout(info, stretch=1)
 
         now_lbl = QLabel("NOW PLAYING")
         now_lbl.setStyleSheet(
-            f"color:{tok('txt2')};font-size:8px;font-weight:700;letter-spacing:1.5px;"
+            f"color:rgba(255,255,255,0.35);font-size:8px;font-weight:700;letter-spacing:1.5px;"
             f"background:transparent;"
         )
         hb.addWidget(now_lbl)
@@ -8423,7 +9383,7 @@ class TidalDownloaderPage(QWidget):
         hdr = QWidget()
         hdr.setFixedHeight(60)
         hdr.setStyleSheet(
-            f"background:{tok('bg1')};border-bottom:1px solid {tok('border')};"
+            f"background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);"
         )
         hb  = QHBoxLayout(hdr)
         hb.setContentsMargins(16, 0, 14, 0)
@@ -8444,7 +9404,7 @@ class TidalDownloaderPage(QWidget):
         hb.addWidget(brand)
 
         self._breadcrumb = QLabel("")
-        self._breadcrumb.setStyleSheet(f"color:{tok('txt2')};font-size:10px;background:transparent;")
+        self._breadcrumb.setStyleSheet("color:rgba(255,255,255,0.35);font-size:10px;background:transparent;")
         hb.addWidget(self._breadcrumb)
         hb.addStretch()
 
@@ -8475,7 +9435,7 @@ class TidalDownloaderPage(QWidget):
         tab_bar = QWidget()
         tab_bar.setFixedHeight(38)
         tab_bar.setStyleSheet(
-            f"background:{tok('bg1')};border-bottom:1px solid {tok('border')};"
+            f"background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);"
         )
         tb = QHBoxLayout(tab_bar)
         tb.setContentsMargins(12, 0, 12, 0)
@@ -8626,10 +9586,76 @@ class TidalDownloaderPage(QWidget):
 
     # ── Search ────────────────────────────────────────────────
 
+    # ── Tidal URL patterns ───────────────────────────────────────────────────
+    _TIDAL_URL_RE = re.compile(
+        r"(?:https?://)?(?:www\.)?tidal\.com(?:/browse)?/(album|track|artist|playlist|mix)/([A-Za-z0-9]+)",
+        re.IGNORECASE,
+    )
+
+    def _resolve_tidal_url(self, q: str) -> bool:
+        """
+        Detect a Tidal URL in q and resolve it directly by ID.
+        Returns True if handled, False to fall through to normal text search.
+        """
+        m = self._TIDAL_URL_RE.search(q)
+        if not m:
+            return False
+
+        kind = m.group(1).lower()
+        tid  = m.group(2)
+
+        self._search_results = {}
+        self._nav_history.clear()
+        self._back_btn.setVisible(False)
+        self._breadcrumb.setText("")
+
+        if kind == "album":
+            # Reuse existing open flow: fetches /album/?id=X then shows tracks
+            self._st(f"Loading album…")
+            self._push_nav_state(f"Album {tid}")
+            self._on_album_open({"id": tid, "title": ""})
+
+        elif kind == "track":
+            # Track URLs are not supported: the proxy only returns stream/playback
+            # data for /track/?id=X (no title, artist, or album metadata).
+            self._st("Track links aren't supported — paste an album or artist URL instead.")
+            return False
+
+        elif kind == "artist":
+            self._st(f"Loading artist…")
+            self._load_artist_albums({"id": tid, "name": ""})
+
+        elif kind in ("playlist", "mix"):
+            self._st(f"Loading {kind}…")
+            w = _TidalWorker(f"/{kind}/?id={tid}")
+            def _got_pl(data, _kind=kind):
+                tracks = _tidal_extract_tracks(data)
+                if tracks:
+                    self._populate_tracks(tracks)
+                    self._switch_tab(0)
+                    self._st(f"{len(tracks)} tracks")
+                else:
+                    self._st(f"No tracks found — the proxy may not support {_kind} lookup.")
+            w.ok.connect(_got_pl)
+            w.fail.connect(lambda e: self._st(f"Could not load {kind}: {e}"))
+            w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+            self._workers.append(w)
+            w.start()
+
+        else:
+            return False
+
+        return True
+
     def _do_search(self):
         q = self._search_in.text().strip()
         if not q:
             return
+
+        # Check for a Tidal URL first
+        if self._resolve_tidal_url(q):
+            return
+
         qs = requests.utils.quote(q)
         self._st("Searching all tabs…")
         self._search_results = {}  # reset for new search
@@ -8639,9 +9665,9 @@ class TidalDownloaderPage(QWidget):
 
         # Fire all 3 searches simultaneously so all tabs populate at once
         search_configs = [
-            (f"/search/?s={qs}",  0),   # tracks
-            (f"/search/?al={qs}", 1),   # albums
-            (f"/search/?a={qs}",  2),   # artists
+            (f"/search/?s={qs}&limit=200",  0),   # tracks
+            (f"/search/?al={qs}&limit=200", 1),   # albums
+            (f"/search/?a={qs}&limit=200",  2),   # artists
         ]
         for path, tab_idx in search_configs:
             w = _TidalWorker(path)
@@ -8695,14 +9721,14 @@ class TidalDownloaderPage(QWidget):
     def _populate_tracks(self, tracks: list):
         self._clear_tab(self._tracks_l)
         self._clear_album_header()
-        # Only clear rows that aren't actively downloading
         active_ids = set(self._dl_wkrs.keys())
         self._track_rows = {tid: row for tid, row in self._track_rows.items()
                             if tid in active_ids}
-        for tr in tracks[:60]:
+        for tr in tracks:
             row = _TidalTrackRow(tr)
             row.download_req.connect(self._on_dl_track)
             row.queue_req.connect(self._queue_side.add_track)
+            row.album_open.connect(self._on_album_open)
             self._tracks_l.insertWidget(self._tracks_l.count() - 1, row)
             tid = tr.get("id")
             if tid is not None:
@@ -8711,109 +9737,34 @@ class TidalDownloaderPage(QWidget):
     # ── Populate albums ───────────────────────────────────────
 
     def _populate_albums(self, albums: list):
-        """Minimal album list UI (no cover art).
-
-        Covers are optional; the UI focuses on clarity:
-          Title · Artist · Year + actions (Open, Download)
-        """
+        """Responsive grid of album cards — reflows on window resize."""
         self._clear_tab(self._albums_l)
-
         t = _current_theme
-        count = 0
-        for alb in albums[:200]:
-            count += 1
-            title  = (alb.get("title") or alb.get("name") or "Untitled").strip()
-            artist = ""
-            # common shapes
-            if isinstance(alb.get("artist"), dict):
-                artist = (alb["artist"].get("name") or alb["artist"].get("title") or "").strip()
-            if not artist and isinstance(alb.get("artists"), list) and alb["artists"]:
-                a0 = alb["artists"][0]
-                if isinstance(a0, dict):
-                    artist = (a0.get("name") or a0.get("title") or "").strip()
-            year = str(alb.get("releaseDate") or alb.get("release_date") or alb.get("year") or "")
-            year = year.split("-")[0] if year else ""
-
-            row = QWidget()
-            row.setStyleSheet(
-                f"QWidget#alb_row {{ background:{t['bg2']}; border:1px solid {t['border']}; border-radius:8px; }}"
-                f"QWidget#alb_row QLabel {{ background:transparent; border:none; }}"
-            )
-            row.setObjectName("alb_row")
-            hl = QHBoxLayout(row)
-            hl.setContentsMargins(12, 10, 12, 10)
-            hl.setSpacing(10)
-
-            # Cover art thumbnail (falls back to letter badge)
-            badge = QLabel()
-            badge.setFixedSize(38, 38)
-            badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            letters = (title[:2] or "A").upper()
-            badge.setText(letters)
-            badge.setStyleSheet(
-                f"background:{t['bg3']};border:1px solid {t['border']};border-radius:6px;"
-                f"color:{t['accent']};font-weight:700;font-size:14px;"
-            )
-            hl.addWidget(badge)
-            # Async cover load
-            alb_cover_id = (alb.get("cover") or alb.get("coverId") or alb.get("cover_id")
-                            or _tidal_find_cover_id(alb))
-            if alb_cover_id:
-                _load_cover_into_label(str(alb_cover_id), badge, 38, corner_radius=6)
-
-            # Text block
-            v = QVBoxLayout()
-            v.setContentsMargins(0,0,0,0)
-            v.setSpacing(2)
-            ttl = QLabel(title)
-            ttl.setStyleSheet(f"background:transparent;color:{t['txt0']};font-weight:600;font-size:13px;")
-            sub = QLabel((artist + (f" • {year}" if year else "")).strip(" •"))
-            sub.setObjectName("secondary")
-            sub.setStyleSheet(f"background:transparent;color:{t['txt1']};font-size:12px;")
-            v.addWidget(ttl)
-            v.addWidget(sub)
-            hl.addLayout(v, 1)
-
-            # Actions
-            open_btn = QPushButton("Open")
-            open_btn.setFixedHeight(32)
-            open_btn.setMinimumWidth(56)
-            open_btn.clicked.connect(lambda _=False, a=alb: self._on_album_open(a))
-
-            dl_btn = QPushButton("⬇  Download")
-            dl_btn.setObjectName("dl_btn")
-            dl_btn.setFixedHeight(32)
-            dl_btn.setMinimumWidth(104)
-            dl_btn.clicked.connect(lambda _=False, a=alb: self._on_dl_album(a))
-
-            q_btn = QPushButton("+ Queue")
-            q_btn.setFixedHeight(32)
-            q_btn.setMinimumWidth(72)
-            q_btn.setToolTip("Fetch album tracks and add them all to the download queue")
-            q_btn.clicked.connect(lambda _=False, a=alb: self._on_queue_album(a))
-
-            hl.addWidget(open_btn)
-            hl.addWidget(dl_btn)
-            hl.addWidget(q_btn)
-
-            self._albums_l.insertWidget(self._albums_l.count() - 1, row)
-
-        if count == 0:
+        if not albums:
             empty = QLabel("No albums found.")
             empty.setObjectName("secondary")
-            empty.setStyleSheet(f"padding:12px;color:{t['txt1']};")
+            empty.setStyleSheet("padding:24px;color:rgba(255,255,255,0.55);")
             self._albums_l.insertWidget(self._albums_l.count() - 1, empty)
+            return
+        flow = _AlbumFlowWidget(
+            albums,
+            on_open=self._on_album_open,
+            on_dl=self._on_dl_album,
+            on_queue=self._on_queue_album,
+        )
+        self._albums_l.insertWidget(self._albums_l.count() - 1, flow)
+
 
     # ── Populate artists ──────────────────────────────────────────────────────
 
     def _populate_artists(self, artists: list):
         self._clear_tab(self._artists_l)
         t = _current_theme
-        for art in artists[:40]:
+        for art in artists:
             row = QWidget()
             row.setFixedHeight(58)
             row.setStyleSheet(
-                f"background:{t['bg2']};border:1px solid {t['border']};border-radius:5px;"
+                f"background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:5px;"
             )
             hb = QHBoxLayout(row)
             hb.setContentsMargins(10, 8, 10, 8)
@@ -8824,12 +9775,12 @@ class TidalDownloaderPage(QWidget):
             pic.setAlignment(Qt.AlignmentFlag.AlignCenter)
             pic.setText("◉")
             pic.setStyleSheet(
-                f"background:{t['bg3']};border-radius:20px;color:{t['txt2']};font-size:16px;"
+                f"background:rgba(255,255,255,0.08);border-radius:20px;color:rgba(255,255,255,0.35);font-size:16px;"
             )
             hb.addWidget(pic)
 
             nl = QLabel(art.get("name", ""))
-            nl.setStyleSheet(f"font-weight:600;color:{t['txt0']};font-size:13px;")
+            nl.setStyleSheet("font-weight:600;color:rgba(255,255,255,0.85);font-size:13px;")
             hb.addWidget(nl, stretch=1)
 
             alb_btn = QPushButton("Browse albums")
@@ -8854,7 +9805,6 @@ class TidalDownloaderPage(QWidget):
 
             self._artists_l.insertWidget(self._artists_l.count() - 1, row)
 
-            # Load artist picture
             pid = art.get("picture", "")
             if pid:
                 _load_cover_into_label(pid, pic, 40, circle=True)
@@ -8914,7 +9864,7 @@ class TidalDownloaderPage(QWidget):
         hdr = QWidget()
         hdr.setObjectName("alb_hdr")
         hdr.setStyleSheet(
-            f"QWidget#alb_hdr{{background:{t['bg2']};border:1px solid {t['border']};"
+            f"QWidget#alb_hdr{{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"
             f"border-radius:10px;margin-bottom:4px;}}"
             f"QWidget#alb_hdr QLabel{{background:transparent;border:none;}}"
         )
@@ -8927,7 +9877,7 @@ class TidalDownloaderPage(QWidget):
         cover_lbl.setFixedSize(72, 72)
         cover_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         cover_lbl.setStyleSheet(
-            f"background:{t['bg3']};border-radius:8px;color:{t['txt2']};font-size:28px;"
+            f"background:rgba(255,255,255,0.08);border-radius:8px;color:rgba(255,255,255,0.35);font-size:28px;"
         )
         hb.addWidget(cover_lbl)
 
@@ -8943,7 +9893,7 @@ class TidalDownloaderPage(QWidget):
 
         title_lbl = QLabel(album.get("title") or "Unknown Album")
         title_lbl.setStyleSheet(
-            f"font-weight:700;font-size:15px;color:{t['txt0']};"
+            f"font-weight:700;font-size:15px;color:rgba(255,255,255,0.87);"
         )
         info.addWidget(title_lbl)
 
@@ -8961,7 +9911,7 @@ class TidalDownloaderPage(QWidget):
         meta_parts = [p for p in [artist, year,
                                    f"{track_count} track{'s' if track_count != 1 else ''}"] if p]
         meta_lbl = QLabel("  ·  ".join(meta_parts))
-        meta_lbl.setStyleSheet(f"color:{t['txt1']};font-size:12px;")
+        meta_lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:12px;")
         info.addWidget(meta_lbl)
 
         hb.addLayout(info, stretch=1)
@@ -9009,7 +9959,12 @@ class TidalDownloaderPage(QWidget):
 
     def _show_artist_albums(self, data: dict):
         albums = _tidal_extract_albums(data)
-        self._st(f"{len(albums)} album{'s' if len(albums)!=1 else ''}")
+        tracks = _tidal_extract_tracks(data)
+        n_alb = len(albums)
+        n_tr  = len(tracks)
+        self._st(f"{n_alb} album{'s' if n_alb!=1 else ''} · {n_tr} track{'s' if n_tr!=1 else ''}")
+        if tracks:
+            self._populate_tracks(tracks)
         self._switch_tab(1)
         self._populate_albums(albums)
 
@@ -9111,14 +10066,22 @@ class TidalDownloaderPage(QWidget):
         prefs   = self._prefs()
         quality = force_quality or prefs.get("quality", "HI_RES_LOSSLESS")
 
-        # Infer extension from URL if possible (e.g., mp4 DASH segment)
-        url_lower = url.lower().split("?")[0]
-        if url_lower.endswith(".mp4") or url_lower.endswith(".m4a"):
-            ext = "m4a"
-        elif url_lower.endswith(".flac"):
+        # Check if this is a DASH stream — if so, output is always FLAC regardless of URL
+        _sd = stream_data or {}
+        if isinstance(_sd.get("data"), dict):
+            _sd = _sd["data"]
+        _is_dash = bool(_sd.get("manifest")) and "dash+xml" in (_sd.get("manifestMimeType") or "").lower()
+
+        if _is_dash:
             ext = "flac"
         else:
-            ext = _TIDAL_QUALITY_EXT.get(quality, "flac")
+            url_lower = url.lower().split("?")[0]
+            if url_lower.endswith(".mp4") or url_lower.endswith(".m4a"):
+                ext = "m4a"
+            elif url_lower.endswith(".flac"):
+                ext = "flac"
+            else:
+                ext = _TIDAL_QUALITY_EXT.get(quality, "flac")
 
         all_artists_list = track.get("artists") or []
         all_artists = ", ".join(a.get("name", "") for a in all_artists_list)
@@ -10216,8 +11179,8 @@ class SpectrogramPage(QWidget):
 
         # ── Combined header + controls bar ────────────────────
         header = QWidget()
-        header.setObjectName("card_top")
         header.setFixedHeight(56)
+        header.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         h_lay = QHBoxLayout(header)
         h_lay.setContentsMargins(16, 0, 12, 0)
         h_lay.setSpacing(10)
@@ -10226,13 +11189,13 @@ class SpectrogramPage(QWidget):
         title_lbl = QLabel("Spectrogram")
         tf = QFont(); tf.setPointSize(12); tf.setWeight(QFont.Weight.Bold)
         title_lbl.setFont(tf)
-        title_lbl.setStyleSheet(f"color:{tok('txt0')};background:transparent;")
+        title_lbl.setStyleSheet("color:#fff;background:transparent;")
         h_lay.addWidget(title_lbl)
 
         # File label (flex)
         self._file_lbl = QLabel("Drop a file or click Open")
         self._file_lbl.setStyleSheet(
-            f"color:{tok('txt2')};font-size:10px;background:transparent;"
+            f"color:rgba(255,255,255,0.35);font-size:10px;background:transparent;"
         )
         h_lay.addWidget(self._file_lbl, stretch=1)
 
@@ -10243,12 +11206,12 @@ class SpectrogramPage(QWidget):
                 cb.setCurrentText(current)
             cb.setFixedHeight(26)
             cb.setStyleSheet(
-                f"QComboBox{{background:{tok('bg3')};color:{tok('txt0')};"
-                f"border:1px solid {tok('border')};border-radius:4px;"
+                f"QComboBox{{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.87);"
+                f"border:1px solid rgba(255,255,255,0.09);border-radius:4px;"
                 f"padding:1px 6px;font-size:11px;}}"
                 f"QComboBox::drop-down{{border:none;width:16px;}}"
-                f"QComboBox QAbstractItemView{{background:{tok('bg3')};color:{tok('txt0')};"
-                f"border:1px solid {tok('border')};"
+                f"QComboBox QAbstractItemView{{background:#1a1d24;color:rgba(255,255,255,0.87);"
+                f"border:1px solid rgba(255,255,255,0.18);"
                 f"selection-background-color:{tok('accent')};selection-color:#000;}}"
             )
             return cb
@@ -10309,14 +11272,14 @@ class SpectrogramPage(QWidget):
         h_lay.addWidget(_labeled("RANGE", self._range_combo))
 
         analyze_btn = QPushButton("↺ Analyze")
-        analyze_btn.setObjectName("primary")
+        analyze_btn.setObjectName("toggle")
         analyze_btn.setFixedHeight(34)
         analyze_btn.setMinimumWidth(120)
         analyze_btn.clicked.connect(self._reanalyze)
         h_lay.addWidget(analyze_btn)
 
         open_btn = QPushButton("Open file…")
-        open_btn.setObjectName("primary")
+        open_btn.setObjectName("toggle")
         open_btn.setFixedHeight(34)
         open_btn.setMinimumWidth(120)
         open_btn.setMinimumWidth(120)
@@ -10334,15 +11297,15 @@ class SpectrogramPage(QWidget):
         sc_lay.setSpacing(20)
         self._sel_info = QLabel()
         self._sel_info.setStyleSheet(
-            f"color:{tok('txt1')};font-size:11px;background:transparent;"
+            f"color:rgba(255,255,255,0.55);font-size:11px;background:transparent;"
         )
         sc_lay.addWidget(self._sel_info)
         sc_lay.addStretch()
         self._quality_badge = QLabel()
         self._quality_badge.setFixedHeight(18)
         self._quality_badge.setStyleSheet(
-            f"background:{tok('bg3')};color:{tok('txt0')};border-radius:3px;"
-            f"padding:1px 8px;font-size:10px;font-weight:700;border:1px solid {tok('border')};"
+            f"background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.87);border-radius:3px;"
+            f"padding:1px 8px;font-size:10px;font-weight:700;border:1px solid rgba(255,255,255,0.09);"
         )
         sc_lay.addWidget(self._quality_badge)
         self._sel_card.setObjectName("inset")
@@ -10354,7 +11317,7 @@ class SpectrogramPage(QWidget):
         self._progress.setFixedHeight(3)
         self._progress.setTextVisible(False)
         self._progress.setStyleSheet(
-            f"QProgressBar{{background:{tok('bg2')};border:none;}}"
+            f"QProgressBar{{background:rgba(255,255,255,0.05);border:none;}}"
             f"QProgressBar::chunk{{background:{tok('accent')};}}"
         )
         self._progress.hide()
@@ -10362,7 +11325,7 @@ class SpectrogramPage(QWidget):
 
         # ── Spectrogram widget ────────────────────────────────
         self._spec_widget = _SpectrogramWidget()
-        self._spec_widget.setStyleSheet(f"background:{tok('bg0')};")
+        self._spec_widget.setStyleSheet("background:rgba(0,0,0,0.30);")
         root.addWidget(self._spec_widget, stretch=1)
 
         # ── Resolution & Export row ───────────────────────────
@@ -10373,7 +11336,7 @@ class SpectrogramPage(QWidget):
         rr_lay.setSpacing(8)
 
         res_lbl = QLabel("Resolution")
-        res_lbl.setStyleSheet(f"color:{tok('txt1')};font-size:10px;font-weight:700;background:transparent;")
+        res_lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:10px;font-weight:700;background:transparent;")
         rr_lay.addWidget(res_lbl)
 
         res_btns_row = QHBoxLayout()
@@ -10394,9 +11357,9 @@ class SpectrogramPage(QWidget):
             btn.setMinimumWidth(120)
             btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
             btn.setStyleSheet(
-                f"QPushButton{{background:{tok('bg2')};border:1px solid {tok('border')};"
+                f"QPushButton{{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"
                 f"border-radius:6px;padding:0;text-align:left;}}"
-                f"QPushButton:hover{{background:{tok('bg3')};border-color:{tok('accent')}44;}}"
+                f"QPushButton:hover{{background:rgba(255,255,255,0.08);border-color:{tok('accent')}44;}}"
                 f"QPushButton:checked{{background:{tok('accentlo')};border:2px solid {tok('accent')};"
                 f"border-radius:6px;}}"
             )
@@ -10406,10 +11369,10 @@ class SpectrogramPage(QWidget):
             n_lbl = QLabel(name)
             nf = QFont(); nf.setWeight(QFont.Weight.Bold); nf.setPointSize(10)
             n_lbl.setFont(nf)
-            n_lbl.setStyleSheet(f"background:transparent;color:{tok('txt0')};")
+            n_lbl.setStyleSheet("background:transparent;color:rgba(255,255,255,0.87);")
             inner.addWidget(n_lbl)
             s_lbl = QLabel(sz)
-            s_lbl.setStyleSheet(f"font-size:9px;background:transparent;color:{tok('txt2')};")
+            s_lbl.setStyleSheet("font-size:9px;background:transparent;color:rgba(255,255,255,0.35);")
             inner.addWidget(s_lbl)
             btn.setProperty("res_idx", idx)
             # Re-color labels when checked state changes
@@ -10445,18 +11408,18 @@ class SpectrogramPage(QWidget):
 
         # Shared combo style for the export row
         combo_ss = (
-            f"QComboBox{{background:{tok('bg3')};color:{tok('txt0')};border:1px solid {tok('border')};"
+            f"QComboBox{{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.87);border:1px solid rgba(255,255,255,0.09);"
             f"border-radius:4px;padding:2px 8px;font-size:11px;}}"
             f"QComboBox::drop-down{{border:none;width:16px;}}"
-            f"QComboBox QAbstractItemView{{background:{tok('bg3')};color:{tok('txt0')};"
-            f"border:1px solid {tok('border')};selection-background-color:{tok('accent')};"
+            f"QComboBox QAbstractItemView{{background:#1a1d24;color:rgba(255,255,255,0.87);"
+            f"border:1px solid rgba(255,255,255,0.18);selection-background-color:{tok('accent')};"
             f"selection-color:#000;}}"
         )
 
         fmt_lay = QVBoxLayout()
         fmt_lay.setSpacing(2)
         fmt_lbl = QLabel("Export Format")
-        fmt_lbl.setStyleSheet(f"color:{tok('txt1')};font-size:10px;font-weight:700;background:transparent;")
+        fmt_lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:10px;font-weight:700;background:transparent;")
         fmt_lay.addWidget(fmt_lbl)
         self._fmt_combo = QComboBox()
         self._fmt_combo.setStyleSheet(combo_ss)
@@ -10467,7 +11430,7 @@ class SpectrogramPage(QWidget):
         cscheme_lay = QVBoxLayout()
         cscheme_lay.setSpacing(2)
         cs_lbl = QLabel("Color Scheme")
-        cs_lbl.setStyleSheet(f"color:{tok('txt1')};font-size:10px;font-weight:700;background:transparent;")
+        cs_lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:10px;font-weight:700;background:transparent;")
         cscheme_lay.addWidget(cs_lbl)
 
         cmap_btns = QHBoxLayout()
@@ -10522,14 +11485,14 @@ class SpectrogramPage(QWidget):
         # ── Audio file info panel ─────────────────────────────
         self._info_panel = QWidget()
         self._info_panel.hide()
-        self._info_panel.setStyleSheet(f"background:{tok('bg1')};border-top:1px solid {tok('border')};")
+        self._info_panel.setStyleSheet("background:rgba(5,7,11,0.60); border-top:1px solid rgba(255,255,255,0.07);")
         ip_lay = QVBoxLayout(self._info_panel)
         ip_lay.setContentsMargins(16, 10, 16, 10)
         ip_lay.setSpacing(4)
 
         ip_head = QHBoxLayout()
         ip_icon = QLabel("▾ Audio File Information:")
-        ip_icon.setStyleSheet(f"color:{tok('txt2')};font-size:10px;font-weight:700;background:transparent;")
+        ip_icon.setStyleSheet("color:rgba(255,255,255,0.35);font-size:10px;font-weight:700;background:transparent;")
         ip_head.addWidget(ip_icon)
         ip_head.addStretch()
         ip_lay.addLayout(ip_head)
@@ -10538,7 +11501,7 @@ class SpectrogramPage(QWidget):
         for key in ["Type", "Sample Rate", "Bit Depth", "Channels", "Duration",
                     "Nyquist", "Size", "Samples", "Analysis Frames", "FFT Size", "Freq Resolution"]:
             lbl = QLabel()
-            lbl.setStyleSheet(f"color:{tok('txt1')};font-size:10px;background:transparent;")
+            lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:10px;background:transparent;")
             ip_lay.addWidget(lbl)
             self._info_lines[key] = lbl
 
@@ -10769,13 +11732,13 @@ class AlbumCoverExtractorPage(QWidget):
         # ── Page header ───────────────────────────────────────
         hdr = QWidget()
         hdr.setFixedHeight(56)
-        hdr.setStyleSheet(f"background:{t['bg1']};border-bottom:1px solid {t['border']};")
+        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         hb = QHBoxLayout(hdr)
         hb.setContentsMargins(20, 0, 20, 0)
         title_lbl = QLabel("Album Cover Extractor")
         tf = QFont(); tf.setPointSize(15); tf.setBold(True)
         title_lbl.setFont(tf)
-        title_lbl.setStyleSheet(f"color:{t['txt0']};background:transparent;")
+        title_lbl.setStyleSheet("color:#fff;background:transparent;")
         hb.addWidget(title_lbl)
         hb.addStretch()
         sub = QLabel("Extract & resize cover art from your music library")
@@ -10785,6 +11748,8 @@ class AlbumCoverExtractorPage(QWidget):
 
         # ── Body ─────────────────────────────────────────────
         body = QWidget()
+        body.setObjectName("covers_body")
+        body.setStyleSheet("QWidget#covers_body { background:transparent; border:none; }")
         bl = QHBoxLayout(body)
         bl.setContentsMargins(20, 20, 20, 20)
         bl.setSpacing(20)
@@ -10794,6 +11759,7 @@ class AlbumCoverExtractorPage(QWidget):
         cfg_panel = QWidget()
         cfg_panel.setFixedWidth(320)
         cfg_panel.setObjectName("panel")
+        cfg_panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         cv = QVBoxLayout(cfg_panel)
         cv.setContentsMargins(16, 16, 16, 16)
         cv.setSpacing(12)
@@ -10907,6 +11873,7 @@ class AlbumCoverExtractorPage(QWidget):
         # Progress section
         prog_widget = QWidget()
         prog_widget.setObjectName("panel")
+        prog_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         pv = QVBoxLayout(prog_widget)
         pv.setContentsMargins(16, 12, 16, 12)
         pv.setSpacing(6)
@@ -10928,10 +11895,11 @@ class AlbumCoverExtractorPage(QWidget):
         # Log output
         log_widget = QWidget()
         log_widget.setObjectName("panel")
+        log_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         lv = QVBoxLayout(log_widget)
         lv.setContentsMargins(0, 0, 0, 0)
         log_hdr = QWidget()
-        log_hdr.setStyleSheet(f"background:{t['bg2']};border-radius:8px 8px 0 0;")
+        log_hdr.setStyleSheet("background:rgba(255,255,255,0.04); border-radius:8px 8px 0 0; border-bottom:1px solid rgba(255,255,255,0.07);")
         lhb = QHBoxLayout(log_hdr)
         lhb.setContentsMargins(14, 8, 14, 8)
         lhb.addWidget(QLabel("Log"))
@@ -10946,9 +11914,9 @@ class AlbumCoverExtractorPage(QWidget):
         self._log.setReadOnly(True)
         self._log.setPlaceholderText("Extraction log will appear here…")
         self._log.setStyleSheet(
-            f"QPlainTextEdit{{background:{t['bg0']};color:{t['txt0']};"
-            f"font-family:'Cascadia Code','SF Mono','Consolas',monospace;font-size:11px;"
-            f"border:none;border-radius:0 0 8px 8px;padding:10px;}}"
+            "QPlainTextEdit { background:rgba(0,0,0,0.25); color:rgba(255,255,255,0.75);"
+            " font-family:'Cascadia Code','SF Mono','Consolas',monospace; font-size:11px;"
+            " border:none; border-radius:0 0 8px 8px; padding:10px; }"
         )
         lv.addWidget(self._log)
 
@@ -10957,13 +11925,14 @@ class AlbumCoverExtractorPage(QWidget):
         stats_row.setSpacing(20)
         for attr, label in [("_stat_found","Found"), ("_stat_saved","Saved"), ("_stat_skipped","Skipped"), ("_stat_errors","Errors")]:
             w = QWidget()
-            w.setStyleSheet(f"background:{t['bg2']};border:1px solid {t['border']};border-radius:6px;")
+            w.setObjectName("card")
+            w.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
             wl = QVBoxLayout(w); wl.setContentsMargins(12, 8, 12, 8); wl.setSpacing(2)
             num = QLabel("0")
             nf = QFont(); nf.setPointSize(18); nf.setBold(True)
             num.setFont(nf)
             num.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            num.setStyleSheet(f"color:{t['accent']};background:transparent;")
+            num.setStyleSheet(f"color:{tok('accent')};background:transparent;")
             lbl2 = QLabel(label)
             lbl2.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl2.setObjectName("muted")
@@ -11315,14 +12284,142 @@ def _peek_image_size(data: bytes):
     return None
 
 
+class _MbClusterWorker(QThread):
+    """
+    Groups a list of paths into album clusters by reading their tags.
+    Emits clusters_ready(list[dict]) where each dict has:
+      'key'   : cluster label (albumartist – album)
+      'files' : list[Path]
+    """
+    clusters_ready = pyqtSignal(object)   # list[dict]
+    progress       = pyqtSignal(int, int) # done, total
+
+    def __init__(self, files: list):
+        super().__init__()
+        self.files = files
+
+    def run(self):
+        try:
+            import mutagen
+        except ImportError:
+            self.clusters_ready.emit([])
+            return
+
+        buckets: dict[str, list] = {}
+        total = len(self.files)
+        for i, path in enumerate(self.files, 1):
+            if self.isInterruptionRequested():
+                break
+            self.progress.emit(i, total)
+            try:
+                audio = mutagen.File(str(path), easy=True)
+                tags  = audio.tags if audio else {}
+                def _t(k):
+                    v = (tags or {}).get(k)
+                    return str(v[0]).strip() if isinstance(v, list) and v else str(v).strip() if v else ""
+                aa    = _t("albumartist") or _t("artist") or "Unknown Artist"
+                al    = _t("album") or "Unknown Album"
+                key   = f"{aa}  —  {al}"
+            except Exception:
+                key   = "Unreadable"
+            buckets.setdefault(key, []).append(path)
+
+        result = [{"key": k, "files": v} for k, v in sorted(buckets.items())]
+        self.clusters_ready.emit(result)
+
+
+class _FileRenameWorker(QThread):
+    """
+    Renames files according to a template.
+    Template tokens: %title% %artist% %albumartist% %album%
+                     %tracknumber% %discnumber% %date% %genre%
+    Emits log_line(msg, level) and finished(renamed, errors).
+    """
+    log_line = pyqtSignal(str, str)
+    finished = pyqtSignal(int, int)
+
+    def __init__(self, files: list, template: str):
+        super().__init__()
+        self.files    = files
+        self.template = template
+
+    @staticmethod
+    def _safe(s: str) -> str:
+        """Strip characters that are illegal in filenames."""
+        return re.sub(r'[\\/:*?"<>|]', '_', s).strip()
+
+    def run(self):
+        try:
+            import mutagen
+        except ImportError:
+            self.log_line.emit("mutagen not installed — cannot rename.", "error")
+            self.finished.emit(0, len(self.files))
+            return
+
+        def _t(tags, k):
+            v = (tags or {}).get(k)
+            return str(v[0]).strip() if isinstance(v, list) and v else str(v).strip() if v else ""
+
+        renamed = errors = 0
+        for path in self.files:
+            if self.isInterruptionRequested():
+                break
+            try:
+                audio = mutagen.File(str(path), easy=True)
+                tags  = audio.tags if audio else {}
+                tpl = self.template
+                for token, val in [
+                    ("%title%",       _t(tags, "title")),
+                    ("%artist%",      _t(tags, "artist")),
+                    ("%albumartist%", _t(tags, "albumartist") or _t(tags, "artist")),
+                    ("%album%",       _t(tags, "album")),
+                    ("%tracknumber%", _t(tags, "tracknumber").split("/")[0].zfill(2)),
+                    ("%discnumber%",  _t(tags, "discnumber").split("/")[0]),
+                    ("%date%",        _t(tags, "date")[:4]),
+                    ("%genre%",       _t(tags, "genre")),
+                ]:
+                    tpl = tpl.replace(token, self._safe(val) if val else "")
+
+                tpl = re.sub(r'_+', '_', tpl).strip("_").strip()
+                if not tpl:
+                    self.log_line.emit(f"Empty name from template: {path.name}", "warn")
+                    errors += 1
+                    continue
+                new_path = path.with_name(tpl + path.suffix)
+                if new_path == path:
+                    self.log_line.emit(f"Unchanged: {path.name}", "info")
+                    continue
+                if new_path.exists():
+                    self.log_line.emit(f"Skipped (target exists): {new_path.name}", "warn")
+                    errors += 1
+                    continue
+                path.rename(new_path)
+                self.log_line.emit(f"Renamed: {path.name}  →  {new_path.name}", "ok")
+                renamed += 1
+            except Exception as e:
+                self.log_line.emit(f"Rename error — {path.name}: {e}", "error")
+                errors += 1
+        self.finished.emit(renamed, errors)
+
+
+
+
 class MusicTagEditorPage(QWidget):
     """
     Rich metadata editor. Select a folder to load all music files,
     click a file to edit all its tags, view/replace embedded cover art,
-    and save changes via mutagen. Falls back gracefully if mutagen is absent.
+    and save changes via mutagen.
+
+    Picard-inspired additions
+    ─────────────────────────
+    • Album clustering    — auto-group loaded files by album in a tree
+    • File renaming       — rename files from a tag template
+    • Original-values diff — amber highlight on changed fields
+    • Batch tag ops       — capitalize, trim, swap artist↔albumartist, etc.
+    • Sort file list      — click column header to sort
+    • Missing-tag highlights — red dot on files missing Title/Artist/Album
     """
 
-    # All tag fields we expose
     _FIELDS = [
         ("title",        "Title"),
         ("artist",       "Artist"),
@@ -11341,12 +12438,26 @@ class MusicTagEditorPage(QWidget):
         ("isrc",         "ISRC"),
     ]
 
+    # Fields we consider "required" for the missing-tag highlight
+    _REQUIRED_FIELDS = {"title", "artist", "album"}
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._files: list[Path] = []
+        self._files: list[Path]    = []
+
         self._current: Optional[Path] = None
         self._cover_data: Optional[bytes] = None
+        # original values loaded from disk — for diff highlight
+        self._orig_vals: dict[str, str] = {}
+        # cluster mode: list of {"key":str, "files":list[Path]}
+        self._clusters: list[dict] = []
+        self._cluster_mode: bool            = False
+        self._cluster_multi_paths: list     = []   # tracks selected in cluster tree
         self._build()
+
+    # ─────────────────────────────────────────────────────────
+    #  BUILD UI
+    # ─────────────────────────────────────────────────────────
 
     def _build(self):
         t = _current_theme
@@ -11354,16 +12465,17 @@ class MusicTagEditorPage(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Page header
+        # ── Page header ───────────────────────────────────────
         hdr = QWidget()
         hdr.setFixedHeight(56)
-        hdr.setStyleSheet(f"background:{t['bg1']};border-bottom:1px solid {t['border']};")
+        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         hb = QHBoxLayout(hdr)
         hb.setContentsMargins(20, 0, 20, 0)
+        hb.setSpacing(8)
         title_lbl = QLabel("Music Tag Editor")
         tf = QFont(); tf.setPointSize(15); tf.setBold(True)
         title_lbl.setFont(tf)
-        title_lbl.setStyleSheet(f"color:{t['txt0']};background:transparent;")
+        title_lbl.setStyleSheet("color:#fff;background:transparent;")
         hb.addWidget(title_lbl)
         hb.addStretch()
 
@@ -11382,65 +12494,132 @@ class MusicTagEditorPage(QWidget):
         hb.addWidget(open_btn)
         root.addWidget(hdr)
 
-        # Body — three-panel layout
+        # ── Body — three-panel splitter ───────────────────────
         body = QSplitter(Qt.Orientation.Horizontal)
-        body.setHandleWidth(1)
-        body.setStyleSheet("QSplitter::handle{background:#00000000;}")
+        body.setHandleWidth(3)
+        body.setStyleSheet("""
+            QSplitter::handle { background: rgba(255,255,255,0.06); }
+            QSplitter::handle:hover { background: rgba(200,134,26,0.50); }
+            QSplitter::handle:pressed { background: rgba(200,134,26,0.85); }
+        """)
         root.addWidget(body, stretch=1)
 
-        # Left: file list
+        # ── LEFT: file list / cluster tree ────────────────────
         file_panel = QWidget()
-        file_panel.setStyleSheet(f"background:{t['bg1']};border-right:1px solid {t['border']};")
+        file_panel.setStyleSheet("background:rgba(5,7,11,0.50); border-right:1px solid rgba(255,255,255,0.07);")
         fv = QVBoxLayout(file_panel)
         fv.setContentsMargins(0, 0, 0, 0)
         fv.setSpacing(0)
 
+        # Sub-header with count + sort combo + cluster toggle
         file_hdr = QWidget()
         file_hdr.setFixedHeight(38)
-        file_hdr.setStyleSheet(f"background:{t['bg2']};border-bottom:1px solid {t['border']};")
+        file_hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         fhb = QHBoxLayout(file_hdr)
-        fhb.setContentsMargins(12, 0, 12, 0)
+        fhb.setContentsMargins(8, 0, 8, 0)
+        fhb.setSpacing(6)
         self._file_count_lbl = QLabel("No folder loaded")
         self._file_count_lbl.setObjectName("muted")
         fhb.addWidget(self._file_count_lbl)
+        fhb.addStretch()
+
+        # Sort combo
+        self._sort_combo = QComboBox()
+        self._sort_combo.setFixedHeight(24)
+        self._sort_combo.setFixedWidth(90)
+        self._sort_combo.setStyleSheet("font-size:11px;")
+        self._sort_combo.addItems(["Filename", "Title", "Artist", "Album", "Date"])
+        self._sort_combo.setToolTip("Sort file list by…")
+        self._sort_combo.activated.connect(self._sort_file_list)
+        fhb.addWidget(self._sort_combo)
         fv.addWidget(file_hdr)
+
+        # Stacked widget: flat list vs cluster tree
+        self._left_stack = QStackedWidget()
+        fv.addWidget(self._left_stack, stretch=1)
+
+        # Page 0: flat file list
+        list_page = QWidget()
+        list_page.setStyleSheet("background:rgba(5,7,11,0.35);")
+        lp_v = QVBoxLayout(list_page)
+        lp_v.setContentsMargins(0, 0, 0, 0)
+        lp_v.setSpacing(0)
 
         self._file_list = QListWidget()
         self._file_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self._file_list.setStyleSheet(
-            f"QListWidget{{background:{t['bg1']};border:none;outline:none;}}"
-            f"QListWidget::item{{padding:6px 12px;border-bottom:1px solid {t['border']};"
-            f"color:{t['txt0']};}}"
+            f"QListWidget{{background:rgba(5,7,11,0.50);border:none;outline:none;}}"
+            f"QListWidget::item{{padding:5px 12px;border-bottom:1px solid rgba(255,255,255,0.09);"
+            f"color:rgba(255,255,255,0.87);}}"
             f"QListWidget::item:selected{{background:{t['accentlo']};color:{t['accent']};}}"
-            f"QListWidget::item:hover:!selected{{background:{t['bg3']};}}"
+            f"QListWidget::item:hover:!selected{{background:rgba(255,255,255,0.08);}}"
         )
         self._file_list.currentRowChanged.connect(self._on_file_selected)
         self._file_list.itemSelectionChanged.connect(self._on_selection_changed)
         self._file_list.keyPressEvent = self._file_list_key_press
-        fv.addWidget(self._file_list, stretch=1)
+        lp_v.addWidget(self._file_list)
+        self._left_stack.addWidget(list_page)   # index 0
 
-        # Select All / Delete Selected / Clear List buttons
-        sel_all_row = QHBoxLayout(); sel_all_row.setContentsMargins(8, 4, 8, 4)
+        # Page 1: cluster tree
+        tree_page = QWidget()
+        tree_page.setStyleSheet("background:rgba(5,7,11,0.35);")
+        tp_v = QVBoxLayout(tree_page)
+        tp_v.setContentsMargins(0, 0, 0, 0)
+
+        self._cluster_tree = QTreeWidget()
+        self._cluster_tree.setColumnCount(1)
+        self._cluster_tree.setHeaderHidden(True)
+        self._cluster_tree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self._cluster_tree.setStyleSheet(
+            f"QTreeWidget{{background:rgba(5,7,11,0.50);border:none;outline:none;}}"
+            f"QTreeWidget::item{{padding:4px 8px;color:rgba(255,255,255,0.87);}}"
+            f"QTreeWidget::item:selected{{background:{t['accentlo']};color:{t['accent']};}}"
+            f"QTreeWidget::item:hover:!selected{{background:rgba(255,255,255,0.08);}}"
+        )
+        self._cluster_tree.itemClicked.connect(self._on_cluster_item_clicked)
+        self._cluster_tree.itemSelectionChanged.connect(self._on_cluster_selection_changed)
+        self._cluster_tree.keyPressEvent = self._cluster_tree_key_press
+        tp_v.addWidget(self._cluster_tree)
+        self._left_stack.addWidget(tree_page)   # index 1
+
+        # Bottom bar: Select All / Remove / Clear / Cluster button
+        sel_all_row = QHBoxLayout()
+        sel_all_row.setContentsMargins(8, 4, 8, 4)
+        sel_all_row.setSpacing(4)
         sel_all_btn = QPushButton("Select All"); sel_all_btn.setObjectName("ghost")
         sel_all_btn.setFixedHeight(26)
-        sel_all_btn.clicked.connect(self._file_list.selectAll)
+        sel_all_btn.clicked.connect(self._select_all)
         sel_all_row.addWidget(sel_all_btn)
         del_sel_btn = QPushButton("Remove"); del_sel_btn.setObjectName("ghost")
         del_sel_btn.setFixedHeight(26)
         del_sel_btn.setToolTip("Remove selected files from list")
         del_sel_btn.clicked.connect(self._remove_selected_files)
         sel_all_row.addWidget(del_sel_btn)
-        clear_list_btn = QPushButton("Clear List"); clear_list_btn.setObjectName("ghost")
+        clear_list_btn = QPushButton("Clear"); clear_list_btn.setObjectName("ghost")
         clear_list_btn.setFixedHeight(26)
         clear_list_btn.clicked.connect(self._clear_file_list)
         sel_all_row.addWidget(clear_list_btn)
         sel_all_row.addStretch()
+        self._cluster_btn = QPushButton("⊞ Cluster")
+        self._cluster_btn.setObjectName("ghost")
+        self._cluster_btn.setFixedHeight(26)
+        self._cluster_btn.setToolTip("Group files by album")
+        self._cluster_btn.setCheckable(True)
+        self._cluster_btn.toggled.connect(self._toggle_cluster_mode)
+        sel_all_row.addWidget(self._cluster_btn)
+        self._cancel_cluster_btn = QPushButton("✕ Cancel")
+        self._cancel_cluster_btn.setObjectName("danger")
+        self._cancel_cluster_btn.setFixedHeight(26)
+        self._cancel_cluster_btn.setToolTip("Cancel clustering")
+        self._cancel_cluster_btn.setVisible(False)
+        self._cancel_cluster_btn.clicked.connect(self._cancel_clustering)
+        sel_all_row.addWidget(self._cancel_cluster_btn)
         fv.addLayout(sel_all_row)
         body.addWidget(file_panel)
 
-        # Centre: tag fields + log — stacked with tab switcher in toolbar
+        # ── CENTRE: tag fields + log ───────────────────────────
         fields_panel = QWidget()
-        fields_panel.setStyleSheet(f"background:{t['bg0']};")
+        fields_panel.setStyleSheet("background:rgba(0,0,0,0.20);")
         fld_v = QVBoxLayout(fields_panel)
         fld_v.setContentsMargins(0, 0, 0, 0)
         fld_v.setSpacing(0)
@@ -11448,14 +12627,30 @@ class MusicTagEditorPage(QWidget):
         # Toolbar
         tbar = QWidget()
         tbar.setFixedHeight(48)
-        tbar.setStyleSheet(f"background:{t['bg1']};border-bottom:1px solid {t['border']};")
+        tbar.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         tb = QHBoxLayout(tbar)
         tb.setContentsMargins(16, 0, 16, 0)
-        tb.setSpacing(10)
+        tb.setSpacing(8)
         self._file_label = QLabel("Select a file to edit")
-        self._file_label.setStyleSheet(f"font-weight:600;color:{t['txt0']};")
+        self._file_label.setStyleSheet("font-weight:600;color:rgba(255,255,255,0.85);")
         tb.addWidget(self._file_label)
         tb.addStretch()
+
+        # Batch ops button
+        self._batch_btn = QPushButton("⚙ Batch Ops")
+        self._batch_btn.setObjectName("ghost")
+        self._batch_btn.setFixedHeight(32)
+        self._batch_btn.setToolTip("Apply batch tag operations to selected files")
+        self._batch_btn.clicked.connect(self._show_batch_ops)
+        tb.addWidget(self._batch_btn)
+
+        # Rename button
+        self._rename_btn = QPushButton("✎ Rename Files")
+        self._rename_btn.setObjectName("ghost")
+        self._rename_btn.setFixedHeight(32)
+        self._rename_btn.setToolTip("Rename files using a tag template")
+        self._rename_btn.clicked.connect(self._show_rename_dialog)
+        tb.addWidget(self._rename_btn)
 
         self._save_all_btn = QPushButton("💾  Save to All Selected")
         self._save_all_btn.setObjectName("ghost")
@@ -11471,27 +12666,22 @@ class MusicTagEditorPage(QWidget):
         self._save_btn.setEnabled(False)
         self._save_btn.clicked.connect(self._save_tags)
         tb.addWidget(self._save_btn)
+        # Keyboard shortcut: Ctrl+S saves (single file) or all selected
+        _save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
+        _save_shortcut.activated.connect(self._ctrl_s_save)
 
-        self._copy_btn = QPushButton("Copy Tags →")
-        self._copy_btn.setObjectName("ghost")
-        self._copy_btn.setFixedHeight(32)
-        self._copy_btn.setEnabled(False)
-        self._copy_btn.setToolTip("Copy these tags to the next file in list")
-        self._copy_btn.clicked.connect(self._copy_to_next)
-        tb.addWidget(self._copy_btn)
-
-        # Tab switcher buttons
+        # Tab switcher
         _tab_btn_style = f"""
             QPushButton {{
                 background: transparent; border: none;
                 border-bottom: 2px solid transparent;
-                color: {t['txt2']}; font-size: 12px; font-weight: 600;
+                color: rgba(255,255,255,0.35); font-size: 12px; font-weight: 600;
                 padding: 0 12px; border-radius: 0; min-height: 48px;
             }}
             QPushButton:checked {{
                 color: {t['accent']}; border-bottom: 2px solid {t['accent']};
             }}
-            QPushButton:hover:!checked {{ color: {t['txt0']}; }}
+            QPushButton:hover:!checked {{ color: rgba(255,255,255,0.87); }}
         """
         self._tab_tags_btn = QPushButton("Tags")
         self._tab_log_btn  = QPushButton("Log  (0)")
@@ -11503,51 +12693,104 @@ class MusicTagEditorPage(QWidget):
         tb.addWidget(self._tab_log_btn)
         fld_v.addWidget(tbar)
 
-        # Stacked body
+        # Stacked body: tags page / log page
         self._centre_stack = QStackedWidget()
         fld_v.addWidget(self._centre_stack, stretch=1)
 
         # ── Page 0: tag fields ────────────────────────────────
         tags_page = QWidget()
-        tags_page.setStyleSheet(f"background:{t['bg0']};")
+        tags_page.setStyleSheet("background:rgba(0,0,0,0.15);")
         tags_page_v = QVBoxLayout(tags_page)
         tags_page_v.setContentsMargins(0, 0, 0, 0)
         tags_page_v.setSpacing(0)
 
-        # Scrollable fields
         fields_scroll = QScrollArea()
         fields_scroll.setWidgetResizable(True)
         fields_scroll.setFrameShape(QFrame.Shape.NoFrame)
         fields_scroll.setStyleSheet("QScrollArea{background:transparent;border:none;}")
 
         fields_inner = QWidget()
-        fields_inner.setStyleSheet(f"background:{t['bg0']};")
+        fields_inner.setStyleSheet("background:transparent;")
         form = QGridLayout(fields_inner)
         form.setContentsMargins(20, 16, 20, 16)
         form.setSpacing(10)
         form.setColumnMinimumWidth(0, 120)
         form.setColumnStretch(1, 1)
+        form.setColumnMinimumWidth(2, 110)  # original-value column
 
         self._tag_edits: dict[str, QLineEdit] = {}
+        self._orig_lbls: dict[str, QLabel]    = {}   # per-field orig-value label
+
         for row_idx, (key, label) in enumerate(self._FIELDS):
             lbl = QLabel(label)
             lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            lbl.setStyleSheet(f"color:{t['txt1']};font-size:12px;background:transparent;")
+            lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:12px;background:transparent;")
             edit = QLineEdit()
             edit.setPlaceholderText(f"Enter {label}…")
+            # Connect to diff-highlight handler
+            edit.textChanged.connect(lambda text, k=key: self._on_field_changed(k, text))
             self._tag_edits[key] = edit
-            form.addWidget(lbl, row_idx, 0)
-            form.addWidget(edit, row_idx, 1)
+
+            orig_lbl = QLabel("—")
+            orig_lbl.setStyleSheet(
+                f"color:rgba(255,255,255,0.35);font-size:11px;background:transparent;"
+                f"padding:0 6px;"
+            )
+            orig_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            orig_lbl.setToolTip("Value currently saved on disk")
+            self._orig_lbls[key] = orig_lbl
+
+            form.addWidget(lbl,      row_idx, 0)
+            form.addWidget(edit,     row_idx, 1)
+            form.addWidget(orig_lbl, row_idx, 2)
+
+        # Column header for original-value column
+        orig_col_hdr = QLabel("ON DISK")
+        orig_col_hdr.setObjectName("sectiontitle")
+        orig_col_hdr.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        form.addWidget(orig_col_hdr, 0, 2)   # overlaps first row label — we move it above
+
+        # Reorder: put the column header in a dedicated row above the fields
+        # Re-do the grid: header row 0, fields from row 1
+        # Rebuild the form properly with a header row
+        # (Clear and redo with header row)
+        while form.count():
+            item = form.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)  # type: ignore
+
+        # Add "ON DISK" column label in header row
+        disk_hdr = QLabel("ON DISK")
+        disk_hdr.setObjectName("sectiontitle")
+        disk_hdr.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        disk_hdr.setStyleSheet(
+            f"color:rgba(255,255,255,0.35);font-size:10px;font-weight:600;letter-spacing:1.5px;"
+            "background:transparent;padding:0 6px;"
+        )
+        form.addWidget(disk_hdr, 0, 2)
+
+        for row_idx, (key, label) in enumerate(self._FIELDS):
+            grid_row = row_idx + 1
+            lbl = QLabel(label)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:12px;background:transparent;")
+            edit = self._tag_edits[key]
+            edit.setParent(fields_inner)
+            orig_lbl = self._orig_lbls[key]
+            orig_lbl.setParent(fields_inner)
+            form.addWidget(lbl,      grid_row, 0)
+            form.addWidget(edit,     grid_row, 1)
+            form.addWidget(orig_lbl, grid_row, 2)
 
         # Technical info (read-only)
-        tech_row = len(self._FIELDS)
+        tech_row = len(self._FIELDS) + 1
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(f"background:{t['border']};")
-        form.addWidget(sep, tech_row, 0, 1, 2)
+        sep.setStyleSheet("background:rgba(255,255,255,0.09);")
+        form.addWidget(sep, tech_row, 0, 1, 3)
         tech_lbl = QLabel("Technical Info")
         tech_lbl.setObjectName("sectiontitle")
-        form.addWidget(tech_lbl, tech_row + 1, 0, 1, 2)
+        form.addWidget(tech_lbl, tech_row + 1, 0, 1, 3)
 
         tech_fields = [("_info_format","Format/Codec"), ("_info_bitrate","Bitrate"),
                        ("_info_samplerate","Sample Rate"), ("_info_channels","Channels"),
@@ -11555,9 +12798,9 @@ class MusicTagEditorPage(QWidget):
         for ti, (attr, lbl_txt) in enumerate(tech_fields):
             lbl = QLabel(lbl_txt)
             lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            lbl.setStyleSheet(f"color:{t['txt2']};font-size:11px;background:transparent;")
+            lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;")
             val = QLabel("—")
-            val.setStyleSheet(f"color:{t['txt0']};font-size:11px;background:transparent;")
+            val.setStyleSheet("color:rgba(255,255,255,0.85);font-size:11px;background:transparent;")
             setattr(self, attr, val)
             form.addWidget(lbl, tech_row + 2 + ti, 0)
             form.addWidget(val, tech_row + 2 + ti, 1)
@@ -11565,35 +12808,31 @@ class MusicTagEditorPage(QWidget):
         fields_scroll.setWidget(fields_inner)
         tags_page_v.addWidget(fields_scroll, stretch=1)
 
-        # Status bar inside tags page
         self._status_bar = QLabel("Ready")
         self._status_bar.setFixedHeight(22)
         self._status_bar.setStyleSheet(
-            f"background:{t['bg0']};color:{t['txt2']};font-size:10px;"
-            f"padding:0 12px;border-top:1px solid {t['border']};"
+            f"background:rgba(0,0,0,0.30);color:rgba(255,255,255,0.35);font-size:10px;"
+            f"padding:0 12px;border-top:1px solid rgba(255,255,255,0.09);"
         )
         tags_page_v.addWidget(self._status_bar)
-        self._centre_stack.addWidget(tags_page)  # index 0
+        self._centre_stack.addWidget(tags_page)   # index 0
 
         # ── Page 1: log ───────────────────────────────────────
         log_page = QWidget()
-        log_page.setStyleSheet(f"background:{t['bg0']};")
+        log_page.setStyleSheet("background:rgba(0,0,0,0.15);")
         log_page_v = QVBoxLayout(log_page)
         log_page_v.setContentsMargins(0, 0, 0, 0)
         log_page_v.setSpacing(0)
 
-        # Log sub-header with entry count + filter + clear
         log_sub_hdr = QWidget()
         log_sub_hdr.setFixedHeight(36)
-        log_sub_hdr.setStyleSheet(f"background:{t['bg1']};border-bottom:1px solid {t['border']};")
+        log_sub_hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         lsh = QHBoxLayout(log_sub_hdr)
         lsh.setContentsMargins(16, 0, 12, 0); lsh.setSpacing(8)
-
         self._log_count_lbl = QLabel("No entries yet")
-        self._log_count_lbl.setStyleSheet(f"color:{t['txt2']};font-size:11px;background:transparent;")
+        self._log_count_lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;")
         lsh.addWidget(self._log_count_lbl)
         lsh.addStretch()
-
         self._log_filter_combo = QComboBox()
         self._log_filter_combo.addItems(["All", "Errors only", "OK only"])
         self._log_filter_combo.setFixedHeight(24)
@@ -11601,7 +12840,6 @@ class MusicTagEditorPage(QWidget):
         self._log_filter_combo.setStyleSheet("font-size:11px;")
         self._log_filter_combo.currentIndexChanged.connect(self._apply_tag_log_filter)
         lsh.addWidget(self._log_filter_combo)
-
         log_clear_btn = QPushButton("Clear")
         log_clear_btn.setObjectName("ghost")
         log_clear_btn.setFixedHeight(24); log_clear_btn.setFixedWidth(52)
@@ -11610,7 +12848,6 @@ class MusicTagEditorPage(QWidget):
         lsh.addWidget(log_clear_btn)
         log_page_v.addWidget(log_sub_hdr)
 
-        # Log table: Time | Level | Operation | File | Detail
         self._log_table = QTableWidget()
         self._log_table.setColumnCount(5)
         self._log_table.setHorizontalHeaderLabels(["Time", "●", "Operation", "File", "Detail"])
@@ -11626,27 +12863,24 @@ class MusicTagEditorPage(QWidget):
         self._log_table.verticalHeader().setVisible(False)
         self._log_table.verticalHeader().setDefaultSectionSize(24)
         self._log_table.setStyleSheet(
-            f"QTableWidget{{background:{t['bg0']};border:none;font-size:11px;gridline-color:{t['border']};}}"
+            f"QTableWidget{{background:rgba(0,0,0,0.30);border:none;font-size:11px;gridline-color:rgba(255,255,255,0.09);}}"
             f"QTableWidget::item{{padding:0 6px;}}"
-            f"QHeaderView::section{{background:{t['bg2']};color:{t['txt2']};"
+            f"QHeaderView::section{{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.35);"
             f"font-size:10px;font-weight:600;border:none;padding:3px 6px;"
-            f"border-bottom:1px solid {t['border']};}}"
-            f"QTableWidget::item:alternate{{background:{t['bg1']};}}"
+            f"border-bottom:1px solid rgba(255,255,255,0.09);}}"
+            f"QTableWidget::item:alternate{{background:rgba(5,7,11,0.50);}}"
         )
         log_page_v.addWidget(self._log_table, stretch=1)
 
-        # Log stats bar at bottom
         self._log_stats_bar = QLabel("")
         self._log_stats_bar.setFixedHeight(22)
         self._log_stats_bar.setStyleSheet(
-            f"background:{t['bg1']};color:{t['txt2']};font-size:10px;"
-            f"padding:0 16px;border-top:1px solid {t['border']};"
+            f"background:rgba(5,7,11,0.50);color:rgba(255,255,255,0.35);font-size:10px;"
+            f"padding:0 16px;border-top:1px solid rgba(255,255,255,0.09);"
         )
         log_page_v.addWidget(self._log_stats_bar)
+        self._centre_stack.addWidget(log_page)   # index 1
 
-        self._centre_stack.addWidget(log_page)  # index 1
-
-        # Tab switching
         def _switch_centre(idx):
             self._tab_tags_btn.setChecked(idx == 0)
             self._tab_log_btn.setChecked(idx == 1)
@@ -11657,10 +12891,10 @@ class MusicTagEditorPage(QWidget):
 
         body.addWidget(fields_panel)
 
-        # Right panel: scrollable sidebar with Cover / Resize / Verify / ReplayGain / File Info
+        # ── RIGHT: cover / resize / verify / rg / file details ─
         right_outer = QWidget()
-        right_outer.setFixedWidth(224)
-        right_outer.setStyleSheet(f"background:{t['bg1']};border-left:1px solid {t['border']};")
+        right_outer.setMinimumWidth(180)
+        right_outer.setStyleSheet("background:rgba(5,7,11,0.50); border-left:1px solid rgba(255,255,255,0.07);")
         right_outer_v = QVBoxLayout(right_outer)
         right_outer_v.setContentsMargins(0, 0, 0, 0)
         right_outer_v.setSpacing(0)
@@ -11670,12 +12904,12 @@ class MusicTagEditorPage(QWidget):
         right_scroll.setFrameShape(QFrame.Shape.NoFrame)
         right_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         right_scroll.setStyleSheet(
-            f"QScrollArea{{background:{t['bg1']};border:none;}}"
-            f"QScrollArea > QWidget > QWidget{{background:{t['bg1']};}}"
+            f"QScrollArea{{background:rgba(5,7,11,0.50);border:none;}}"
+            f"QScrollArea > QWidget > QWidget{{background:rgba(5,7,11,0.50);}}"
         )
 
         cover_panel = QWidget()
-        cover_panel.setStyleSheet(f"background:{t['bg1']};")
+        cover_panel.setStyleSheet("background:rgba(5,7,11,0.35);")
         cov_v = QVBoxLayout(cover_panel)
         cov_v.setContentsMargins(14, 16, 14, 16)
         cov_v.setSpacing(10)
@@ -11689,8 +12923,8 @@ class MusicTagEditorPage(QWidget):
         self._cover_lbl.setFixedSize(192, 192)
         self._cover_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._cover_lbl.setStyleSheet(
-            f"background:{t['bg3']};border-radius:8px;color:{t['txt2']};"
-            f"font-size:13px;border:1px solid {t['border']};"
+            f"background:rgba(255,255,255,0.08);border-radius:8px;color:rgba(255,255,255,0.35);"
+            f"font-size:13px;border:1px solid rgba(255,255,255,0.09);"
         )
         cov_v.addWidget(self._cover_lbl)
 
@@ -11719,7 +12953,7 @@ class MusicTagEditorPage(QWidget):
 
         # ── Resize Cover ──────────────────────────────────────
         _sep1 = QFrame(); _sep1.setFrameShape(QFrame.Shape.HLine)
-        _sep1.setStyleSheet(f"background:{t['border']};max-height:1px;")
+        _sep1.setStyleSheet("background:rgba(255,255,255,0.09);max-height:1px;")
         cov_v.addWidget(_sep1)
         resize_section_lbl = QLabel("RESIZE COVER")
         resize_section_lbl.setObjectName("sectiontitle")
@@ -11727,7 +12961,7 @@ class MusicTagEditorPage(QWidget):
 
         sz_row = QHBoxLayout(); sz_row.setSpacing(6)
         sz_lbl = QLabel("Max size:")
-        sz_lbl.setStyleSheet(f"color:{t['txt1']};font-size:12px;background:transparent;")
+        sz_lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:12px;background:transparent;")
         self._resize_spin = QSpinBox()
         self._resize_spin.setRange(50, 2000)
         self._resize_spin.setSingleStep(50)
@@ -11744,6 +12978,12 @@ class MusicTagEditorPage(QWidget):
         resize_one_btn.setToolTip("Resize the cover in the currently selected file")
         resize_one_btn.clicked.connect(self._resize_cover)
         cov_v.addWidget(resize_one_btn)
+
+        self._resize_sel_btn = QPushButton("Apply to Selected Files")
+        self._resize_sel_btn.setObjectName("ghost")
+        self._resize_sel_btn.setToolTip("Resize embedded covers in the currently selected files")
+        self._resize_sel_btn.clicked.connect(self._bulk_resize_selected)
+        cov_v.addWidget(self._resize_sel_btn)
 
         self._resize_all_btn = QPushButton("Apply to All Files")
         self._resize_all_btn.setObjectName("ghost")
@@ -11771,10 +13011,15 @@ class MusicTagEditorPage(QWidget):
         self._resize_progress.setTextVisible(False)
         self._resize_progress.setVisible(False)
         cov_v.addWidget(self._resize_progress)
+        self._cancel_resize_btn = QPushButton("✕ Cancel Resize")
+        self._cancel_resize_btn.setObjectName("danger")
+        self._cancel_resize_btn.setVisible(False)
+        self._cancel_resize_btn.clicked.connect(self._cancel_bulk_resize)
+        cov_v.addWidget(self._cancel_resize_btn)
 
         # ── Verify Integrity ──────────────────────────────────
         _sep2 = QFrame(); _sep2.setFrameShape(QFrame.Shape.HLine)
-        _sep2.setStyleSheet(f"background:{t['border']};max-height:1px;")
+        _sep2.setStyleSheet("background:rgba(255,255,255,0.09);max-height:1px;")
         cov_v.addWidget(_sep2)
         verify_lbl = QLabel("VERIFY INTEGRITY")
         verify_lbl.setObjectName("sectiontitle")
@@ -11795,6 +13040,12 @@ class MusicTagEditorPage(QWidget):
         self._verify_all_btn.clicked.connect(self._verify_all)
         cov_v.addWidget(self._verify_all_btn)
 
+        self._verify_cancel_btn = QPushButton("Cancel Verify")
+        self._verify_cancel_btn.setObjectName("ghost")
+        self._verify_cancel_btn.setVisible(False)
+        self._verify_cancel_btn.clicked.connect(self._cancel_verify)
+        cov_v.addWidget(self._verify_cancel_btn)
+
         self._verify_progress = QProgressBar()
         self._verify_progress.setRange(0, 100)
         self._verify_progress.setFixedHeight(4)
@@ -11804,7 +13055,7 @@ class MusicTagEditorPage(QWidget):
 
         # ── ReplayGain ────────────────────────────────────────
         _sep3 = QFrame(); _sep3.setFrameShape(QFrame.Shape.HLine)
-        _sep3.setStyleSheet(f"background:{t['border']};max-height:1px;")
+        _sep3.setStyleSheet("background:rgba(255,255,255,0.09);max-height:1px;")
         cov_v.addWidget(_sep3)
         rg_lbl = QLabel("REPLAYGAIN")
         rg_lbl.setObjectName("sectiontitle")
@@ -11828,7 +13079,7 @@ class MusicTagEditorPage(QWidget):
 
         # ── File Details ──────────────────────────────────────
         _sep4 = QFrame(); _sep4.setFrameShape(QFrame.Shape.HLine)
-        _sep4.setStyleSheet(f"background:{t['border']};max-height:1px;")
+        _sep4.setStyleSheet("background:rgba(255,255,255,0.09);max-height:1px;")
         cov_v.addWidget(_sep4)
         info_section = QLabel("FILE DETAILS")
         info_section.setObjectName("sectiontitle")
@@ -11844,15 +13095,19 @@ class MusicTagEditorPage(QWidget):
         right_outer_v.addWidget(right_scroll)
         body.addWidget(right_outer)
         body.setSizes([200, 700, 224])
+        body.setCollapsible(0, False)
+        body.setCollapsible(1, False)
+        body.setCollapsible(2, False)
+        file_panel.setMinimumWidth(150)
+        fields_panel.setMinimumWidth(300)
 
-    # ── File loading ──────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────
+    #  LOG HELPERS (unchanged from original)
+    # ─────────────────────────────────────────────────────────
 
     def _log(self, msg: str, level: str = "info", operation: str = ""):
-        """Append a row to the log table and auto-switch to log tab on errors."""
         t = _current_theme
         ts = datetime.now().strftime("%H:%M:%S")
-
-        # Auto-detect operation from message content
         if not operation:
             low = msg.lower()
             if "save" in low or "saved" in low:               operation = "Save Tags"
@@ -11861,20 +13116,18 @@ class MusicTagEditorPage(QWidget):
             elif "resized cover" in low or "resize" in low:   operation = "Resize Cover"
             elif "cover" in low:                              operation = "Cover"
             elif "ok:" in low or "verify" in low:             operation = "Verify"
+            elif "rename" in low:                             operation = "Rename"
+            elif "lookup" in low:                             operation = "Info"
+            elif "cluster" in low:                            operation = "Cluster"
+            elif "batch" in low:                              operation = "Batch Ops"
             elif "error:" in low:                             operation = "Verify"
             else:                                             operation = "Info"
 
-        # Level indicator dot
-        dot    = {"ok": "✓", "warn": "⚠", "error": "✗", "info": "·"}.get(level, "·")
-        dot_color = {
-            "ok":    t["success"],
-            "warn":  t["warning"],
-            "error": t["danger"],
-            "info":  t["txt2"],
-        }.get(level, t["txt2"])
-        op_color = dot_color if level != "info" else t["txt1"]
+        dot       = {"ok": "✓", "warn": "⚠", "error": "✗", "info": "·"}.get(level, "·")
+        dot_color = {"ok": t["success"], "warn": t["warning"],
+                     "error": t["danger"], "info": t["txt2"]}.get(level, t["txt2"])
+        op_color  = dot_color if level != "info" else t["txt1"]
 
-        # Split message into file + detail columns
         filename = ""; detail = msg
         for sep in (" — ", ": "):
             parts = msg.split(sep, 1)
@@ -11909,14 +13162,10 @@ class MusicTagEditorPage(QWidget):
         detail_item.setToolTip(msg)
         tbl.setItem(row, 4, detail_item)
 
-        # Apply filter to new row
         self._apply_tag_log_filter_row(row, level)
-        # Update counters
         self._update_log_stats()
-        # Auto-switch to log tab on first error
         if level == "error" and self._centre_stack.currentIndex() != 1:
             self._switch_to_log()
-        # Scroll to bottom
         tbl.scrollToBottom()
 
     def _apply_tag_log_filter_row(self, row: int, level: str):
@@ -11934,7 +13183,7 @@ class MusicTagEditorPage(QWidget):
         self._update_log_stats()
 
     def _update_log_stats(self):
-        tbl = self._log_table
+        tbl   = self._log_table
         total = tbl.rowCount()
         ok    = sum(1 for r in range(total)
                     if tbl.item(r, 0) and tbl.item(r, 0).data(Qt.ItemDataRole.UserRole) == "ok")
@@ -11944,13 +13193,12 @@ class MusicTagEditorPage(QWidget):
                     if tbl.item(r, 0) and tbl.item(r, 0).data(Qt.ItemDataRole.UserRole) == "warn")
         self._log_count_lbl.setText(
             f"{total} entr{'y' if total == 1 else 'ies'}"
-            + (f"  ·  {ok} ok" if ok else "")
-            + (f"  ·  {warns} warn" if warns else "")
-            + (f"  ·  {errs} errors" if errs else "")
+            + (f"  ·  {ok} ok"       if ok    else "")
+            + (f"  ·  {warns} warn"  if warns else "")
+            + (f"  ·  {errs} errors" if errs  else "")
         )
         self._log_stats_bar.setText(
-            f"Total: {total}   ✓ {ok}   ⚠ {warns}   ✗ {errs}"
-            if total else ""
+            f"Total: {total}   ✓ {ok}   ⚠ {warns}   ✗ {errs}" if total else ""
         )
         self._tab_log_btn.setText(
             f"Log  ({total})" if not errs else f"Log  ({total})  ✗{errs}"
@@ -11962,17 +13210,21 @@ class MusicTagEditorPage(QWidget):
         self._log_stats_bar.setText("")
         self._tab_log_btn.setText("Log  (0)")
 
+    # ─────────────────────────────────────────────────────────
+    #  FILE LOADING (unchanged + missing-tag highlight)
+    # ─────────────────────────────────────────────────────────
+
     def _open_folder(self):
         d = QFileDialog.getExistingDirectory(self, "Open Music Folder", str(Path.home()))
         if not d:
             return
         exts = {".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".wma", ".wav", ".aiff"}
-        self._files = sorted([p for p in Path(d).rglob("*") if p.suffix.lower() in exts])
-        self._file_list.clear()
-        for f in self._files:
-            self._file_list.addItem(f.name)
-        self._file_count_lbl.setText(f"{len(self._files)} files")
-        if self._files:
+        self._files = sorted(p for p in Path(d).rglob("*") if p.suffix.lower() in exts)
+        self._cluster_multi_paths = []
+        self._populate_file_list()
+        if self._cluster_mode:
+            self._build_clusters()
+        elif self._files:
             self._file_list.setCurrentRow(0)
 
     def _open_file(self):
@@ -11981,16 +13233,66 @@ class MusicTagEditorPage(QWidget):
         if not paths:
             return
         new_files = [Path(p) for p in paths]
-        existing = set(self._files)
-        added = [p for p in new_files if p not in existing]
+        existing  = set(self._files)
+        added     = [p for p in new_files if p not in existing]
         self._files = sorted(self._files + added)
-        self._file_list.clear()
-        for f in self._files:
-            self._file_list.addItem(f.name)
-        self._file_count_lbl.setText(f"{len(self._files)} files")
-        if added:
+        self._populate_file_list()
+        if self._cluster_mode:
+            self._build_clusters()
+        elif added:
             idx = self._files.index(added[0])
             self._file_list.setCurrentRow(idx)
+
+    def _populate_file_list(self):
+        """Rebuild the list widget instantly with filenames."""
+        self._file_list.clear()
+        self._file_count_lbl.setText(f"{len(self._files)} files" if self._files else "No folder loaded")
+        for path in self._files:
+            self._file_list.addItem(path.name)
+
+    def _sort_file_list(self):
+        """Sort self._files by the selected tag field and repopulate."""
+        field = self._sort_combo.currentText().lower()
+        if field == "filename":
+            self._files.sort(key=lambda p: p.name.lower())
+            self._populate_file_list()
+            return
+
+        try:
+            import mutagen as _mut
+        except ImportError:
+            return
+
+        key_map = {"title": "title", "artist": "artist", "album": "album", "date": "date"}
+        tag_key = key_map.get(field, "title")
+
+        def _sort_key(path):
+            try:
+                audio = _mut.File(str(path), easy=True)
+                tags  = audio.tags if audio else {}
+                v = (tags or {}).get(tag_key)
+                return (str(v[0]).strip() if isinstance(v, list) and v else str(v).strip() if v else "").lower()
+            except Exception:
+                return ""
+
+        self._files.sort(key=_sort_key)
+        self._populate_file_list()
+
+    def _select_all(self):
+        """Select all items in whichever list mode is active."""
+        if self._cluster_mode:
+            # Select all leaf (track) items in the tree
+            root = self._cluster_tree.invisibleRootItem()
+            self._cluster_tree.blockSignals(True)
+            self._cluster_tree.clearSelection()
+            for i in range(root.childCount()):
+                album_item = root.child(i)
+                for j in range(album_item.childCount()):
+                    album_item.child(j).setSelected(True)
+            self._cluster_tree.blockSignals(False)
+            self._on_cluster_selection_changed()
+        else:
+            self._file_list.selectAll()
 
     def _file_list_key_press(self, event):
         if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
@@ -11998,7 +13300,43 @@ class MusicTagEditorPage(QWidget):
         else:
             QListWidget.keyPressEvent(self._file_list, event)
 
+    def _cluster_tree_key_press(self, event):
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            self._remove_selected_files()
+        else:
+            QTreeWidget.keyPressEvent(self._cluster_tree, event)
+
     def _remove_selected_files(self):
+        if self._cluster_mode:
+            # In cluster mode: remove selected leaf paths from self._files, then rebuild
+            to_remove = {
+                item.data(0, Qt.ItemDataRole.UserRole)
+                for item in self._cluster_tree.selectedItems()
+                if item.data(0, Qt.ItemDataRole.UserRole) is not None
+            }
+            if not to_remove:
+                return
+            self._files = [p for p in self._files if p not in to_remove]
+            self._cluster_multi_paths = [p for p in self._cluster_multi_paths if p not in to_remove]
+            self._file_count_lbl.setText(
+                f"{len(self._files)} files" if self._files else "No folder loaded"
+            )
+            self._populate_file_list()
+            if self._files:
+                self._build_clusters()
+            else:
+                self._cluster_tree.clear()
+                self._clusters = []
+                self._current = None
+                self._file_label.setText("Select a file to edit")
+                self._save_btn.setEnabled(False)
+                self._save_all_btn.setEnabled(False)
+                for edit in self._tag_edits.values():
+                    edit.clear(); edit.setPlaceholderText("")
+                self._cover_lbl.setPixmap(QPixmap()); self._cover_lbl.setText("No Cover")
+                self._cover_data = None; self._cover_info_lbl.setText("")
+                self._status_bar.setText("Ready")
+            return
         selected_rows = sorted(
             [self._file_list.row(it) for it in self._file_list.selectedItems()],
             reverse=True
@@ -12007,21 +13345,18 @@ class MusicTagEditorPage(QWidget):
             if 0 <= row < len(self._files):
                 self._files.pop(row)
                 self._file_list.takeItem(row)
-        self._file_count_lbl.setText(f"{len(self._files)} files" if self._files else "No folder loaded")
+        self._file_count_lbl.setText(
+            f"{len(self._files)} files" if self._files else "No folder loaded"
+        )
         if not self._files:
             self._current = None
             self._file_label.setText("Select a file to edit")
             self._save_btn.setEnabled(False)
             self._save_all_btn.setEnabled(False)
-            self._copy_btn.setEnabled(False)
             for edit in self._tag_edits.values():
-                edit.clear()
-                edit.setPlaceholderText("")
-            # Also clear cover + technical info panels
-            self._cover_lbl.setPixmap(QPixmap())
-            self._cover_lbl.setText("No Cover")
-            self._cover_data = None
-            self._cover_info_lbl.setText("")
+                edit.clear(); edit.setPlaceholderText("")
+            self._cover_lbl.setPixmap(QPixmap()); self._cover_lbl.setText("No Cover")
+            self._cover_data = None; self._cover_info_lbl.setText("")
             self._file_info_lbl.setText("—")
             for attr in ("_info_format","_info_bitrate","_info_samplerate",
                          "_info_channels","_info_duration","_info_filesize"):
@@ -12032,29 +13367,228 @@ class MusicTagEditorPage(QWidget):
     def _clear_file_list(self):
         self._files = []
         self._file_list.clear()
+        # If cluster mode is on, untoggle it — that cleans up the tree and resets state.
+        # Block signals so _toggle_cluster_mode doesn't try to rebuild with empty file list.
+        if self._cluster_mode:
+            self._cluster_btn.blockSignals(True)
+            self._cluster_btn.setChecked(False)
+            self._cluster_btn.blockSignals(False)
+            self._cluster_btn.setText("⊞ Cluster")
+            self._cluster_mode = False
+            self._cluster_tree.clear()
+            self._clusters = []
+            self._cluster_multi_paths = []
+            self._left_stack.setCurrentIndex(0)
         self._file_count_lbl.setText("No folder loaded")
         self._current = None
         self._file_label.setText("Select a file to edit")
         self._save_btn.setEnabled(False)
         self._save_all_btn.setEnabled(False)
-        self._copy_btn.setEnabled(False)
         for edit in self._tag_edits.values():
-            edit.clear()
-            edit.setPlaceholderText("")
-        # Clear cover + tech info so stale data from previous session isn't shown
-        self._cover_lbl.setPixmap(QPixmap())
-        self._cover_lbl.setText("No Cover")
-        self._cover_data = None
-        self._cover_info_lbl.setText("")
+            edit.clear(); edit.setPlaceholderText("")
+        self._cover_lbl.setPixmap(QPixmap()); self._cover_lbl.setText("No Cover")
+        self._cover_data = None; self._cover_info_lbl.setText("")
         self._file_info_lbl.setText("—")
         for attr in ("_info_format","_info_bitrate","_info_samplerate",
                      "_info_channels","_info_duration","_info_filesize"):
             lbl = getattr(self, attr, None)
             if lbl: lbl.setText("—")
         self._status_bar.setText("Ready")
+        self._orig_vals = {}
+        self._clear_diff_highlights()
+
+    # ─────────────────────────────────────────────────────────
+    #  CLUSTER MODE
+    # ─────────────────────────────────────────────────────────
+
+    def _toggle_cluster_mode(self, checked: bool):
+        self._cluster_mode = checked
+        self._cluster_multi_paths = []
+        if checked:
+            self._left_stack.setCurrentIndex(1)
+            self._cluster_btn.setText("⋟ Cluster")
+            self._build_clusters()
+        else:
+            self._left_stack.setCurrentIndex(0)
+            self._cluster_btn.setText("⋞ Cluster")
+            self._save_all_btn.setEnabled(False)
+            self._save_all_btn.setText("💾  Save to All Selected")
+            # Clear the cluster tree so stale data doesn't linger
+            self._cluster_tree.clear()
+            self._clusters = []
+            # Re-sync the right panel to whatever is selected in the flat list
+            selected = self._file_list.selectedItems()
+            if len(selected) == 1:
+                row = self._file_list.row(selected[0])
+                if 0 <= row < len(self._files):
+                    self._current = self._files[row]
+                    self._load_tags(self._current)
+                    return
+            # Nothing selected or multi-selected: clear fields
+            self._current = None
+            self._file_label.setText("Select a file to edit")
+            self._save_btn.setEnabled(False)
+            for edit in self._tag_edits.values():
+                edit.clear(); edit.setPlaceholderText("")
+            self._orig_vals = {}
+            self._clear_diff_highlights()
+            self._cover_lbl.setPixmap(QPixmap()); self._cover_lbl.setText("No Cover")
+            self._cover_data = None; self._cover_info_lbl.setText("")
+            self._file_info_lbl.setText("—")
+            for attr in ("_info_format","_info_bitrate","_info_samplerate",
+                         "_info_channels","_info_duration","_info_filesize"):
+                lbl = getattr(self, attr, None)
+                if lbl: lbl.setText("—")
+            self._status_bar.setText("Ready")
+
+    def _build_clusters(self):
+        if not self._files:
+            return
+        self._cluster_tree.clear()
+        self._status_bar.setText("Clustering…")
+        self._cancel_cluster_btn.setVisible(True)
+        worker = _MbClusterWorker(list(self._files))
+        worker.clusters_ready.connect(self._on_clusters_ready)
+        worker.clusters_ready.connect(worker.deleteLater)
+        self._cluster_worker = worker
+        worker.start()
+
+    def _cancel_clustering(self):
+        w = getattr(self, "_cluster_worker", None)
+        if w and w.isRunning():
+            w.requestInterruption()
+            w.wait(500)
+        self._cancel_cluster_btn.setVisible(False)
+        self._cluster_btn.blockSignals(True)
+        self._cluster_btn.setChecked(False)
+        self._cluster_btn.setText("⊞ Cluster")
+        self._cluster_btn.blockSignals(False)
+        self._cluster_mode = False
+        self._left_stack.setCurrentIndex(0)
+        self._status_bar.setText("Clustering cancelled.")
+
+    def _on_clusters_ready(self, clusters: list):
+        self._cancel_cluster_btn.setVisible(False)
+        self._clusters = clusters
+        tree = self._cluster_tree
+        tree.clear()
+        for bucket in clusters:
+            parent = QTreeWidgetItem([f"📀  {bucket['key']}  ({len(bucket['files'])})"])
+            parent.setData(0, Qt.ItemDataRole.UserRole, None)
+            for path in bucket["files"]:
+                child = QTreeWidgetItem([path.name])
+                child.setData(0, Qt.ItemDataRole.UserRole, path)
+                parent.addChild(child)
+            tree.addTopLevelItem(parent)
+        tree.expandAll()
+        self._status_bar.setText(f"Clustered into {len(clusters)} albums.")
+        self._log(f"Clustered {len(self._files)} files → {len(clusters)} albums.", "ok", "Cluster")
+
+    def _on_cluster_item_clicked(self, item: QTreeWidgetItem, col: int):
+        """Single click: load tags for a track; clicking an album node selects all its tracks."""
+        item_path = item.data(0, Qt.ItemDataRole.UserRole)
+        if item_path is None:
+            # Album parent node clicked - select all child tracks
+            child_count = item.childCount()
+            if child_count == 0:
+                return
+            self._cluster_tree.blockSignals(True)
+            self._cluster_tree.clearSelection()
+            for i in range(child_count):
+                item.child(i).setSelected(True)
+            self._cluster_tree.blockSignals(False)
+            self._on_cluster_selection_changed()
+            return
+        # Leaf track: if multiple tracks already selected let selection handler keep the view
+        leaf_selected = [
+            i for i in self._cluster_tree.selectedItems()
+            if i.data(0, Qt.ItemDataRole.UserRole) is not None
+        ]
+        if len(leaf_selected) > 1:
+            return
+        self._current = item_path
+        self._load_tags(item_path)
+
+    def _on_cluster_selection_changed(self):
+        """Multi-select in cluster tree: update save-all button + populate multi-field view."""
+        selected = self._cluster_tree.selectedItems()
+        # Only count leaf items (tracks), not album parent nodes
+        leaf_paths = [
+            item.data(0, Qt.ItemDataRole.UserRole)
+            for item in selected
+            if item.data(0, Qt.ItemDataRole.UserRole) is not None
+        ]
+        n = len(leaf_paths)
+        if n == 0:
+            self._cluster_multi_paths = []
+            self._save_all_btn.setEnabled(False)
+            self._save_all_btn.setText("\U0001f4be  Save to All Selected")
+            return
+        if n == 1:
+            # Single track: normal single-file editing mode
+            self._save_all_btn.setEnabled(False)
+            self._save_all_btn.setText("\U0001f4be  Save to All Selected")
+            self._current = leaf_paths[0]
+            self._load_tags(leaf_paths[0])
+            return
+        # Multiple tracks selected: show aggregate field view
+        self._save_all_btn.setEnabled(True)
+        self._save_all_btn.setText(f"\U0001f4be  Save to {n} Files")
+        self._file_label.setText(f"{n} files selected")
+        self._save_btn.setEnabled(False)
+        # Populate fields with shared values (same logic as flat-list multi-select)
+        try:
+            import mutagen
+        except ImportError:
+            return
+        all_vals: dict[str, list[str]] = {key: [] for key, _ in self._FIELDS}
+        for path in leaf_paths:
+            try:
+                audio = mutagen.File(str(path), easy=True)
+                if audio is None:
+                    continue
+                for key, _ in self._FIELDS:
+                    val = audio.tags.get(key) if audio.tags else None
+                    if isinstance(val, list):
+                        text = str(val[0]).strip() if val else ""
+                    elif val is not None:
+                        text = str(val).strip()
+                    else:
+                        text = ""
+                    all_vals[key].append(text)
+            except Exception:
+                pass
+        # Override save_tags_multi to use cluster selection
+        self._loading_multi = True
+        self._clear_diff_highlights()
+        for key, _ in self._FIELDS:
+            vals = all_vals[key]
+            edit = self._tag_edits[key]
+            if not vals:
+                edit.clear(); edit.setPlaceholderText("—")
+                continue
+            non_empty = [v for v in vals if v]
+            unique_ne = set(non_empty)
+            if len(unique_ne) <= 1:
+                edit.setText(next(iter(unique_ne), "")); edit.setPlaceholderText("")
+            else:
+                edit.clear(); edit.setPlaceholderText("— multiple values —")
+        self._loading_multi = False
+        self._cluster_multi_paths = leaf_paths
+        self._status_bar.setText(
+            f"{n} files selected  ·  Matching values shown  ·  "
+            "Blank fields keep existing values on save"
+        )
+
+    # ─────────────────────────────────────────────────────────
+    #  TAG LOADING + DIFF HIGHLIGHT
+    # ─────────────────────────────────────────────────────────
 
     def _on_file_selected(self, row: int):
         if row < 0 or row >= len(self._files):
+            return
+        # If multiple items are selected, let _on_selection_settled handle display
+        if len(self._file_list.selectedItems()) > 1:
             return
         self._current = self._files[row]
         self._load_tags(self._current)
@@ -12066,21 +13600,19 @@ class MusicTagEditorPage(QWidget):
         self._cover_lbl.setPixmap(QPixmap())
         self._cover_data = None
         self._cover_info_lbl.setText("")
+        self._orig_vals = {}
+        self._clear_diff_highlights()
 
         self._file_label.setText(path.name)
         self._save_btn.setEnabled(True)
-        self._copy_btn.setEnabled(True)
 
-        # Clear any stashed revert data from previous file
         self._cover_data_before_resize = None
         if hasattr(self, "_revert_cover_btn"):
             self._revert_cover_btn.setEnabled(False)
 
-        # File info — guard against file being deleted externally while still selected
         if not path.exists():
             self._status_bar.setText(f"File not found (deleted?): {path.name}")
             self._save_btn.setEnabled(False)
-            self._copy_btn.setEnabled(False)
             return
         size_mb = path.stat().st_size / 1048576
         self._file_info_lbl.setText(f"{path.suffix.upper()[1:]}  ·  {size_mb:.1f} MB\n{path.parent.name}")
@@ -12092,11 +13624,13 @@ class MusicTagEditorPage(QWidget):
                 self._status_bar.setText(f"Could not read tags from {path.name}")
                 return
 
-            # Fill tag fields
+            # Fill tag fields + store originals
             for key, _ in self._FIELDS:
-                val = audio.tags.get(key) if audio.tags else None
-                if val:
-                    self._tag_edits[key].setText(str(val[0]) if isinstance(val, list) else str(val))
+                val  = audio.tags.get(key) if audio.tags else None
+                text = str(val[0]) if isinstance(val, list) and val else str(val) if val else ""
+                self._tag_edits[key].setText(text)
+                self._orig_vals[key] = text
+                self._orig_lbls[key].setText(text if text else "—")
 
             # Technical info
             info = audio.info
@@ -12110,7 +13644,7 @@ class MusicTagEditorPage(QWidget):
             self._info_filesize.setText(f"{size_mb:.2f} MB")
             self._info_format.setText(type(info).__name__)
 
-            # Cover art — use non-easy API
+            # Cover art
             audio_raw = mutagen.File(str(path))
             cover_data = self._extract_cover(audio_raw, path.suffix.lower())
             if cover_data:
@@ -12123,8 +13657,553 @@ class MusicTagEditorPage(QWidget):
         except Exception as e:
             self._status_bar.setText(f"Error: {e}")
 
+    def _ctrl_s_save(self):
+        """Ctrl+S: save multi if multiple selected, else save single."""
+        if self._save_all_btn.isEnabled():
+            self._save_tags_multi()
+        elif self._save_btn.isEnabled():
+            self._save_tags()
+
+    def _on_field_changed(self, key: str, text: str):
+        """Highlight fields that differ from the on-disk value."""
+        # Skip highlights while populating multi-select or cluster aggregate view
+        if getattr(self, '_loading_multi', False):
+            return
+        t      = _current_theme
+        orig   = self._orig_vals.get(key, "")
+        edit   = self._tag_edits[key]
+        if text != orig:
+            edit.setStyleSheet(
+                f"background:rgba(255,255,255,0.08);border:1px solid {t['accent']};"
+                f"border-radius:4px;padding:8px 11px;color:rgba(255,255,255,0.87);"
+            )
+        else:
+            edit.setStyleSheet("")   # revert to stylesheet default
+
+    def _clear_diff_highlights(self):
+        for edit in self._tag_edits.values():
+            edit.setStyleSheet("")
+
+    # ─────────────────────────────────────────────────────────
+    #  SAVE TAGS (unchanged)
+    # ─────────────────────────────────────────────────────────
+
+    def _save_tags(self):
+        if not self._current:
+            return
+        try:
+            import mutagen
+            audio = mutagen.File(str(self._current), easy=True)
+            if audio is None:
+                QMessageBox.warning(self, "Error", "Could not open file for writing.")
+                return
+            if audio.tags is None:
+                audio.add_tags()
+            for key, _ in self._FIELDS:
+                edit = self._tag_edits[key]
+                val  = edit.text().strip()
+                if val:
+                    audio.tags[key] = [val]
+                elif key in (audio.tags or {}):
+                    del audio.tags[key]
+            audio.save()
+            # Update orig values + clear highlights
+            for key, _ in self._FIELDS:
+                self._orig_vals[key] = self._tag_edits[key].text().strip()
+                self._orig_lbls[key].setText(self._orig_vals[key] or "—")
+            self._clear_diff_highlights()
+            self._status_bar.setText(f"✓ Saved: {self._current.name}")
+            self._log(f"Saved tags: {self._current.name}", "ok")
+            # Refresh file list item display name
+            self._refresh_file_list_item(self._current)
+        except ImportError:
+            QMessageBox.warning(self, "mutagen required",
+                "Please install mutagen:\n\n  pip install mutagen")
+        except Exception as e:
+            self._log(f"Save error — {self._current.name}: {e}", "error")
+            QMessageBox.critical(self, "Save Error", str(e))
+
+    def _refresh_file_list_item(self, path: Path):
+        """Update a single list item's display name after a save."""
+        try:
+            idx = self._files.index(path)
+        except ValueError:
+            return
+        item = self._file_list.item(idx)
+        if item is None:
+            return
+        item.setText(path.name)
+        item.setForeground(QColor(_current_theme["txt0"]))
+
+    def _on_selection_changed(self):
+        if not hasattr(self, '_sel_timer'):
+            self._sel_timer = QTimer()
+            self._sel_timer.setSingleShot(True)
+            self._sel_timer.timeout.connect(self._on_selection_settled)
+        self._sel_timer.start(120)
+
+    def _on_selection_settled(self):
+        selected = self._file_list.selectedItems()
+        n = len(selected)
+        if n <= 1:
+            self._save_all_btn.setEnabled(False)
+            self._save_all_btn.setText("💾  Save to All Selected")
+            if n == 0:
+                self._current = None
+                self._file_label.setText("Select a file to edit")
+                self._save_btn.setEnabled(False)
+            return
+
+        self._save_all_btn.setEnabled(True)
+        self._save_all_btn.setText(f"💾  Save to {n} Files")
+        self._file_label.setText(f"{n} files selected")
+        self._save_btn.setEnabled(False)
+
+        MAX_TAG_READ = 200
+        if n > MAX_TAG_READ:
+            for edit in self._tag_edits.values():
+                edit.clear()
+                edit.setPlaceholderText("— too many files to compare —")
+            self._status_bar.setText(
+                f"{n} files selected  ·  Tags not shown for selections > {MAX_TAG_READ} files  ·  "
+                "Filled fields will be written to all selected files on save"
+            )
+            return
+
+        try:
+            import mutagen
+        except ImportError:
+            self._status_bar.setText("mutagen not installed")
+            return
+
+        selected_rows  = [self._file_list.row(it) for it in selected]
+        selected_paths = [self._files[r] for r in selected_rows if 0 <= r < len(self._files)]
+        if not selected_paths:
+            return
+
+        all_vals: dict[str, list[str]] = {key: [] for key, _ in self._FIELDS}
+        for path in selected_paths:
+            try:
+                audio = mutagen.File(str(path), easy=True)
+                if audio is None:
+                    continue
+                for key, _ in self._FIELDS:
+                    val  = audio.tags.get(key) if audio.tags else None
+                    if isinstance(val, list):
+                        text = str(val[0]).strip() if val else ""
+                    elif val is not None:
+                        text = str(val).strip()
+                    else:
+                        text = ""
+                    all_vals[key].append(text)
+            except Exception:
+                pass
+
+        self._loading_multi = True
+        self._clear_diff_highlights()
+        for key, _ in self._FIELDS:
+            vals = all_vals[key]
+            edit = self._tag_edits[key]
+            if not vals:
+                edit.clear(); edit.setPlaceholderText("—")
+                continue
+            non_empty       = [v for v in vals if v]
+            unique_non_empty = set(non_empty)
+            if len(unique_non_empty) <= 1:
+                common = next(iter(unique_non_empty), "")
+                edit.setText(common); edit.setPlaceholderText("")
+            else:
+                edit.clear(); edit.setPlaceholderText("— multiple values —")
+        self._loading_multi = False
+
+        self._status_bar.setText(
+            f"{n} files selected  ·  Matching values shown  ·  "
+            "Blank fields keep existing values on save"
+        )
+
+    def _save_tags_multi(self):
+        # Support both flat-list multi-select and cluster-tree multi-select
+        cluster_paths = getattr(self, '_cluster_multi_paths', None)
+        if self._cluster_mode and cluster_paths:
+            selected_paths = cluster_paths
+        else:
+            selected = self._file_list.selectedItems()
+            if not selected:
+                return
+            selected_rows  = [self._file_list.row(it) for it in selected]
+            selected_paths = [self._files[r] for r in selected_rows if 0 <= r < len(self._files)]
+        if not selected_paths:
+            return
+
+        fields_to_write: dict[str, str] = {}
+        fields_to_delete: list[str]     = []
+        for key, _ in self._FIELDS:
+            edit        = self._tag_edits[key]
+            val         = edit.text().strip()
+            placeholder = edit.placeholderText()
+            if "multiple values" in placeholder and not val:
+                continue
+            if val:
+                fields_to_write[key] = val
+            else:
+                fields_to_delete.append(key)
+
+        if not fields_to_write and not fields_to_delete:
+            self._status_bar.setText("No fields to write (all blank/unchanged)")
+            return
+
+        try:
+            import mutagen
+        except ImportError:
+            QMessageBox.warning(self, "mutagen required", "pip install mutagen")
+            return
+
+        saved_count = 0
+        errors      = []
+        for path in selected_paths:
+            try:
+                audio = mutagen.File(str(path), easy=True)
+                if audio is None:
+                    errors.append(path.name); continue
+                if audio.tags is None:
+                    audio.add_tags()
+                for key, val in fields_to_write.items():
+                    audio.tags[key] = [val]
+                for key in fields_to_delete:
+                    if key in (audio.tags or {}):
+                        del audio.tags[key]
+                audio.save()
+                saved_count += 1
+                self._refresh_file_list_item(path)
+            except Exception as e:
+                errors.append(f"{path.name}: {e}")
+
+        if errors:
+            self._status_bar.setText(f"✓ Saved {saved_count} files  ·  {len(errors)} errors")
+            self._log(f"Saved {saved_count} files. Errors ({len(errors)}):", "warn")
+            for e in errors:
+                self._log(f"  {e}", "error")
+        else:
+            self._status_bar.setText(f"✓ Saved {saved_count} files")
+            self._log(f"Saved tags to {saved_count} files.", "ok")
+
+    # ─────────────────────────────────────────────────────────
+    #  BATCH TAG OPERATIONS
+    # ─────────────────────────────────────────────────────────
+
+    def _show_batch_ops(self):
+        if self._cluster_mode:
+            cluster_paths = getattr(self, '_cluster_multi_paths', [])
+            selected_paths = list(cluster_paths) if cluster_paths else (
+                [self._current] if self._current else []
+            )
+        else:
+            selected = self._file_list.selectedItems()
+            selected_rows  = [self._file_list.row(it) for it in selected]
+            selected_paths = [self._files[r] for r in selected_rows if 0 <= r < len(self._files)]
+        targets = selected_paths or list(self._files)
+        if not targets:
+            QMessageBox.information(self, "Batch Ops", "No files loaded.")
+            return
+
+        t   = _current_theme
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Batch Tag Operations  ({len(targets)} files)")
+        dlg.setMinimumWidth(400)
+        dlg.setStyleSheet("background:rgba(0,0,0,0.35);color:rgba(255,255,255,0.85);")
+        v = QVBoxLayout(dlg)
+        v.setContentsMargins(20, 16, 20, 16)
+        v.setSpacing(8)
+
+        scope_lbl = QLabel(
+            f"Applies to: {'selected' if selected_paths else 'all'} "
+            f"{len(targets)} file(s)"
+        )
+        scope_lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;")
+        v.addWidget(scope_lbl)
+
+        ops = [
+            ("capitalize_titles",  "Capitalize Title (Title Case)"),
+            ("capitalize_artists", "Capitalize Artist & Album Artist"),
+            ("trim_whitespace",    "Trim Whitespace (all fields)"),
+            ("swap_artist_aa",     "Swap Artist ↔ Album Artist"),
+            ("copy_artist_to_aa",  "Copy Artist → Album Artist (if AA empty)"),
+            ("strip_track_total",  "Strip track total  (e.g. '3/12' → '3')"),
+            ("strip_disc_total",   "Strip disc total   (e.g. '1/2' → '1')"),
+            ("lowercase_genre",    "Lowercase Genre"),
+            ("titlecase_genre",    "Title Case Genre"),
+        ]
+        checks = {}
+        for key, label in ops:
+            cb = QCheckBox(label)
+            cb.setStyleSheet("color:rgba(255,255,255,0.55);background:transparent;")
+            v.addWidget(cb)
+            checks[key] = cb
+
+        btn_row = QHBoxLayout()
+        run_btn    = QPushButton("Run")
+        run_btn.setObjectName("toggle")
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setObjectName("ghost")
+        btn_row.addStretch()
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(run_btn)
+        v.addLayout(btn_row)
+
+        def _run():
+            selected_ops = {k for k, cb in checks.items() if cb.isChecked()}
+            if not selected_ops:
+                QMessageBox.information(dlg, "Batch Ops", "Select at least one operation.")
+                return
+            dlg.accept()
+            self._run_batch_ops(targets, selected_ops)
+
+        run_btn.clicked.connect(_run)
+        cancel_btn.clicked.connect(dlg.reject)
+        dlg.exec()
+
+    def _run_batch_ops(self, files: list, ops: set):
+        try:
+            import mutagen
+        except ImportError:
+            QMessageBox.warning(self, "mutagen required", "pip install mutagen")
+            return
+
+        def _get(tags, k):
+            v = tags.get(k)
+            return str(v[0]).strip() if isinstance(v, list) and v else str(v).strip() if v else ""
+
+        changed = errors = 0
+        for path in files:
+            try:
+                audio = mutagen.File(str(path), easy=True)
+                if audio is None or audio.tags is None:
+                    continue
+                tags    = audio.tags
+                dirty   = False
+
+                if "trim_whitespace" in ops:
+                    for key in list(tags.keys()):
+                        v = tags.get(key)
+                        if isinstance(v, list) and v:
+                            stripped = str(v[0]).strip()
+                            if stripped != str(v[0]):
+                                tags[key] = [stripped]; dirty = True
+
+                if "capitalize_titles" in ops:
+                    v = _get(tags, "title")
+                    if v: tags["title"] = [v.title()]; dirty = True
+
+                if "capitalize_artists" in ops:
+                    for k in ("artist", "albumartist"):
+                        v = _get(tags, k)
+                        if v: tags[k] = [v.title()]; dirty = True
+
+                if "swap_artist_aa" in ops:
+                    a  = _get(tags, "artist")
+                    aa = _get(tags, "albumartist")
+                    if a or aa:
+                        # Write directly so an empty value clears the field
+                        if aa:
+                            tags["artist"] = [aa]; dirty = True
+                        elif "artist" in tags:
+                            del tags["artist"]; dirty = True
+                        if a:
+                            tags["albumartist"] = [a]; dirty = True
+                        elif "albumartist" in tags:
+                            del tags["albumartist"]; dirty = True
+
+                if "copy_artist_to_aa" in ops:
+                    a  = _get(tags, "artist")
+                    aa = _get(tags, "albumartist")
+                    if a and not aa:
+                        tags["albumartist"] = [a]; dirty = True
+
+                if "strip_track_total" in ops:
+                    v = _get(tags, "tracknumber")
+                    if "/" in v: tags["tracknumber"] = [v.split("/")[0].strip()]; dirty = True
+
+                if "strip_disc_total" in ops:
+                    v = _get(tags, "discnumber")
+                    if "/" in v: tags["discnumber"] = [v.split("/")[0].strip()]; dirty = True
+
+                if "lowercase_genre" in ops:
+                    v = _get(tags, "genre")
+                    if v: tags["genre"] = [v.lower()]; dirty = True
+
+                if "titlecase_genre" in ops:
+                    v = _get(tags, "genre")
+                    if v: tags["genre"] = [v.title()]; dirty = True
+
+                if dirty:
+                    audio.save()
+                    changed += 1
+                    self._log(f"Batch ops applied: {path.name}", "ok", "Batch Ops")
+                    self._refresh_file_list_item(path)
+            except Exception as e:
+                errors += 1
+                self._log(f"Batch error — {path.name}: {e}", "error", "Batch Ops")
+
+        msg = f"Batch ops done  ·  {changed} files changed"
+        if errors:
+            msg += f"  ·  {errors} errors"
+        self._status_bar.setText(msg)
+        self._log(msg, "ok" if not errors else "warn", "Batch Ops")
+        # Reload view so fields reflect changes
+        if self._cluster_mode and getattr(self, '_cluster_multi_paths', []):
+            self._on_cluster_selection_changed()
+        elif len(self._file_list.selectedItems()) > 1:
+            self._on_selection_settled()
+        elif self._current:
+            self._load_tags(self._current)
+
+    # ─────────────────────────────────────────────────────────
+    #  FILE RENAMING
+    # ─────────────────────────────────────────────────────────
+
+    def _show_rename_dialog(self):
+        if self._cluster_mode:
+            cluster_paths = getattr(self, '_cluster_multi_paths', [])
+            selected_paths = list(cluster_paths) if cluster_paths else (
+                [self._current] if self._current else []
+            )
+        else:
+            selected       = self._file_list.selectedItems()
+            selected_rows  = [self._file_list.row(it) for it in selected]
+            selected_paths = [self._files[r] for r in selected_rows if 0 <= r < len(self._files)]
+        targets = selected_paths or list(self._files)
+        if not targets:
+            QMessageBox.information(self, "Rename Files", "No files loaded.")
+            return
+
+        t   = _current_theme
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Rename Files  ({len(targets)} files)")
+        dlg.setMinimumWidth(500)
+        dlg.setStyleSheet("background:rgba(0,0,0,0.35);color:rgba(255,255,255,0.85);")
+        v = QVBoxLayout(dlg)
+        v.setContentsMargins(20, 16, 20, 16)
+        v.setSpacing(10)
+
+        info = QLabel(
+            "Template tokens:  %tracknumber%  %title%  %artist%  %albumartist%\n"
+            "                  %album%  %date%  %discnumber%  %genre%\n\n"
+            "File extension is preserved automatically."
+        )
+        info.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;")
+        v.addWidget(info)
+
+        tpl_edit = QLineEdit()
+        tpl_edit.setText("%tracknumber% - %title%")
+        tpl_edit.setPlaceholderText("e.g. %tracknumber% - %artist% - %title%")
+        v.addWidget(tpl_edit)
+
+        preview_lbl = QLabel("Preview: —")
+        preview_lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:11px;background:transparent;")
+        v.addWidget(preview_lbl)
+
+        # Live preview from the first target file
+        def _update_preview():
+            tpl = tpl_edit.text().strip()
+            if not tpl or not targets:
+                preview_lbl.setText("Preview: —")
+                return
+            try:
+                import mutagen as _mut
+                audio = _mut.File(str(targets[0]), easy=True)
+                tags  = audio.tags if audio else {}
+                def _tg(tags_inner, k):
+                    v2 = (tags_inner or {}).get(k)
+                    return str(v2[0]).strip() if isinstance(v2, list) and v2 else str(v2).strip() if v2 else ""
+                out = tpl
+                for token, val in [
+                    ("%title%",       _tg(tags, "title")),
+                    ("%artist%",      _tg(tags, "artist")),
+                    ("%albumartist%", _tg(tags, "albumartist") or _tg(tags, "artist")),
+                    ("%album%",       _tg(tags, "album")),
+                    ("%tracknumber%", _tg(tags, "tracknumber").split("/")[0].zfill(2)),
+                    ("%discnumber%",  _tg(tags, "discnumber").split("/")[0]),
+                    ("%date%",        _tg(tags, "date")[:4]),
+                    ("%genre%",       _tg(tags, "genre")),
+                ]:
+                    out = out.replace(token, re.sub(r'[\\/:*?"<>|]', '_', val) if val else "")
+                out = re.sub(r'_+', '_', out).strip("_").strip()
+                preview_lbl.setText(f"Preview: {out}{targets[0].suffix}")
+            except Exception as ex:
+                preview_lbl.setText(f"Preview error: {ex}")
+
+        tpl_edit.textChanged.connect(_update_preview)
+        _update_preview()
+
+        scope_lbl = QLabel(
+            f"Applies to: {'selected' if selected_paths else 'all'} {len(targets)} file(s)"
+        )
+        scope_lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;")
+        v.addWidget(scope_lbl)
+
+        btn_row = QHBoxLayout()
+        run_btn    = QPushButton("Rename")
+        run_btn.setObjectName("toggle")
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setObjectName("ghost")
+        btn_row.addStretch()
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(run_btn)
+        v.addLayout(btn_row)
+
+        def _start_rename():
+            tpl = tpl_edit.text().strip()
+            if not tpl:
+                QMessageBox.warning(dlg, "Rename", "Enter a template first.")
+                return
+            dlg.accept()
+            self._start_rename_worker(targets, tpl)
+
+        run_btn.clicked.connect(_start_rename)
+        cancel_btn.clicked.connect(dlg.reject)
+        dlg.exec()
+
+    def _start_rename_worker(self, files: list, template: str):
+        self._rename_btn.setEnabled(False)
+        self._status_bar.setText("Renaming files…")
+        worker = _FileRenameWorker(files, template)
+        worker.log_line.connect(self._log)
+        worker.finished.connect(self._on_rename_done)
+        worker.finished.connect(worker.deleteLater)
+        self._rename_worker = worker
+        worker.start()
+
+    def _on_rename_done(self, renamed: int, errors: int):
+        self._rename_btn.setEnabled(True)
+        msg = f"Renamed {renamed} files"
+        if errors:
+            msg += f"  ·  {errors} errors"
+        self._status_bar.setText(msg)
+        self._log(msg, "ok" if not errors else "warn", "Rename")
+        # Refresh file list — names may have changed
+        # Re-scan original directory if we have one
+        if self._files:
+            # Reconstruct from whatever paths still exist
+            self._files = [p for p in self._files if p.exists()]
+            # Also pick up renamed siblings — find new names in the same dirs
+            dirs = {p.parent for p in self._files}
+            exts = {".flac",".mp3",".m4a",".ogg",".opus",".aac",".wma",".wav",".aiff"}
+            new_files = sorted({
+                p for d in dirs for p in d.iterdir()
+                if p.suffix.lower() in exts and p not in set(self._files)
+            })
+            self._files = sorted(set(self._files) | set(new_files), key=lambda p: p.name)
+            self._populate_file_list()
+            # Rebuild cluster tree if active so it shows new filenames
+            if self._cluster_mode:
+                self._cluster_multi_paths = []
+                self._build_clusters()
+
+    # ─────────────────────────────────────────────────────────
+    #  COVER OPERATIONS (unchanged from original)
+    # ─────────────────────────────────────────────────────────
+
     def _extract_cover(self, audio, suffix: str) -> Optional[bytes]:
-        """Extract raw cover bytes from mutagen File object."""
         try:
             if suffix == ".flac":
                 pics = audio.pictures
@@ -12136,7 +14215,6 @@ class MusicTagEditorPage(QWidget):
                 covr = (audio.tags or {}).get("covr")
                 return bytes(covr[0]) if covr else None
             elif suffix in (".ogg", ".opus", ".oga"):
-                # OGG/Vorbis stores covers as base64 METADATA_BLOCK_PICTURE
                 import base64
                 from mutagen.flac import Picture
                 tags = audio.tags or {}
@@ -12150,7 +14228,6 @@ class MusicTagEditorPage(QWidget):
                                 return pic.data
                         except Exception:
                             pass
-                # Fallback: some taggers write a raw APIC-style tag
                 for key in (audio.tags or {}).keys():
                     if "apic" in key.lower() or "picture" in key.lower():
                         val = (audio.tags or {})[key]
@@ -12187,222 +14264,6 @@ class MusicTagEditorPage(QWidget):
         except Exception:
             pass
 
-    # ── Save tags ─────────────────────────────────────────────
-
-    def _save_tags(self):
-        if not self._current:
-            return
-        try:
-            import mutagen
-            audio = mutagen.File(str(self._current), easy=True)
-            if audio is None:
-                QMessageBox.warning(self, "Error", "Could not open file for writing.")
-                return
-            if audio.tags is None:
-                audio.add_tags()
-            for key, _ in self._FIELDS:
-                edit = self._tag_edits[key]
-                val  = edit.text().strip()
-                if val:
-                    audio.tags[key] = [val]
-                elif key in (audio.tags or {}):
-                    del audio.tags[key]
-            audio.save()
-            self._status_bar.setText(f"✓ Saved: {self._current.name}")
-            self._log(f"Saved tags: {self._current.name}", "ok")
-        except ImportError:
-            QMessageBox.warning(self, "mutagen required",
-                "Please install mutagen:\n\n  pip install mutagen")
-        except Exception as e:
-            self._log(f"Save error — {self._current.name}: {e}", "error")
-            QMessageBox.critical(self, "Save Error", str(e))
-
-    def _copy_to_next(self):
-        if not self._current:
-            return
-        cur_row = self._file_list.currentRow()
-        if cur_row + 1 >= len(self._files):
-            return
-        # Load values to next file
-        next_path = self._files[cur_row + 1]
-        try:
-            import mutagen
-            audio = mutagen.File(str(next_path), easy=True)
-            if audio is None:
-                return
-            if audio.tags is None:
-                audio.add_tags()
-            for key, _ in self._FIELDS:
-                val = self._tag_edits[key].text().strip()
-                if val and key not in ("title", "tracknumber"):  # don't copy title/track
-                    audio.tags[key] = [val]
-            audio.save()
-            self._file_list.setCurrentRow(cur_row + 1)
-            self._status_bar.setText(f"✓ Tags copied to {next_path.name}")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
-
-    def _on_selection_changed(self):
-        """Handle multi-file selection — debounced so Ctrl+A on 10k files doesn't freeze."""
-        # Debounce: cancel any pending timer and restart it so we only process
-        # once the user stops changing the selection (e.g. after Ctrl+A settles).
-        if not hasattr(self, '_sel_timer'):
-            self._sel_timer = QTimer()
-            self._sel_timer.setSingleShot(True)
-            self._sel_timer.timeout.connect(self._on_selection_settled)
-        self._sel_timer.start(120)   # 120 ms debounce
-
-    def _on_selection_settled(self):
-        """Called ~120 ms after the last selection change — safe to read tags now."""
-        selected = self._file_list.selectedItems()
-        n = len(selected)
-        if n <= 1:
-            self._save_all_btn.setEnabled(False)
-            self._save_all_btn.setText("💾  Save to All Selected")
-            return
-
-        self._save_all_btn.setEnabled(True)
-        self._save_all_btn.setText(f"💾  Save to {n} Files")
-        self._file_label.setText(f"{n} files selected")
-        self._save_btn.setEnabled(False)
-        self._copy_btn.setEnabled(False)
-
-        # Only read tags if the selection is manageable — reading 10k files
-        # synchronously on the main thread would freeze the UI for minutes.
-        MAX_TAG_READ = 200
-        if n > MAX_TAG_READ:
-            for edit in self._tag_edits.values():
-                edit.clear()
-                edit.setPlaceholderText("— too many files to compare —")
-            self._status_bar.setText(
-                f"{n} files selected  ·  Tags not shown for selections > {MAX_TAG_READ} files  ·  "
-                "Filled fields will be written to all selected files on save"
-            )
-            return
-
-        try:
-            import mutagen
-        except ImportError:
-            self._status_bar.setText("mutagen not installed")
-            return
-
-        selected_rows  = [self._file_list.row(it) for it in selected]
-        selected_paths = [self._files[r] for r in selected_rows if 0 <= r < len(self._files)]
-        if not selected_paths:
-            return
-
-        all_vals: dict[str, list[str]] = {key: [] for key, _ in self._FIELDS}
-        for path in selected_paths:
-            try:
-                audio = mutagen.File(str(path), easy=True)
-                if audio is None:
-                    continue
-                for key, _ in self._FIELDS:
-                    val  = audio.tags.get(key) if audio.tags else None
-                    # Normalize: strip whitespace, collapse list to first element.
-                    # Treat None/missing/"" all as "" so a missing tag on one file
-                    # doesn't make an otherwise identical field show "multiple values".
-                    if isinstance(val, list):
-                        text = str(val[0]).strip() if val else ""
-                    elif val is not None:
-                        text = str(val).strip()
-                    else:
-                        text = ""
-                    all_vals[key].append(text)
-            except Exception:
-                pass
-
-        for key, _ in self._FIELDS:
-            vals = all_vals[key]
-            edit = self._tag_edits[key]
-            if not vals:
-                edit.clear(); edit.setPlaceholderText("—")
-                continue
-            # Only consider non-empty values when deciding if there are conflicts.
-            # If all files either have the same value or simply don't have the tag
-            # at all, show the value (or blank) rather than "multiple values".
-            non_empty = [v for v in vals if v]
-            unique_non_empty = set(non_empty)
-            if len(unique_non_empty) <= 1:
-                # All agree (or all empty, or some missing + rest same value)
-                common = next(iter(unique_non_empty), "")
-                edit.setText(common); edit.setPlaceholderText("")
-            else:
-                edit.clear(); edit.setPlaceholderText("— multiple values —")
-
-        self._status_bar.setText(
-            f"{n} files selected  ·  Matching values shown  ·  "
-            "Blank fields keep existing values on save"
-        )
-
-    def _save_tags_multi(self):
-        """Save non-blank, non-placeholder fields to all selected files."""
-        selected = self._file_list.selectedItems()
-        if not selected:
-            return
-        selected_rows = [self._file_list.row(it) for it in selected]
-        selected_paths = [self._files[r] for r in selected_rows if 0 <= r < len(self._files)]
-        if not selected_paths:
-            return
-
-        # Collect fields: values to write and fields to explicitly clear
-        # Skip fields showing "— multiple values —" placeholder (unchanged)
-        fields_to_write: dict[str, str] = {}
-        fields_to_delete: list[str] = []
-        for key, _ in self._FIELDS:
-            edit = self._tag_edits[key]
-            val = edit.text().strip()
-            placeholder = edit.placeholderText()
-            if "multiple values" in placeholder and not val:
-                # Field untouched — skip it entirely
-                continue
-            if val:
-                fields_to_write[key] = val
-            else:
-                # Field was explicitly cleared — delete the tag
-                fields_to_delete.append(key)
-
-        if not fields_to_write and not fields_to_delete:
-            self._status_bar.setText("No fields to write (all blank/unchanged)")
-            return
-
-        try:
-            import mutagen
-        except ImportError:
-            QMessageBox.warning(self, "mutagen required", "pip install mutagen")
-            return
-
-        saved_count = 0
-        errors = []
-        for path in selected_paths:
-            try:
-                audio = mutagen.File(str(path), easy=True)
-                if audio is None:
-                    errors.append(path.name)
-                    continue
-                if audio.tags is None:
-                    audio.add_tags()
-                for key, val in fields_to_write.items():
-                    audio.tags[key] = [val]
-                for key in fields_to_delete:
-                    if key in (audio.tags or {}):
-                        del audio.tags[key]
-                audio.save()
-                saved_count += 1
-            except Exception as e:
-                errors.append(f"{path.name}: {e}")
-
-        if errors:
-            self._status_bar.setText(f"✓ Saved {saved_count} files  ·  {len(errors)} errors")
-            self._log(f"Saved {saved_count} files. Errors ({len(errors)}):", "warn")
-            for e in errors:
-                self._log(f"  {e}", "error")
-        else:
-            self._status_bar.setText(f"✓ Saved {saved_count} files")
-            self._log(f"Saved tags to {saved_count} files.", "ok")
-
-    # ── Cover operations ──────────────────────────────────────
-
     def _set_cover(self):
         if not self._current:
             return
@@ -12416,7 +14277,7 @@ class MusicTagEditorPage(QWidget):
             import mutagen
             from mutagen.id3 import APIC, ID3
             data = Path(path).read_bytes()
-            mime = "image/jpeg" if path.lower().endswith(".jpg") or path.lower().endswith(".jpeg") else "image/png"
+            mime = "image/jpeg" if path.lower().endswith((".jpg", ".jpeg")) else "image/png"
             suf  = self._current.suffix.lower()
             audio_raw = mutagen.File(str(self._current))
 
@@ -12480,8 +14341,7 @@ class MusicTagEditorPage(QWidget):
                 audio.tags.pop("METADATA_BLOCK_PICTURE", None)
             audio.save()
             self._cover_data = None
-            self._cover_lbl.setPixmap(QPixmap())
-            self._cover_lbl.setText("No Cover")
+            self._cover_lbl.setPixmap(QPixmap()); self._cover_lbl.setText("No Cover")
             self._cover_info_lbl.setText("")
             self._status_bar.setText("✓ Cover removed")
             self._log(f"Cover removed: {self._current.name}", "ok")
@@ -12505,22 +14365,17 @@ class MusicTagEditorPage(QWidget):
 
     @staticmethod
     def _do_resize_bytes(data: bytes, target_px: int, quality: int):
-        """
-        Resize image bytes to fit within target_px × target_px.
-        Returns (new_bytes, new_w, new_h) or None if already small enough.
-        Fast path: header-only dimension check skips full decode for already-small covers.
-        """
         from PyQt6.QtCore import QByteArray, QBuffer
         peeked = _peek_image_size(data)
         if peeked is not None:
             pw, ph = peeked
             if pw <= target_px and ph <= target_px:
-                return None  # already small enough — no QImage decode at all
+                return None
         img = QImage()
         if not img.loadFromData(data):
             return None
         if img.width() <= target_px and img.height() <= target_px:
-            return None  # safety fallback
+            return None
         img = img.scaled(
             target_px, target_px,
             Qt.AspectRatioMode.KeepAspectRatio,
@@ -12534,7 +14389,6 @@ class MusicTagEditorPage(QWidget):
         return bytes(qba), img.width(), img.height()
 
     def _embed_resized_cover(self, path: Path, new_data: bytes):
-        """Write new_data as the embedded cover in path (MP3 / FLAC / M4A / AAC / OGG / Opus)."""
         import mutagen
         from mutagen.id3 import APIC
         suf   = path.suffix.lower()
@@ -12572,35 +14426,28 @@ class MusicTagEditorPage(QWidget):
         audio.save()
 
     def _resize_cover(self):
-        """Resize the embedded cover of the currently selected file."""
         if not self._current:
-            self._status_bar.setText("Select a file first.")
-            return
+            self._status_bar.setText("Select a file first."); return
         if not self._cover_data:
-            self._status_bar.setText("This file has no embedded cover art.")
-            return
+            self._status_bar.setText("This file has no embedded cover art."); return
         try:
             import mutagen
         except ImportError:
-            QMessageBox.warning(self, "mutagen required", "pip install mutagen")
-            return
+            QMessageBox.warning(self, "mutagen required", "pip install mutagen"); return
 
         target_px = self._resize_spin.value()
-        quality   = 100
-        result    = self._do_resize_bytes(self._cover_data, target_px, quality)
-
+        result    = self._do_resize_bytes(self._cover_data, target_px, 100)
         if result is None:
             img = QImage(); img.loadFromData(self._cover_data)
             self._status_bar.setText(
                 f"Cover is already {img.width()}×{img.height()} — at or below {target_px} px, skipped."
             )
             return
-
         new_data, new_w, new_h = result
         old_kb = len(self._cover_data) / 1024
         new_kb = len(new_data) / 1024
         try:
-            self._cover_data_before_resize = self._cover_data  # stash for revert
+            self._cover_data_before_resize = self._cover_data
             self._embed_resized_cover(self._current, new_data)
             self._cover_data = new_data
             self._show_cover(new_data)
@@ -12609,18 +14456,15 @@ class MusicTagEditorPage(QWidget):
                 f"✓ Cover resized to {new_w}×{new_h}  ·  {old_kb:.0f} KB → {new_kb:.0f} KB"
             )
         except Exception as e:
-            self._cover_data_before_resize = None  # don't offer revert on failed resize
+            self._cover_data_before_resize = None
             QMessageBox.critical(self, "Resize Error", str(e))
 
     def _revert_cover(self):
-        """Restore the cover art to what it was before the last single-file resize."""
         original = getattr(self, "_cover_data_before_resize", None)
         if not original:
-            self._status_bar.setText("Nothing to revert.")
-            return
+            self._status_bar.setText("Nothing to revert."); return
         if not self._current or not self._current.exists():
-            self._status_bar.setText("File no longer available.")
-            return
+            self._status_bar.setText("File no longer available."); return
         try:
             self._embed_resized_cover(self._current, original)
             self._cover_data = original
@@ -12632,18 +14476,15 @@ class MusicTagEditorPage(QWidget):
             QMessageBox.critical(self, "Revert Error", str(e))
 
     def _revert_bulk_covers(self):
-        """Restore all covers changed by the last bulk resize."""
         originals = getattr(self, "_bulk_cover_originals", None)
         if not originals:
-            self._status_bar.setText("No bulk revert data available.")
-            return
+            self._status_bar.setText("No bulk revert data available."); return
         self._revert_all_btn.setEnabled(False)
         reverted = errors = 0
         for path, cover_data in originals.items():
             try:
                 if not path.exists():
-                    self._log(f"Skipped (missing): {path.name}", "warn")
-                    continue
+                    self._log(f"Skipped (missing): {path.name}", "warn"); continue
                 self._embed_resized_cover(path, cover_data)
                 self._log(f"Reverted: {path.name}", "ok")
                 reverted += 1
@@ -12656,37 +14497,47 @@ class MusicTagEditorPage(QWidget):
             msg += f"  ·  {errors} errors"
         self._status_bar.setText(msg)
         self._log(msg, "ok" if not errors else "warn")
-        # Refresh preview if current file was in the batch
         if self._current and self._current in originals:
             self._cover_data = originals[self._current]
             self._show_cover(self._cover_data)
 
-    def _bulk_resize_covers(self):
-        """Resize embedded covers in every file currently in the list."""
-        if not self._files:
-            self._status_bar.setText("Load some files first.")
-            return
+    def _bulk_resize_selected(self):
+        """Resize covers only for the currently selected files."""
+        # Gather selected paths from flat list or cluster mode
+        if self._cluster_mode:
+            selected_paths = list(getattr(self, "_cluster_multi_paths", []))
+            if not selected_paths and self._current:
+                selected_paths = [self._current]
+        else:
+            selected_items = self._file_list.selectedItems()
+            if selected_items:
+                rows = [self._file_list.row(it) for it in selected_items]
+                selected_paths = [self._files[r] for r in rows if 0 <= r < len(self._files)]
+            elif self._current:
+                selected_paths = [self._current]
+            else:
+                selected_paths = []
+
+        if not selected_paths:
+            self._status_bar.setText("No files selected."); return
         try:
             import mutagen
         except ImportError:
-            QMessageBox.warning(self, "mutagen required", "pip install mutagen")
-            return
+            QMessageBox.warning(self, "mutagen required", "pip install mutagen"); return
 
         supported = {".mp3", ".flac", ".m4a", ".aac"}
-        files_to_process = [f for f in self._files if f.suffix.lower() in supported]
+        files_to_process = [f for f in selected_paths if f.suffix.lower() in supported]
         if not files_to_process:
-            self._status_bar.setText("No supported files (MP3/FLAC/M4A/AAC) in list.")
-            return
+            self._status_bar.setText("No supported files (MP3/FLAC/M4A/AAC) in selection."); return
 
-        target_px = self._resize_spin.value()
-        quality   = 100
-
+        self._resize_sel_btn.setEnabled(False)
         self._resize_all_btn.setEnabled(False)
         self._resize_progress.setVisible(True)
         self._resize_progress.setValue(0)
+        self._cancel_resize_btn.setVisible(True)
 
         worker = _CoverResizeWorker(
-            files_to_process, target_px, quality,
+            files_to_process, self._resize_spin.value(), 100,
             self._extract_cover, self._do_resize_bytes, self._embed_resized_cover,
         )
         worker.progress.connect(self._on_bulk_resize_progress)
@@ -12698,21 +14549,65 @@ class MusicTagEditorPage(QWidget):
         self._bulk_total  = len(files_to_process)
         worker.start()
 
-    def _on_bulk_resize_progress(self, i: int, total: int, name: str):
+    def _bulk_resize_covers(self):
+        if not self._files:
+            self._status_bar.setText("Load some files first."); return
+        try:
+            import mutagen
+        except ImportError:
+            QMessageBox.warning(self, "mutagen required", "pip install mutagen"); return
+
+        supported = {".mp3", ".flac", ".m4a", ".aac"}
+        files_to_process = [f for f in self._files if f.suffix.lower() in supported]
+        if not files_to_process:
+            self._status_bar.setText("No supported files (MP3/FLAC/M4A/AAC) in list."); return
+
+        self._resize_sel_btn.setEnabled(False)
+        self._resize_all_btn.setEnabled(False)
+        self._resize_progress.setVisible(True)
+        self._resize_progress.setValue(0)
+        self._cancel_resize_btn.setVisible(True)
+
+        worker = _CoverResizeWorker(
+            files_to_process, self._resize_spin.value(), 100,
+            self._extract_cover, self._do_resize_bytes, self._embed_resized_cover,
+        )
+        worker.progress.connect(self._on_bulk_resize_progress)
+        worker.log_line.connect(self._on_bulk_resize_log)
+        worker.originals_ready.connect(self._on_bulk_originals_ready)
+        worker.finished.connect(self._on_bulk_resize_done)
+        worker.finished.connect(worker.deleteLater)
+        self._bulk_worker = worker
+        self._bulk_total  = len(files_to_process)
+        worker.start()
+
+    def _cancel_bulk_resize(self):
+        w = getattr(self, "_bulk_worker", None)
+        if w and w.isRunning():
+            w.requestInterruption()
+            w.wait(500)
+        self._cancel_resize_btn.setVisible(False)
+        self._resize_progress.setVisible(False)
+        self._resize_sel_btn.setEnabled(True)
+        self._resize_all_btn.setEnabled(True)
+        self._status_bar.setText("Cover resize cancelled.")
+
+    def _on_bulk_resize_progress(self, i, total, name):
         pct = int(i / total * 100) if total else 0
         self._resize_progress.setValue(pct)
         self._status_bar.setText(f"Resizing… {i}/{total}  —  {name}")
 
-    def _on_bulk_resize_log(self, msg: str, level: str):
+    def _on_bulk_resize_log(self, msg, level):
         self._log(msg, level)
 
-    def _on_bulk_originals_ready(self, originals: dict):
-        """Store original cover data from bulk resize for potential revert."""
+    def _on_bulk_originals_ready(self, originals):
         self._bulk_cover_originals = originals
 
-    def _on_bulk_resize_done(self, resized: int, skipped: int, errors: int):
+    def _on_bulk_resize_done(self, resized, skipped, errors):
+        self._resize_sel_btn.setEnabled(True)
         self._resize_all_btn.setEnabled(True)
         self._resize_progress.setVisible(False)
+        self._cancel_resize_btn.setVisible(False)
         msg = f"Cover resize done  ·  {resized} resized  ·  {skipped} already small"
         if errors:
             msg += f"  ·  {errors} errors"
@@ -12720,11 +14615,10 @@ class MusicTagEditorPage(QWidget):
         self._log(msg, "ok" if not errors else "warn")
         if resized > 0 and self._bulk_cover_originals:
             self._revert_all_btn.setEnabled(True)
-        # Refresh preview if current file was processed
         if self._current:
             try:
                 import mutagen
-                audio_raw = mutagen.File(str(self._current))
+                audio_raw  = mutagen.File(str(self._current))
                 cover_data = self._extract_cover(audio_raw, self._current.suffix.lower())
                 if cover_data:
                     self._cover_data = cover_data
@@ -12732,18 +14626,15 @@ class MusicTagEditorPage(QWidget):
             except Exception:
                 pass
 
-
     # ── Verify Integrity ──────────────────────────────────────
 
     def _verify_current(self):
         if not self._current:
-            self._status_bar.setText("Select a file first.")
-            return
+            self._status_bar.setText("Select a file first."); return
         if not shutil.which("ffmpeg"):
             QMessageBox.warning(self, "ffmpeg not found",
                 "Integrity verification requires ffmpeg on your PATH.\n\n"
-                "Install it via your package manager or from https://ffmpeg.org/")
-            return
+                "Install it via your package manager or from https://ffmpeg.org/"); return
         self._log(f"Verifying: {self._current.name} …")
         self._verify_all_btn.setEnabled(False)
         worker = _IntegrityCheckWorker([self._current])
@@ -12755,15 +14646,14 @@ class MusicTagEditorPage(QWidget):
 
     def _verify_all(self):
         if not self._files:
-            self._status_bar.setText("Load some files first.")
-            return
+            self._status_bar.setText("Load some files first."); return
         if not shutil.which("ffmpeg"):
             QMessageBox.warning(self, "ffmpeg not found",
                 "Integrity verification requires ffmpeg on your PATH.\n\n"
-                "Install it via your package manager or from https://ffmpeg.org/")
-            return
+                "Install it via your package manager or from https://ffmpeg.org/"); return
         self._log(f"Verifying {len(self._files)} files …")
         self._verify_all_btn.setEnabled(False)
+        self._verify_cancel_btn.setVisible(True)
         self._verify_progress.setVisible(True)
         self._verify_progress.setValue(0)
         worker = _IntegrityCheckWorker(list(self._files))
@@ -12774,18 +14664,27 @@ class MusicTagEditorPage(QWidget):
         self._verify_worker = worker
         worker.start()
 
-    def _on_verify_progress(self, i: int, total: int, name: str):
+    def _cancel_verify(self):
+        w = getattr(self, '_verify_worker', None)
+        if w and w.isRunning():
+            w.requestInterruption(); w.wait(2000)
+        self._verify_all_btn.setEnabled(True)
+        self._verify_cancel_btn.setVisible(False)
+        self._verify_progress.setVisible(False)
+        self._status_bar.setText("Verify cancelled.")
+
+    def _on_verify_progress(self, i, total, name):
         pct = int(i / total * 100) if total else 0
         self._verify_progress.setValue(pct)
         self._status_bar.setText(f"Verifying… {i}/{total}  —  {name}")
 
-    def _on_verify_done_single(self, ok: int, errors: int):
+    def _on_verify_done_single(self, ok, errors):
         self._verify_all_btn.setEnabled(True)
-        result = "✓ No errors found." if not errors else f"✗ {errors} error(s) detected — see log."
-        self._status_bar.setText(result)
+        self._status_bar.setText("✓ No errors found." if not errors else f"✗ {errors} error(s) detected — see log.")
 
-    def _on_verify_done_all(self, ok: int, errors: int):
+    def _on_verify_done_all(self, ok, errors):
         self._verify_all_btn.setEnabled(True)
+        self._verify_cancel_btn.setVisible(False)
         self._verify_progress.setVisible(False)
         msg = f"Verify done  ·  {ok} OK  ·  {errors} with errors"
         self._status_bar.setText(msg)
@@ -12795,13 +14694,11 @@ class MusicTagEditorPage(QWidget):
 
     def _rg_strip(self):
         if not self._files:
-            self._status_bar.setText("Load some files first.")
-            return
+            self._status_bar.setText("Load some files first."); return
         try:
             import mutagen
         except ImportError:
-            QMessageBox.warning(self, "mutagen required", "pip install mutagen")
-            return
+            QMessageBox.warning(self, "mutagen required", "pip install mutagen"); return
         self._rg_strip_btn.setEnabled(False)
         self._rg_progress.setVisible(True)
         self._rg_progress.setValue(0)
@@ -12813,12 +14710,12 @@ class MusicTagEditorPage(QWidget):
         self._rg_worker = worker
         worker.start()
 
-    def _on_rg_progress(self, i: int, total: int, name: str):
+    def _on_rg_progress(self, i, total, name):
         pct = int(i / total * 100) if total else 0
         self._rg_progress.setValue(pct)
         self._status_bar.setText(f"Stripping RG tags… {i}/{total}  —  {name}")
 
-    def _on_rg_done(self, stripped: int, errors: int):
+    def _on_rg_done(self, stripped, errors):
         self._rg_strip_btn.setEnabled(True)
         self._rg_progress.setVisible(False)
         msg = f"Strip done  ·  {stripped} files cleared"
@@ -12826,9 +14723,6 @@ class MusicTagEditorPage(QWidget):
             msg += f"  ·  {errors} errors"
         self._status_bar.setText(msg)
         self._log(msg, "ok" if not errors else "warn")
-
-
-
 
 class _RgStripWorker(QThread):
     """
@@ -13183,11 +15077,11 @@ class FileConverterPage(QWidget):
 
         # Header
         hdr = QWidget(); hdr.setFixedHeight(56)
-        hdr.setStyleSheet(f"background:{t['bg1']};border-bottom:1px solid {t['border']};")
+        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
         hb = QHBoxLayout(hdr); hb.setContentsMargins(20, 0, 20, 0)
         hl = QLabel("File Converter")
         hf = QFont(); hf.setPointSize(15); hf.setBold(True)
-        hl.setFont(hf); hl.setStyleSheet(f"color:{t['txt0']};background:transparent;")
+        hl.setFont(hf); hl.setStyleSheet("color:#fff;background:transparent;")
         hb.addWidget(hl); hb.addStretch()
         hb.addWidget(QLabel("FFmpeg-powered · remembers converted files"))
         root.addWidget(hdr)
@@ -13198,6 +15092,7 @@ class FileConverterPage(QWidget):
 
         # ── Left panel (scrollable so it works on small monitors) ──
         cfg_inner = QWidget(); cfg_inner.setObjectName("panel")
+        cfg_inner.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         cv  = QVBoxLayout(cfg_inner); cv.setContentsMargins(16,16,16,16); cv.setSpacing(10)
         cfg_scroll = QScrollArea()
         cfg_scroll.setWidget(cfg_inner)
@@ -13377,6 +15272,7 @@ class FileConverterPage(QWidget):
 
         # Progress card
         prog_card = QWidget(); prog_card.setObjectName("panel")
+        prog_card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         pv = QVBoxLayout(prog_card); pv.setContentsMargins(14,10,14,10); pv.setSpacing(6)
         pt = QHBoxLayout(); pt.addWidget(QLabel("Overall Progress")); pt.addStretch()
         self._prog_lbl = QLabel("Ready"); self._prog_lbl.setObjectName("muted")
@@ -13387,8 +15283,8 @@ class FileConverterPage(QWidget):
         stats_row = QHBoxLayout(); stats_row.setSpacing(12)
         for attr, label, ck in [("_cs_queued","Queued","txt1"),("_cs_done","Done","success"),
                                   ("_cs_skipped","Skipped","txt2"),("_cs_errors","Errors","danger")]:
-            w = QWidget(); w.setStyleSheet(
-                f"background:{t['bg2']};border:1px solid {t['border']};border-radius:6px;")
+            w = QWidget(); w.setObjectName("card")
+            w.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
             wl = QVBoxLayout(w); wl.setContentsMargins(10,6,10,6); wl.setSpacing(1)
             num = QLabel("0")
             nf = QFont(); nf.setPointSize(16); nf.setBold(True); num.setFont(nf)
@@ -13400,11 +15296,12 @@ class FileConverterPage(QWidget):
 
         # ── Queue + Skipped + Log tabs ─────────────────────────
         tabs_card = QWidget(); tabs_card.setObjectName("panel")
+        tabs_card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         tabs_card_v = QVBoxLayout(tabs_card); tabs_card_v.setContentsMargins(0,0,0,0); tabs_card_v.setSpacing(0)
 
         # Tab bar header
         tab_hdr = QWidget(); tab_hdr.setFixedHeight(38)
-        tab_hdr.setStyleSheet(f"background:{t['bg2']};border-radius:8px 8px 0 0;")
+        tab_hdr.setStyleSheet("background:rgba(255,255,255,0.05);border-radius:8px 8px 0 0;")
         tab_hdr_l = QHBoxLayout(tab_hdr); tab_hdr_l.setContentsMargins(14,0,8,0); tab_hdr_l.setSpacing(0)
 
         self._tab_queue_btn  = QPushButton("Conversion Queue")
@@ -13413,16 +15310,16 @@ class FileConverterPage(QWidget):
         for btn in (self._tab_queue_btn, self._tab_skip_btn, self._tab_log_btn):
             btn.setCheckable(True); btn.setFlat(True)
             btn.setFixedHeight(30)
-            btn.setStyleSheet(f"""
+            btn.setStyleSheet("""
                 QPushButton {{
                     background: transparent; border: none; border-bottom: 2px solid transparent;
-                    color: {t['txt2']}; font-size: 12px; font-weight: 600;
+                    color: rgba(255,255,255,0.35); font-size: 12px; font-weight: 600;
                     padding: 0 14px; border-radius: 0;
                 }}
                 QPushButton:checked {{
                     color: {t['accent']}; border-bottom: 2px solid {t['accent']};
                 }}
-                QPushButton:hover:!checked {{ color: {t['txt0']}; }}
+                QPushButton:hover:!checked {{ color: rgba(255,255,255,0.87); }}
             """)
         self._tab_queue_btn.setChecked(True)
         tab_hdr_l.addWidget(self._tab_queue_btn)
@@ -13435,7 +15332,7 @@ class FileConverterPage(QWidget):
         self._log_filter_combo.addItems(["All", "Errors only"])
         self._log_filter_combo.setFixedHeight(24)
         self._log_filter_combo.setFixedWidth(110)
-        self._log_filter_combo.setStyleSheet(f"font-size:11px;")
+        self._log_filter_combo.setStyleSheet("font-size:11px;")
         self._log_filter_combo.setVisible(False)
         self._log_filter_combo.currentIndexChanged.connect(self._apply_log_filter)
         tab_hdr_l.addWidget(self._log_filter_combo)
@@ -13478,7 +15375,7 @@ class FileConverterPage(QWidget):
         queue_nav = QWidget()
         queue_nav.setFixedHeight(32)
         queue_nav.setStyleSheet(
-            f"background:{t['bg2']};border-top:1px solid {t['border']};"
+            f"background:rgba(255,255,255,0.05);border-top:1px solid rgba(255,255,255,0.09);"
         )
         queue_nav_l = QHBoxLayout(queue_nav)
         queue_nav_l.setContentsMargins(8, 0, 8, 0)
@@ -13489,7 +15386,7 @@ class FileConverterPage(QWidget):
         self._queue_prev_btn.setEnabled(False)
         self._queue_prev_btn.clicked.connect(self._queue_prev_page)
         self._queue_page_lbl = QLabel("Page 1")
-        self._queue_page_lbl.setStyleSheet(f"color:{t['txt2']};font-size:11px;background:transparent;")
+        self._queue_page_lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;")
         self._queue_page_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._queue_next_btn = QPushButton("Next  ►")
         self._queue_next_btn.setObjectName("ghost")
@@ -13531,7 +15428,7 @@ class FileConverterPage(QWidget):
         skip_nav = QWidget()
         skip_nav.setFixedHeight(32)
         skip_nav.setStyleSheet(
-            f"background:{t['bg2']};border-top:1px solid {t['border']};"
+            f"background:rgba(255,255,255,0.05);border-top:1px solid rgba(255,255,255,0.09);"
         )
         skip_nav_l = QHBoxLayout(skip_nav)
         skip_nav_l.setContentsMargins(8, 0, 8, 0)
@@ -13542,7 +15439,7 @@ class FileConverterPage(QWidget):
         self._skip_prev_btn.setEnabled(False)
         self._skip_prev_btn.clicked.connect(self._skip_prev_page)
         self._skip_page_lbl = QLabel("Page 1")
-        self._skip_page_lbl.setStyleSheet(f"color:{t['txt2']};font-size:11px;background:transparent;")
+        self._skip_page_lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;")
         self._skip_page_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._skip_next_btn = QPushButton("Next  ▶")
         self._skip_next_btn.setObjectName("ghost")
@@ -13586,7 +15483,7 @@ class FileConverterPage(QWidget):
         log_nav = QWidget()
         log_nav.setFixedHeight(32)
         log_nav.setStyleSheet(
-            f"background:{t['bg2']};border-top:1px solid {t['border']};"
+            f"background:rgba(255,255,255,0.05);border-top:1px solid rgba(255,255,255,0.09);"
         )
         log_nav_l = QHBoxLayout(log_nav)
         log_nav_l.setContentsMargins(8, 0, 8, 0)
@@ -13597,7 +15494,7 @@ class FileConverterPage(QWidget):
         self._log_prev_btn.setEnabled(False)
         self._log_prev_btn.clicked.connect(self._log_prev_page)
         self._log_page_lbl = QLabel("Page 1")
-        self._log_page_lbl.setStyleSheet(f"color:{t['txt2']};font-size:11px;background:transparent;")
+        self._log_page_lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;")
         self._log_page_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._log_next_btn = QPushButton("Next  ►")
         self._log_next_btn.setObjectName("ghost")
@@ -14365,15 +16262,6 @@ class FileConverterPage(QWidget):
             if hasattr(self, "_log_filter_combo"):
                 self._log_filter_combo.setCurrentIndex(0)
 
-    def _clear_skip_log(self):
-        self._skip_table.setRowCount(0)
-        self._skip_all_entries.clear()
-        self._skip_current_page = 0
-        self._skip_prev_btn.setEnabled(False)
-        self._skip_next_btn.setEnabled(False)
-        self._skip_page_lbl.setText("Page 1 / 1")
-        self._tab_skip_btn.setText("Skipped  (0)")
-
     def _on_overall_progress(self, pct: int, status: str):
         self._prog_bar.setValue(pct); self._prog_lbl.setText(status)
 
@@ -14691,14 +16579,12 @@ class MainWindow(QMainWindow):
 
         global _current_theme
         saved_theme = conf.get("theme", "dark")
-        _current_theme = LIGHT.copy() if saved_theme == "light" else DARK.copy()
+        _current_theme = DARK.copy()
 
         if "custom_accent" in conf:
             c = conf["custom_accent"]; c2 = conf.get("custom_accent2", c)
             _current_theme["accent"] = c; _current_theme["accent2"] = c2
             _current_theme["accentlo"] = c+"1a"; _current_theme["bordhi"] = c+"55"
-        for k, v in conf.get("color_overrides", {}).items():
-            _current_theme[k] = v
 
         self.setStyleSheet(build_stylesheet(_current_theme))
         self._current_platform = conf.get("last_platform", P_LASTFM)
@@ -14796,6 +16682,7 @@ class MainWindow(QMainWindow):
         self._page_settings    = SettingsPage(self._conf)
 
         self._page_scrobble.status_changed.connect(self._refresh_platform_dots)
+        self._page_scrobble.art_ready.connect(self._page_history.set_bg_art)
         self._page_settings.auth_changed.connect(self._refresh_platform_dots)
         self._page_settings.auth_changed.connect(self._page_scrobble.refresh_for_platform)
         self._page_settings.theme_changed.connect(self._apply_theme)
@@ -14857,8 +16744,7 @@ class MainWindow(QMainWindow):
         try:
             c = self._conf[0] if isinstance(self._conf, list) else self._conf
             # Persist stable theme name
-            is_light = (theme.get("bg0") == LIGHT.get("bg0"))
-            c["theme"] = "light" if is_light else "dark"
+            c["theme"] = "dark"
             # Force restart-apply mode
             c["theme_apply"] = "restart"
             save_conf(c)
@@ -14940,6 +16826,30 @@ class MainWindow(QMainWindow):
                 running.append("Integrity check")
         except Exception:
             pass
+        try:
+            w = getattr(self._page_tags, "_cluster_worker", None)
+            if w and w.isRunning():
+                running.append("Album clustering")
+        except Exception:
+            pass
+        try:
+            w = getattr(self._page_tags, "_rename_worker", None)
+            if w and w.isRunning():
+                running.append("File rename")
+        except Exception:
+            pass
+        try:
+            w = getattr(self._page_spec, "_worker", None)
+            if w and w.isRunning():
+                running.append("Spectrogram analysis")
+        except Exception:
+            pass
+        try:
+            w = getattr(self._page_covers, "_worker", None)
+            if w and w.isRunning():
+                running.append("Cover extraction")
+        except Exception:
+            pass
         return running
 
     def _kill_all_workers(self):
@@ -15016,8 +16926,10 @@ class MainWindow(QMainWindow):
                     w.wait(500)
         except Exception:
             pass
-        # Stop tag editor workers (RG strip, bulk cover resize, integrity check)
-        for attr in ("_rg_worker", "_bulk_worker", "_verify_worker"):
+        # Stop tag editor workers (RG strip, bulk cover resize, integrity check,
+        #   cluster builder, file rename)
+        for attr in ("_rg_worker", "_bulk_worker", "_verify_worker",
+                     "_cluster_worker", "_rename_worker"):
             try:
                 w = getattr(self._page_tags, attr, None)
                 if w and w.isRunning():
@@ -15027,6 +16939,67 @@ class MainWindow(QMainWindow):
                         w.wait(500)
             except Exception:
                 pass
+        # Stop spectrogram worker
+        try:
+            w = getattr(self._page_spec, "_worker", None)
+            if w and w.isRunning():
+                w.requestInterruption()
+                w.quit()
+                if not w.wait(1500):
+                    w.terminate()
+                    w.wait(500)
+        except Exception:
+            pass
+        # Stop album cover extractor worker
+        try:
+            w = getattr(self._page_covers, "_worker", None)
+            if w and w.isRunning():
+                if hasattr(w, 'cancel'):
+                    w.cancel()
+                w.requestInterruption()
+                if not w.wait(2000):
+                    w.terminate()
+                    w.wait(500)
+        except Exception:
+            pass
+        # Stop eject worker (short-lived but let it finish gracefully)
+        try:
+            w = getattr(self._page_rockbox, "_eject_worker", None)
+            if w and w.isRunning():
+                w.requestInterruption()
+                if not w.wait(500):
+                    w.terminate()
+                    w.wait(200)
+        except Exception:
+            pass
+        # Stop library sanitize thread on rockbox page
+        try:
+            w = getattr(self._page_rockbox, "_sanitize_thread", None)
+            if w and w.isRunning():
+                w.requestInterruption()
+                if not w.wait(1000):
+                    w.terminate()
+                    w.wait(500)
+        except Exception:
+            pass
+        # Kill any subprocess still held by the DB worker
+        try:
+            w = getattr(self._page_rockbox, "_db_worker", None)
+            proc = getattr(w, "_proc", None) if w else None
+            if proc:
+                try: proc.kill()
+                except Exception: pass
+        except Exception:
+            pass
+        # Kill any subprocess still held by the verify worker
+        try:
+            w = getattr(self._page_tags, "_verify_worker", None)
+            proc = getattr(w, "_proc", None) if w else None
+            if proc:
+                try: proc.kill()
+                except Exception: pass
+        except Exception:
+            pass
 
     def closeEvent(self, e):
         """Prompt if tasks are running, then kill everything and close."""
@@ -15053,6 +17026,8 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         super().closeEvent(e)
+        # Hard exit — kills any threads, subprocesses or Qt loops still alive
+        os._exit(0)
 
 
 if __name__ == "__main__":

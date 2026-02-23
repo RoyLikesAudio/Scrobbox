@@ -8,9 +8,4 @@ Pillow>=9.0.0
 numpy>=1.23.0
 
 # Optional — TIDAL web login
-# PyQt6-WebEngine
-
-# Optional — Rockbox database rebuilder
-# Not on PyPI. Install manually from:
-# https://github.com/vakintosh/DAP-DB-Manager
-# git clone https://github.com/vakintosh/DAP-DB-Manager && cd DAP-DB-Manager && pip install .
+PyQt6-WebEngine>=6.4.0
