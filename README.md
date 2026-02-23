@@ -2,6 +2,9 @@
 
 **By Roy**
 
+**WARNING**
+App is almost fully "vibe-coded", It is something to keep in mind, before using it.
+
 A desktop companion app for Rockbox players and music libraries. Scrobbles your listening history, manages your Rockbox device, and handles your music collection — tag editing, file renaming, format conversion, cover art, spectrograms, and more.
 
 ---
