@@ -29,7 +29,8 @@ A desktop companion app for Rockbox players and music libraries. Scrobbles your 
 </p>
 
 <p align="center">
-  <img src="screenshots/database-rebuilder.png" alt="Database Rebuilder" width="48%" />
+  <img src="screenshots/database.png" alt="Database Rebuilder" width="48%" />
+  <img src="screenshots/coverextractor.png" alt="Cover Extractor" width="48%" />
 </p>
 
 ---
