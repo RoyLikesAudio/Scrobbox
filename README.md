@@ -9,8 +9,8 @@ A desktop companion app for Rockbox players and music libraries. Scrobbles your 
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/statistics.png" alt="API Platforms" width="48%" />
-  <img src="screenshots/scrobble.png" alt="Rsync" width="48%" />
+  <img src="screenshots/statistics.png" alt="statistics" width="80%" />
+  <img src="screenshots/scrobble.png" alt="scrobble" width="80%" />
 </p>
 
 <p align="center">
