@@ -1535,7 +1535,7 @@ class RockboxDbWorker(QThread):
                                        os.fsencode(str(fake_root / item.name)))
 
                 self._emit("Running database tool against local library…")
-                self._run_cmd([str(tool)], cwd=str(fake_root))
+                self._run_cmd([str(tool.resolve())], cwd=str(fake_root))
 
                 tcd_files = list((fake_root / ".rockbox").glob("database*.tcd"))
                 if not tcd_files:
