@@ -87,7 +87,7 @@ def open_url(url):
 # ─────────────────────────────────────────────────────────────
 
 APP_NAME    = "Scrobbox"
-APP_VERSION = "0.3.0"   # bump this with each release
+APP_VERSION = "0.4.0"   # bump this with each release
 GITHUB_REPO = "RoyLikesAudio/Scrobbox"
 _sys = platform.system()
 
@@ -1121,6 +1121,121 @@ _RBX_TOOL_PATH = CONFIG_DIR / "rockbox_dbtool"
 # Where we cache the Rockbox source checkout
 _RBX_SRC_PATH  = CONFIG_DIR / "rockbox_src"
 
+# Where per-library tagcache snapshots are stored
+_RBX_DB_CACHE_DIR = CONFIG_DIR / "db_cache"
+_RBX_DB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _db_cache_slug(library_path: Path) -> str:
+    """Return a short filesystem-safe identifier for a library path."""
+    import hashlib as _hl
+    h = _hl.md5(str(library_path).encode()).hexdigest()[:10]
+    # Make a human-readable prefix from the last two path components
+    parts = library_path.parts
+    label = "_".join(p for p in parts[-2:] if p) if len(parts) >= 2 else parts[-1]
+    # Strip characters unsafe in directory names
+    label = re.sub(r'[^\w\-]', '_', label)[:40]
+    return f"{label}__{h}"
+
+
+def _db_cache_dir_for(library_path: Path) -> Path:
+    return _RBX_DB_CACHE_DIR / _db_cache_slug(library_path)
+
+
+def _db_cache_meta_path(cache_dir: Path) -> Path:
+    return cache_dir / "meta.json"
+
+
+def _db_cache_is_fresh(library_path: Path) -> bool:
+    """Return True if a valid, up-to-date cache exists for library_path."""
+    cache_dir = _db_cache_dir_for(library_path)
+    meta_path = _db_cache_meta_path(cache_dir)
+    if not meta_path.exists():
+        return False
+    try:
+        meta = json.loads(meta_path.read_text())
+        cached_time  = meta.get("built_at", 0)
+        cached_count = meta.get("audio_count", -1)
+
+        # Check .tcd files are present
+        if not list(cache_dir.glob("database*.tcd")):
+            return False
+
+        # Walk once: count files AND check mtimes, bail on first stale file
+        count = 0
+        for fp in library_path.rglob("*"):
+            if fp.suffix.lower() not in AUDIO_EXTS:
+                continue
+            count += 1
+            if fp.stat().st_mtime > cached_time:
+                return False  # modified or new file found — stale
+
+        # Count mismatch means files were removed
+        if cached_count >= 0 and count != cached_count:
+            return False
+
+        return True
+    except Exception:
+        return False
+
+
+def _db_cache_save(library_path: Path, tcd_source_dir: Path):
+    """Copy .tcd files from tcd_source_dir into the library's cache slot."""
+    cache_dir = _db_cache_dir_for(library_path)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    # Remove old .tcd files
+    for old in cache_dir.glob("database*.tcd"):
+        old.unlink(missing_ok=True)
+    tcd_files = list(tcd_source_dir.glob("database*.tcd"))
+    for tcd in tcd_files:
+        shutil.copy2(str(tcd), str(cache_dir / tcd.name))
+    # Count audio files for staleness detection
+    audio_count = sum(
+        1 for fp in library_path.rglob("*")
+        if fp.suffix.lower() in AUDIO_EXTS
+    )
+    meta = {
+        "library_path": str(library_path),
+        "built_at":     time.time(),
+        "tcd_files":    [f.name for f in tcd_files],
+        "audio_count":  audio_count,
+    }
+    _db_cache_meta_path(cache_dir).write_text(json.dumps(meta, indent=2))
+
+
+def _db_cache_copy_to_device(library_path: Path, rbdir: Path) -> list:
+    """Copy cached .tcd files to device .rockbox dir. Returns list of filenames."""
+    cache_dir = _db_cache_dir_for(library_path)
+    tcd_files = list(cache_dir.glob("database*.tcd"))
+    for tcd in tcd_files:
+        shutil.copy2(str(tcd), str(rbdir / tcd.name))
+    return [f.name for f in tcd_files]
+
+
+def _db_cache_list_all() -> list[dict]:
+    """Return info about all saved caches."""
+    result = []
+    for cache_dir in sorted(_RBX_DB_CACHE_DIR.iterdir()):
+        if not cache_dir.is_dir():
+            continue
+        meta_path = _db_cache_meta_path(cache_dir)
+        if not meta_path.exists():
+            continue
+        try:
+            meta = json.loads(meta_path.read_text())
+            tcd_count = len(list(cache_dir.glob("database*.tcd")))
+            size_bytes = sum(f.stat().st_size for f in cache_dir.glob("database*.tcd"))
+            result.append({
+                "cache_dir":    cache_dir,
+                "library_path": meta.get("library_path", "?"),
+                "built_at":     meta.get("built_at", 0),
+                "tcd_count":    tcd_count,
+                "size_mb":      round(size_bytes / 1024 / 1024, 1),
+            })
+        except Exception:
+            continue
+    return result
+
 
 
 
@@ -1172,11 +1287,16 @@ class RockboxDbWorker(QThread):
     MODE_INITIALIZE = "initialize"
 
     def __init__(self, device_root: Path, mode: str = MODE_UPDATE,
-                 library_root: Optional[Path] = None):
+                 library_root: Optional[Path] = None,
+                 music_rel_override: str = "",
+                 use_cache: bool = True, force_rebuild: bool = False):
         super().__init__()
-        self.device_root     = device_root
-        self.mode            = mode
-        self.library_root    = library_root
+        self.device_root        = device_root
+        self.mode               = mode
+        self.library_root       = library_root
+        self.music_rel_override = music_rel_override.strip()
+        self.use_cache          = use_cache
+        self.force_rebuild      = force_rebuild
         self._pause_event    = _threading.Event()
         self._pause_event.set()
         self._proc: Optional[subprocess.Popen] = None  # currently running subprocess
@@ -1391,37 +1511,10 @@ class RockboxDbWorker(QThread):
                 ".wv", ".ape", ".wav", ".opus", ".mpc",
                 ".aiff", ".alac", ".wma", ".mod", ".spc"
             }
-            try:
-                # Shallow two-level scan — just enough to find the music
-                # subfolder without traversing the entire device tree.
-                for item in device_root.iterdir():
-                    if item.name.startswith(".") or not item.is_dir():
-                        continue
-                    # Level 1: audio file directly inside this dir
-                    for child in item.iterdir():
-                        if child.suffix.lower() in _AUDIO:
-                            music_rel = item.name
-                            break
-                    if music_rel:
-                        break
-                    # Level 2: one subdir deeper (Artist/Album/file.mp3)
-                    for child in item.iterdir():
-                        if not child.is_dir():
-                            continue
-                        for grandchild in child.iterdir():
-                            if grandchild.suffix.lower() in _AUDIO:
-                                music_rel = item.name
-                                break
-                        if music_rel:
-                            break
-                    if music_rel:
-                        break
-            except Exception:
-                pass
+            music_rel = self.music_rel_override
+            self._emit(f"  Device music folder: /{music_rel}")
 
-            self._emit(
-                f"  Device music folder: /{music_rel if music_rel else '(root)'}"
-            )
+
 
             fake_root = Path(_tf.mkdtemp(prefix="scrobbox_fakedev_"))
             try:
@@ -1450,6 +1543,8 @@ class RockboxDbWorker(QThread):
                         "Database tool ran but produced no .tcd files.\n"
                         "Check that your music directory contains supported audio files."
                     )
+                # Fix hardcoded /iPod_Control prefix inserted by the database tool.
+                self._fix_ipod_control_prefix(fake_root / ".rockbox", music_rel)
                 # Fix FAT32 path issues in temp dir BEFORE copying to device.
                 # Pass the real device root so _fix_tcd_paths resolves path
                 # components against the actual FAT32 filesystem (not the fake
@@ -1544,6 +1639,45 @@ class RockboxDbWorker(QThread):
             self._emit(f"  ⚠ Renamed {renamed:,}, {errors} failed — check permissions")
         else:
             self._emit(f"  ✓ Renamed {renamed:,} item(s) — library is FAT32-clean")
+
+    def _fix_ipod_control_prefix(self, rbdir: Path, music_rel: str):
+        """
+        The Rockbox database tool hardcodes /iPod_Control as the root path
+        when scanning. Replace this prefix with the actual music folder name
+        so Rockbox can find the files on the device.
+        e.g. /iPod_Control/Artist/song.flac -> /Music/Artist/song.flac
+        """
+        tcd = rbdir / "database_4.tcd"
+        if not tcd.exists():
+            return
+        if not music_rel:
+            return  # music is at root, no prefix to fix
+
+        old_prefix = b"/iPod_Control"
+        new_prefix = ("/" + music_rel).encode("utf-8")
+
+        if len(new_prefix) > len(old_prefix):
+            self._emit(f"  Warning: cannot fix /iPod_Control prefix — new prefix longer than old")
+            return
+
+        raw = bytearray(tcd.read_bytes())
+        count = 0
+        pos = 0
+        while True:
+            idx = raw.find(old_prefix, pos)
+            if idx == -1:
+                break
+            # Replace old prefix with new, padding with null bytes if shorter
+            pad = len(old_prefix) - len(new_prefix)
+            raw[idx:idx + len(old_prefix)] = new_prefix + b"\x00" * pad
+            count += 1
+            pos = idx + len(new_prefix)
+
+        if count:
+            tcd.write_bytes(raw)
+            self._emit(f"  Fixed {count} /iPod_Control prefix(es) -> /{music_rel}")
+        else:
+            self._emit("  No /iPod_Control prefix found in database_4.tcd")
 
     def _fix_tcd_paths(self, rbdir: Path, real_device_root: Optional[Path] = None):
         """
@@ -1671,6 +1805,30 @@ class RockboxDbWorker(QThread):
         write_errors = []
 
         try:
+            # ── Cache check (local library mode only) ─────────
+            if self.library_root and self.use_cache and not self.force_rebuild:
+                if _db_cache_is_fresh(self.library_root):
+                    self._emit(f"✓ Fresh cache found for: {self.library_root}")
+                    self._emit("  Copying cached .tcd files to device…")
+                    written = _db_cache_copy_to_device(self.library_root, rbdir)
+                    for fn in written:
+                        self._emit(f"  Wrote /.rockbox/{fn}")
+                    self.finished.emit({
+                        "total":        len(written),
+                        "written":      written,
+                        "write_errors": [],
+                        "tag_errors":   0,
+                        "mode":         self.mode,
+                        "stats_loaded": 0,
+                        "new_files":    0,
+                        "changed_files":0,
+                        "removed_files":0,
+                        "from_cache":   True,
+                    })
+                    return
+                else:
+                    self._emit("  No fresh cache found — building from scratch…")
+
             # ── Check for prerequisites ───────────────────────
             for tool in ("git", "gcc", "make"):
                 if not shutil.which(tool):
@@ -1709,13 +1867,17 @@ class RockboxDbWorker(QThread):
             self._check()
 
             # ── Run the tool against the full library root ────
-            # For both modes the tool is run against the complete library.
-            # In Update mode the existing .tcd files are left in .rockbox/ so
-            # tagcache's own incremental logic picks them up and only processes
-            # new/changed entries, writing updated .tcd files in place.
             self._run_tool(tool_path, scan_root, rbdir)
 
             self._check()
+
+            # ── Save cache (local library mode only) ──────────
+            if self.library_root:
+                try:
+                    _db_cache_save(self.library_root, rbdir)
+                    self._emit(f"  ✓ Cache saved for: {self.library_root}")
+                except Exception as e:
+                    self._emit(f"  Warning: could not save cache: {e}")
 
             # ── Collect results ───────────────────────────────
             written = [f.name for f in sorted(rbdir.glob("database*.tcd"))]
@@ -1743,6 +1905,7 @@ class RockboxDbWorker(QThread):
             "new_files":    0,
             "changed_files":0,
             "removed_files":0,
+            "from_cache":   False,
         })
 
 
@@ -4204,6 +4367,75 @@ class RockboxToolsPage(QWidget):
         self._db_lib_widget.setVisible(False)
         vb.addWidget(self._db_lib_widget)
 
+        # ── Device music subfolder override ──────────────────────
+        self._db_music_rel_widget = QWidget()
+        music_rel_row = QHBoxLayout(self._db_music_rel_widget)
+        music_rel_row.setContentsMargins(0, 0, 0, 0); music_rel_row.setSpacing(8)
+        music_rel_lbl = QLabel("Music folder on device:"); music_rel_lbl.setObjectName("secondary"); music_rel_lbl.setFixedWidth(150)
+        self._db_music_rel_edit = QLineEdit()
+        self._db_music_rel_edit.setPlaceholderText("e.g. Music")
+        saved_music_rel = self.conf().get("db_music_rel", "")
+        self._db_music_rel_edit.setText(saved_music_rel)
+        self._db_music_rel_edit.setToolTip(
+            "The name of the folder on the device that contains your music.\n"
+            "e.g. if your music is at /run/media/roy/IPOD/Music, enter: Music")
+        music_rel_row.addWidget(music_rel_lbl)
+        music_rel_row.addWidget(self._db_music_rel_edit, stretch=1)
+        self._db_music_rel_widget.setVisible(False)
+        vb.addWidget(self._db_music_rel_widget)
+
+        vb.addWidget(HDivider())
+
+        # ── Cache controls ────────────────────────────────────
+        cache_hdr = QHBoxLayout()
+        cache_title = QLabel("Database Cache"); cache_title.setStyleSheet("font-weight:600;")
+        cache_hdr.addWidget(cache_title); cache_hdr.addStretch()
+        vb.addLayout(cache_hdr)
+
+        cache_row = QHBoxLayout(); cache_row.setSpacing(8)
+        self._db_use_cache_chk = QCheckBox("Use cached database if available")
+        self._db_use_cache_chk.setChecked(True)
+        self._db_use_cache_chk.setToolTip(
+            "If a database was already built for this library path and no files\n"
+            "have changed, copy it to the device instantly without rebuilding.")
+        self._db_force_rebuild_chk = QCheckBox("Force rebuild (ignore cache)")
+        self._db_force_rebuild_chk.setChecked(False)
+        self._db_force_rebuild_chk.setToolTip("Always rebuild the database from scratch, even if a fresh cache exists.")
+        self._db_force_rebuild_chk.toggled.connect(
+            lambda v: self._db_use_cache_chk.setEnabled(not v))
+        cache_row.addWidget(self._db_use_cache_chk)
+        cache_row.addWidget(self._db_force_rebuild_chk)
+        cache_row.addStretch()
+        vb.addLayout(cache_row)
+
+        # Saved caches list
+        self._db_cache_list = QListWidget()
+        self._db_cache_list.setMaximumHeight(110)
+        self._db_cache_list.setStyleSheet(
+            f"background: {_current_theme['bg3']}; border: 1px solid {_current_theme['border']};"
+            f"border-radius:4px; font-size:11px; color:{_current_theme['txt1']};")
+        self._db_cache_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self._db_cache_list.setToolTip("Select one or more caches, then click Delete Selected to remove them.")
+        vb.addWidget(self._db_cache_list)
+
+        cache_btn_row = QHBoxLayout(); cache_btn_row.setSpacing(8)
+        self._db_cache_refresh_btn = QPushButton("↻  Refresh List"); self._db_cache_refresh_btn.setObjectName("ghost")
+        self._db_cache_refresh_btn.setFixedHeight(28)
+        self._db_cache_refresh_btn.clicked.connect(self._refresh_cache_list)
+        self._db_cache_delete_btn = QPushButton("🗑  Delete Selected"); self._db_cache_delete_btn.setObjectName("ghost")
+        self._db_cache_delete_btn.setFixedHeight(28)
+        self._db_cache_delete_btn.clicked.connect(self._delete_selected_caches)
+        self._db_cache_delete_all_btn = QPushButton("🗑  Delete All Caches"); self._db_cache_delete_all_btn.setObjectName("ghost")
+        self._db_cache_delete_all_btn.setFixedHeight(28)
+        self._db_cache_delete_all_btn.setStyleSheet(f"color:{_current_theme['danger']};")
+        self._db_cache_delete_all_btn.clicked.connect(self._delete_all_caches)
+        cache_btn_row.addWidget(self._db_cache_refresh_btn)
+        cache_btn_row.addWidget(self._db_cache_delete_btn)
+        cache_btn_row.addStretch()
+        cache_btn_row.addWidget(self._db_cache_delete_all_btn)
+        vb.addLayout(cache_btn_row)
+        self._refresh_cache_list()
+
         vb.addWidget(HDivider())
 
         self._db_log = QTextEdit()
@@ -4253,6 +4485,7 @@ class RockboxToolsPage(QWidget):
         self._db_src_local.setChecked(is_local)
         self._db_dev_sub_widget.setVisible(not is_local)
         self._db_lib_widget.setVisible(is_local)
+        self._db_music_rel_widget.setVisible(is_local)
         accent = _current_theme["accent"]
         active_style  = f"background:{accent}22; color:{accent}; border:1px solid {accent}60; border-radius:4px;"
         default_style = ""
@@ -4380,6 +4613,16 @@ class RockboxToolsPage(QWidget):
                         f"Music folder does not exist:\n{library_root}"); return
                 c = self.conf(); c["db_device_sub"] = dev_sub_str; save_conf(c)
 
+        # Validate music folder name BEFORE touching UI state
+        music_rel_override = self._db_music_rel_edit.text().strip() if self._db_src_local.isChecked() else ""
+        if self._db_src_local.isChecked():
+            if not music_rel_override:
+                QMessageBox.warning(self, "Music folder required",
+                    "Enter the name of the music folder on the device.\n\n"
+                    "e.g. if your music is at /run/media/roy/IPOD/Music, enter:  Music")
+                return
+            c = self.conf(); c["db_music_rel"] = music_rel_override; save_conf(c)
+
         c = self.conf(); c["device_root"] = str(root); save_conf(c)
 
         self._db_log.clear()
@@ -4393,9 +4636,11 @@ class RockboxToolsPage(QWidget):
         self._db_pause_btn.setText("⏸  Pause")
         self._db_paused = False
         self._db_dot.set_color(_current_theme["warning"])
-
         self._db_worker = RockboxDbWorker(root, RockboxDbWorker.MODE_INITIALIZE,
-                                          library_root=library_root)
+                                          library_root=library_root,
+                                          music_rel_override=music_rel_override,
+                                          use_cache=self._db_use_cache_chk.isChecked(),
+                                          force_rebuild=self._db_force_rebuild_chk.isChecked())
         self._db_worker.progress.connect(lambda msg: self._db_log.append(msg))
         self._db_worker.count_update.connect(self._on_db_count)
         self._db_worker.finished.connect(self._on_db_done)
@@ -4434,17 +4679,23 @@ class RockboxToolsPage(QWidget):
         n_new   = result.get("new_files", 0)
         n_chg   = result.get("changed_files", 0)
         n_rem   = result.get("removed_files", 0)
+        from_cache = result.get("from_cache", False)
 
         if written:
-            self._db_log.append(f"\n✓ Database written to device ({len(written)} files):")
+            if from_cache:
+                self._db_log.append(f"\n✓ Database copied from cache to device ({len(written)} files):")
+            else:
+                self._db_log.append(f"\n✓ Database written to device ({len(written)} files):")
             for fn in written:
                 self._db_log.append(f"   /.rockbox/{fn}")
-            # Show a summary of what changed
             parts = []
             if n_new:     parts.append(f"{n_new:,} new")
             if n_chg:     parts.append(f"{n_chg:,} changed")
             if n_rem:     parts.append(f"{n_rem:,} removed")
-            summary = (", ".join(parts) + " file(s)") if parts else "full rebuild"
+            if from_cache:
+                summary = "from cache — instant"
+            else:
+                summary = (", ".join(parts) + " file(s)") if parts else "full rebuild"
             self._db_log.append(
                 f"\n✓ Done ({summary}). Safely eject your device — the database is ready.\n"
                 "  No on-device scan required."
@@ -4455,6 +4706,60 @@ class RockboxToolsPage(QWidget):
             for e in errors:
                 self._db_log.append(f"   {e}")
             self._db_dot.set_color(_current_theme["warning"])
+
+        self._refresh_cache_list()
+
+    def _refresh_cache_list(self):
+        self._db_cache_list.clear()
+        caches = _db_cache_list_all()
+        if not caches:
+            item = QListWidgetItem("  (no caches saved yet)")
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+            self._db_cache_list.addItem(item)
+            return
+        for c in caches:
+            built = datetime.fromtimestamp(c["built_at"]).strftime("%Y-%m-%d %H:%M") if c["built_at"] else "?"
+            label = f"  {c['library_path']}   [{c['tcd_count']} files · {c['size_mb']} MB · built {built}]"
+            item = QListWidgetItem(label)
+            item.setData(Qt.ItemDataRole.UserRole, str(c["cache_dir"]))
+            self._db_cache_list.addItem(item)
+
+    def _delete_selected_caches(self):
+        selected = self._db_cache_list.selectedItems()
+        if not selected:
+            QMessageBox.information(self, "Nothing selected", "Select one or more caches to delete."); return
+        paths = [item.data(Qt.ItemDataRole.UserRole) for item in selected if item.data(Qt.ItemDataRole.UserRole)]
+        if not paths:
+            return
+        ans = QMessageBox.question(self, "Delete Caches",
+            f"Delete {len(paths)} selected cache(s)? This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+        if ans != QMessageBox.StandardButton.Yes:
+            return
+        for p in paths:
+            try:
+                shutil.rmtree(p, ignore_errors=True)
+            except Exception:
+                pass
+        self._refresh_cache_list()
+        self._db_log.append(f"  🗑 Deleted {len(paths)} cache(s).")
+
+    def _delete_all_caches(self):
+        caches = _db_cache_list_all()
+        if not caches:
+            QMessageBox.information(self, "No caches", "There are no saved caches to delete."); return
+        ans = QMessageBox.question(self, "Delete All Caches",
+            f"Delete all {len(caches)} saved cache(s)? This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+        if ans != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            shutil.rmtree(str(_RBX_DB_CACHE_DIR), ignore_errors=True)
+            _RBX_DB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not delete all caches:\n{e}"); return
+        self._refresh_cache_list()
+        self._db_log.append("  🗑 All caches deleted.")
 
     def _cancel_db_worker(self):
         if self._db_worker and self._db_worker.isRunning():
@@ -11839,6 +12144,14 @@ class AlbumCoverExtractorPage(QWidget):
         self._opt_overwrite.setChecked(False)
         cv.addWidget(self._opt_overwrite)
 
+        self._opt_per_album = QCheckBox("Per-album mode — skip album if cover already exists (faster)")
+        self._opt_per_album.setChecked(True)
+        self._opt_per_album.setToolTip(
+            "When enabled, if a cover file already exists in the album folder\n"
+            "the entire album is skipped without opening any audio files.\n"
+            "When disabled, every audio file is scanned individually.")
+        cv.addWidget(self._opt_per_album)
+
         # BMP size
         cv.addSpacing(4)
         cv.addWidget(_section("BMP Dimensions"))
@@ -12030,6 +12343,7 @@ class AlbumCoverExtractorPage(QWidget):
             "gen_bmp":       self._opt_bmp.isChecked(),
             "dry_run":       self._opt_dry.isChecked(),
             "overwrite":     self._opt_overwrite.isChecked(),
+            "per_album":     self._opt_per_album.isChecked(),
             "bmp_w":         self._bmp_w.value(),
             "bmp_h":         self._bmp_h.value(),
             "name_orig":     self._name_orig.text().strip() or "Cover",
@@ -12093,6 +12407,7 @@ class _CoverExtractWorker(QThread):
         opts      = self._opts
         dry       = opts["dry_run"]
         overwrite = opts["overwrite"]
+        per_album = opts.get("per_album", True)
         bmp_w, bmp_h = opts["bmp_w"], opts["bmp_h"]
         name_orig = opts["name_orig"]
         name_bmp  = opts["name_bmp"]
@@ -12106,7 +12421,14 @@ class _CoverExtractWorker(QThread):
             files = [p for p in root.rglob("*") if p.suffix.lower() in exts]
         total  = len(files)
         found  = saved = skipped = errors = 0
-        self.log.emit(f"Found {total} music files to scan.\n")
+
+        if per_album and not overwrite:
+            self.log.emit(f"Found {total} music files across albums (per-album mode).\n")
+        else:
+            self.log.emit(f"Found {total} music files to scan.\n")
+
+        # Per-album mode: track which album dirs we've already processed
+        _done_albums: set = set()
 
         # Try to import mutagen for metadata reading
         try:
@@ -12139,6 +12461,26 @@ class _CoverExtractWorker(QThread):
             self.progress.emit(pct, f"{i+1}/{total}  {fpath.name}")
 
             album_dir = fpath.parent
+
+            # Per-album mode: skip entire album if cover already exists
+            if per_album and not overwrite and album_dir not in _done_albums:
+                cover_exists = (album_dir / f"{name_orig}.jpg").exists() or \
+                               (album_dir / f"{name_orig}.png").exists()
+                # Check for any .bmp in the folder (bmp filename may come from audio tags,
+                # which we don't have until the file is opened)
+                bmp_exists = (any(album_dir.glob("*.bmp"))) if opts["gen_bmp"] else True
+                orig_done  = (not opts["save_original"]) or cover_exists
+                bmp_done   = bmp_exists
+                if orig_done and bmp_done:
+                    skipped += 1
+                    _done_albums.add(album_dir)
+                    self.log.emit(f"  [SKIP] {album_dir.name} (cover exists)")
+                    self.stats.emit(found, saved, skipped, errors)
+                    continue
+            elif per_album and album_dir in _done_albums:
+                # Already fully processed this album dir
+                continue
+
             cover_data: Optional[bytes] = None
             cover_ext  = "jpg"
             album_title: Optional[str] = None
@@ -12266,6 +12608,8 @@ class _CoverExtractWorker(QThread):
                             errors += 1
                             self.log.emit(f"  [ERR] BMP ffmpeg: {e}")
 
+            if per_album:
+                _done_albums.add(album_dir)
             self.stats.emit(found, saved, skipped, errors)
 
         self.log.emit(f"\n✓ Done. Found: {found}  Saved: {saved}  Skipped: {skipped}  Errors: {errors}")
@@ -15033,6 +15377,10 @@ def _build_ffmpeg_cmd(src: str, dst: str, opts: dict) -> list:
     if extra:
         cmd += extra
 
+    # For M4A/AAC, move moov atom to start of file for fast metadata access
+    if dst.lower().endswith((".m4a", ".aac", ".mp4")):
+        cmd += ["-movflags", "+faststart"]
+
     cmd.append(dst)
     return cmd
 
@@ -16728,7 +17076,7 @@ class MainWindow(QMainWindow):
             self._nav_btns.append(btn)
 
         sv.addStretch()
-        ver = QLabel("Made by Roy"); ver.setObjectName("muted"); sv.addWidget(ver)
+        ver = QLabel(f"Made by Roy  ·  v{APP_VERSION}"); ver.setObjectName("muted"); sv.addWidget(ver)
 
         sidebar_scroll.setWidget(sidebar)
         hbox.addWidget(sidebar_scroll)
