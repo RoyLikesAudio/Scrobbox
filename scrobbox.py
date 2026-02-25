@@ -87,7 +87,7 @@ def open_url(url):
 # ─────────────────────────────────────────────────────────────
 
 APP_NAME    = "Scrobbox"
-APP_VERSION = "0.5.0"   # bump this with each release
+APP_VERSION = "0.6.0"   # bump this with each release
 GITHUB_REPO = "RoyLikesAudio/Scrobbox"
 _sys = platform.system()
 
@@ -3521,7 +3521,7 @@ class StatsPage(QWidget):
         self._gap_spin = QSpinBox()
         self._gap_spin.setRange(1, 180); self._gap_spin.setValue(20)
         self._gap_spin.setSuffix(" min"); self._gap_spin.setFixedWidth(88)
-        self._gap_spin.valueChanged.connect(self.refresh)
+        self._gap_spin.valueChanged.connect(lambda _: self.refresh())
         _glass = ("background:rgba(0,0,0,0.40); color:#fff; "
                   "border:1px solid rgba(255,255,255,0.18); border-radius:4px; padding:4px 6px;")
         self._gap_spin.setStyleSheet(f"QSpinBox {{ {_glass} }} "
