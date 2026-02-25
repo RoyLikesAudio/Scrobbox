@@ -87,7 +87,7 @@ def open_url(url):
 # ─────────────────────────────────────────────────────────────
 
 APP_NAME    = "Scrobbox"
-APP_VERSION = "0.4.0"   # bump this with each release
+APP_VERSION = "0.5.0"   # bump this with each release
 GITHUB_REPO = "RoyLikesAudio/Scrobbox"
 _sys = platform.system()
 
@@ -1535,7 +1535,7 @@ class RockboxDbWorker(QThread):
                                        os.fsencode(str(fake_root / item.name)))
 
                 self._emit("Running database tool against local library…")
-                self._run_cmd([str(tool.resolve())], cwd=str(fake_root))
+                self._run_cmd([str(tool)], cwd=str(fake_root))
 
                 tcd_files = list((fake_root / ".rockbox").glob("database*.tcd"))
                 if not tcd_files:
@@ -12129,12 +12129,30 @@ class AlbumCoverExtractorPage(QWidget):
         cv.addSpacing(4)
         cv.addWidget(_section("Output Options"))
 
-        self._opt_save_original = QCheckBox("Save original cover as Cover.jpg/png")
+        self._opt_save_original = QCheckBox("Save original cover as cover.jpg/png")
         self._opt_save_original.setChecked(True)
+        self._opt_save_original.setToolTip("Extract and save the cover art as-is from the audio file.")
         cv.addWidget(self._opt_save_original)
 
-        self._opt_bmp = QCheckBox("Generate resized BMP (for Rockbox)")
+        self._opt_resize_jpg = QCheckBox("Save resized cover JPG")
+        self._opt_resize_jpg.setChecked(False)
+        self._opt_resize_jpg.setToolTip(
+            "Save a resized version of the cover JPG instead of the original.\n"
+            "Mutually exclusive with Save original — only downscales, never upscales.")
+        cv.addWidget(self._opt_resize_jpg)
+
+        # Mutually exclusive: save original ↔ resize jpg
+        def _on_save_orig_toggled(v):
+            if v: self._opt_resize_jpg.setChecked(False)
+        def _on_resize_jpg_toggled(v):
+            if v: self._opt_save_original.setChecked(False)
+            self._jpg_size_spin.setEnabled(v)
+        self._opt_save_original.toggled.connect(_on_save_orig_toggled)
+        self._opt_resize_jpg.toggled.connect(_on_resize_jpg_toggled)
+
+        self._opt_bmp = QCheckBox("Generate resized BMP")
         self._opt_bmp.setChecked(True)
+        self._opt_bmp.toggled.connect(lambda v: self._bmp_size_spin.setEnabled(v))
         cv.addWidget(self._opt_bmp)
 
         self._opt_dry = QCheckBox("Dry run — report only, don't write files")
@@ -12152,34 +12170,56 @@ class AlbumCoverExtractorPage(QWidget):
             "When disabled, every audio file is scanned individually.")
         cv.addWidget(self._opt_per_album)
 
-        # BMP size
+        # Sizes — uniform layout
         cv.addSpacing(4)
-        cv.addWidget(_section("BMP Dimensions"))
-        size_row = QHBoxLayout()
-        size_row.setSpacing(8)
-        size_row.addWidget(QLabel("W"))
-        self._bmp_w = QSpinBox()
-        self._bmp_w.setRange(64, 2048); self._bmp_w.setValue(500)
-        self._bmp_w.setFixedWidth(70)
-        size_row.addWidget(self._bmp_w)
-        size_row.addWidget(QLabel("H"))
-        self._bmp_h = QSpinBox()
-        self._bmp_h.setRange(64, 2048); self._bmp_h.setValue(500)
-        self._bmp_h.setFixedWidth(70)
-        size_row.addWidget(self._bmp_h)
-        size_row.addStretch()
-        cv.addLayout(size_row)
+        cv.addWidget(_section("Sizes"))
 
-        # Output name templates
+        def _make_size_row(label_text, spin_attr, default, enabled=True):
+            row = QHBoxLayout(); row.setSpacing(8)
+            lbl = QLabel(label_text); lbl.setFixedWidth(140)
+            row.addWidget(lbl)
+            spin = QSpinBox()
+            spin.setRange(64, 4096); spin.setValue(default)
+            spin.setFixedWidth(70); spin.setEnabled(enabled)
+            setattr(self, spin_attr, spin)
+            row.addWidget(spin)
+            row.addWidget(QLabel("px"))
+            row.addStretch()
+            return row
+
+        cv.addLayout(_make_size_row("BMP size:", "_bmp_size_spin", 500, enabled=True))
+        cv.addLayout(_make_size_row("Cover JPG max size:", "_jpg_size_spin", 500, enabled=False))
+        # legacy aliases
+        self._bmp_w = self._bmp_size_spin
+        self._bmp_h = self._bmp_size_spin
+
+        # Output filenames
         cv.addSpacing(4)
         cv.addWidget(_section("Output Filenames"))
-        cv.addWidget(QLabel("Original cover filename:"))
-        self._name_orig = QLineEdit("Cover")
+        cv.addWidget(QLabel("Cover filename (no extension):"))
+        self._name_orig = QLineEdit("cover")
+        self._name_orig.setToolTip("Filename for extracted cover art. Extension added automatically.")
         cv.addWidget(self._name_orig)
         cv.addWidget(QLabel("BMP filename (no extension):"))
         self._name_bmp = QLineEdit("")
         self._name_bmp.setPlaceholderText("Leave blank to use album folder name")
         cv.addWidget(self._name_bmp)
+
+        # Destination folder
+        cv.addSpacing(4)
+        cv.addWidget(_section("Destination Folder"))
+        dst_info = QLabel("Leave blank to save files alongside the audio (default).")
+        dst_info.setObjectName("secondary"); dst_info.setWordWrap(True)
+        cv.addWidget(dst_info)
+        dst_row = QHBoxLayout(); dst_row.setSpacing(8)
+        self._dst_folder = QLineEdit()
+        self._dst_folder.setPlaceholderText("(same folder as audio files)")
+        self._dst_folder.setToolTip("If set, all extracted covers are saved here.\nSubfolder structure is preserved.")
+        dst_browse = QPushButton("Browse…"); dst_browse.setObjectName("ghost")
+        dst_browse.clicked.connect(self._browse_dst_folder)
+        dst_row.addWidget(self._dst_folder, stretch=1)
+        dst_row.addWidget(dst_browse)
+        cv.addLayout(dst_row)
 
         cv.addStretch()
 
@@ -12237,6 +12277,10 @@ class AlbumCoverExtractorPage(QWidget):
         right.addWidget(prog_widget)
 
         # Log output
+        # All log entries stored as (category, html) for filtering
+        self._log_entries: list = []  # list of (category, html_line)
+        self._log_filter  = "all"     # "all", "saved", "skipped", "errors"
+
         log_widget = QWidget()
         log_widget.setObjectName("panel")
         log_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -12247,18 +12291,38 @@ class AlbumCoverExtractorPage(QWidget):
         lhb = QHBoxLayout(log_hdr)
         lhb.setContentsMargins(14, 8, 14, 8)
         lhb.addWidget(QLabel("Log"))
+        lhb.addSpacing(10)
+
+        # Filter buttons
+        self._log_filter_btns = {}
+        for fkey, flabel in [("all","All"), ("saved","Saved"), ("skipped","Skipped"), ("errors","Errors")]:
+            btn = QPushButton(flabel)
+            btn.setCheckable(True)
+            btn.setChecked(fkey == "all")
+            btn.setFixedHeight(22)
+            btn.setStyleSheet(
+                "QPushButton { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5);"
+                " border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:0 8px; font-size:11px; }"
+                "QPushButton:checked { background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.9);"
+                " border-color:rgba(255,255,255,0.25); }"
+                "QPushButton:hover { background:rgba(255,255,255,0.1); }"
+            )
+            btn.clicked.connect(lambda _, k=fkey: self._set_log_filter(k))
+            lhb.addWidget(btn)
+            self._log_filter_btns[fkey] = btn
+
         lhb.addStretch()
         clr = QPushButton("Clear")
         clr.setObjectName("ghost")
         clr.setFixedHeight(24)
-        clr.clicked.connect(lambda: self._log.clear())
+        clr.clicked.connect(self._clear_log)
         lhb.addWidget(clr)
         lv.addWidget(log_hdr)
-        self._log = QPlainTextEdit()
+        self._log = QTextEdit()
         self._log.setReadOnly(True)
         self._log.setPlaceholderText("Extraction log will appear here…")
         self._log.setStyleSheet(
-            "QPlainTextEdit { background:rgba(0,0,0,0.25); color:rgba(255,255,255,0.75);"
+            "QTextEdit { background:rgba(0,0,0,0.25); color:rgba(255,255,255,0.75);"
             " font-family:'Cascadia Code','SF Mono','Consolas',monospace; font-size:11px;"
             " border:none; border-radius:0 0 8px 8px; padding:10px; }"
         )
@@ -12292,6 +12356,11 @@ class AlbumCoverExtractorPage(QWidget):
         if d:
             self._folder_edit.setText(d)
 
+    def _browse_dst_folder(self):
+        d = QFileDialog.getExistingDirectory(self, "Select Destination Folder", str(Path.home()))
+        if d:
+            self._dst_folder.setText(d)
+
     def _browse_file(self):
         f, _ = QFileDialog.getOpenFileName(
             self,
@@ -12303,7 +12372,53 @@ class AlbumCoverExtractorPage(QWidget):
             self._folder_edit.setText(f)
 
     def _log_msg(self, msg: str):
-        self._log.appendPlainText(msg)
+        import html as _html
+        m = msg.strip()
+        if m.startswith("[ERR]") or m.startswith("⚠") or "ERROR" in m[:10]:
+            color = "#ff6b6b"
+            category = "errors"
+        elif m.startswith("[SKIP]") or m.startswith("  [SKIP]"):
+            color = "rgba(255,255,255,0.35)"
+            category = "skipped"
+        elif m.startswith("[DRY]") or m.startswith("  [DRY]") or m.startswith("  [WARN]"):
+            color = "#f0a500"
+            category = "saved"
+        elif m.startswith("→") or m.startswith("  →"):
+            color = "#7ec8a0"
+            category = "saved"
+        elif m.startswith("✓") or m.startswith("Found"):
+            color = "#7ec8a0"
+            category = "all"
+        elif m.startswith("[WARN]"):
+            color = "#f0a500"
+            category = "errors"
+        else:
+            color = "rgba(255,255,255,0.6)"
+            category = "all"
+        escaped = _html.escape(msg)
+        html_line = f'<span style="color:{color};white-space:pre;">{escaped}</span>'
+        self._log_entries.append((category, html_line))
+        # Only show if matches current filter
+        if self._log_filter in ("all", category):
+            self._log.append(html_line)
+            sb = self._log.verticalScrollBar()
+            sb.setValue(sb.maximum())
+
+    def _set_log_filter(self, fkey: str):
+        self._log_filter = fkey
+        for k, btn in self._log_filter_btns.items():
+            btn.setChecked(k == fkey)
+        # Rebuild log display with filtered entries
+        self._log.clear()
+        for category, html_line in self._log_entries:
+            if fkey in ("all", category):
+                self._log.append(html_line)
+        sb = self._log.verticalScrollBar()
+        sb.setValue(sb.maximum())
+
+    def _clear_log(self):
+        self._log_entries.clear()
+        self._log.clear()
 
     def _toggle_pause(self):
         if not self._worker:
@@ -12333,6 +12448,7 @@ class AlbumCoverExtractorPage(QWidget):
         self._stat_saved.setText("0")
         self._stat_skipped.setText("0")
         self._stat_errors.setText("0")
+        self._log_entries.clear()
         self._log.clear()
         self._prog_bar.setValue(0)
         self._prog_lbl.setText("Starting…")
@@ -12344,10 +12460,13 @@ class AlbumCoverExtractorPage(QWidget):
             "dry_run":       self._opt_dry.isChecked(),
             "overwrite":     self._opt_overwrite.isChecked(),
             "per_album":     self._opt_per_album.isChecked(),
-            "bmp_w":         self._bmp_w.value(),
-            "bmp_h":         self._bmp_h.value(),
-            "name_orig":     self._name_orig.text().strip() or "Cover",
-            "name_bmp":      self._name_bmp.text().strip(),  # empty = use album folder name
+            "bmp_w":         self._bmp_size_spin.value(),
+            "bmp_h":         self._bmp_size_spin.value(),
+            "name_orig":     self._name_orig.text().strip().lower() or "cover",
+            "name_bmp":      self._name_bmp.text().strip(),
+            "resize_jpg":    self._opt_resize_jpg.isChecked(),
+            "jpg_max_size":  self._jpg_size_spin.value(),
+            "dst_folder":    self._dst_folder.text().strip(),
         }
         self._worker = _CoverExtractWorker(folder, opts)
         self._worker.progress.connect(self._on_progress)
@@ -12411,6 +12530,11 @@ class _CoverExtractWorker(QThread):
         bmp_w, bmp_h = opts["bmp_w"], opts["bmp_h"]
         name_orig = opts["name_orig"]
         name_bmp  = opts["name_bmp"]
+        resize_jpg   = opts.get("resize_jpg", False)
+        jpg_max_size = opts.get("jpg_max_size", 500)
+        dst_folder   = Path(opts["dst_folder"]) if opts.get("dst_folder") else None
+        if dst_folder:
+            dst_folder.mkdir(parents=True, exist_ok=True)
 
         # Collect music files
         exts = {".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".wma"}
@@ -12464,12 +12588,45 @@ class _CoverExtractWorker(QThread):
 
             # Per-album mode: skip entire album if cover already exists
             if per_album and not overwrite and album_dir not in _done_albums:
-                cover_exists = (album_dir / f"{name_orig}.jpg").exists() or \
-                               (album_dir / f"{name_orig}.png").exists()
-                # Check for any .bmp in the folder (bmp filename may come from audio tags,
-                # which we don't have until the file is opened)
-                bmp_exists = (any(album_dir.glob("*.bmp"))) if opts["gen_bmp"] else True
-                orig_done  = (not opts["save_original"]) or cover_exists
+                # Check existence in destination folder if set, otherwise source folder
+                if dst_folder and Path(self._folder).is_dir():
+                    try:
+                        rel = album_dir.relative_to(Path(self._folder))
+                        check_dir = dst_folder / rel
+                    except ValueError:
+                        check_dir = album_dir
+                else:
+                    check_dir = album_dir
+                # Case-insensitive cover existence check
+                def _ci_cover_exists(d, fname):
+                    try:
+                        nl = fname.lower()
+                        return any(f.name.lower() == nl for f in d.iterdir())
+                    except Exception:
+                        return False
+                if resize_jpg:
+                    # In resize mode: only skip if cover exists AND is already correct size
+                    existing_jpg = next((f for f in check_dir.iterdir()
+                                        if f.suffix.lower() in (".jpg",".jpeg",".png")
+                                        and f.stem.lower() == name_orig.lower()
+                                        ), None) if check_dir.exists() else None
+                    if existing_jpg and _HAS_PIL:
+                        try:
+                            from PIL import Image
+                            with Image.open(existing_jpg) as chk:
+                                w, h = chk.size
+                            cover_exists = max(w, h) <= jpg_max_size
+                        except Exception:
+                            cover_exists = False
+                    else:
+                        cover_exists = False
+                else:
+                    cover_exists = (
+                        _ci_cover_exists(check_dir, f"{name_orig}.jpg") or
+                        _ci_cover_exists(check_dir, f"{name_orig}.png")
+                    ) if (opts["save_original"] or resize_jpg) else True
+                bmp_exists = (any(check_dir.glob("*.bmp"))) if opts["gen_bmp"] and check_dir.exists() else True
+                orig_done  = (not opts["save_original"] and not resize_jpg) or cover_exists
                 bmp_done   = bmp_exists
                 if orig_done and bmp_done:
                     skipped += 1
@@ -12550,27 +12707,87 @@ class _CoverExtractWorker(QThread):
 
             found += 1
 
-            # ── Save original cover ──────────────────────────
-            if opts["save_original"]:
-                dest_orig = album_dir / f"{name_orig}.{cover_ext}"
-                if dest_orig.exists() and not overwrite:
-                    skipped += 1
-                    self.log.emit(f"  [SKIP] {album_dir.name}/{dest_orig.name} (exists)")
+            # ── Resolve output directory ─────────────────────
+            def _out_dir(base_dir):
+                if dst_folder and Path(self._folder).is_dir():
+                    try:
+                        rel = base_dir.relative_to(Path(self._folder))
+                        od = dst_folder / rel
+                    except ValueError:
+                        od = dst_folder / base_dir.name
+                    od.mkdir(parents=True, exist_ok=True)
+                    return od
+                return base_dir
+
+            def _case_insensitive_exists(directory, filename):
+                """Return existing Path if file exists case-insensitively, else None."""
+                try:
+                    for f in directory.iterdir():
+                        if f.name.lower() == filename.lower():
+                            return f
+                except Exception:
+                    pass
+                return None
+
+            # ── Save cover JPG (original or resized) ─────────
+            if opts["save_original"] or resize_jpg:
+                out_dir = _out_dir(album_dir)
+                dest_orig = out_dir / f"{name_orig}.{cover_ext}"
+                existing = _case_insensitive_exists(out_dir, dest_orig.name)
+
+                if resize_jpg and _HAS_PIL:
+                    # Resize mode: skip if exists AND already correct size
+                    should_skip = False
+                    if existing and not overwrite:
+                        try:
+                            from PIL import Image
+                            import io as _io
+                            with Image.open(existing) as chk:
+                                w, h = chk.size
+                            if max(w, h) <= jpg_max_size:
+                                should_skip = True
+                                skipped += 1
+                                self.log.emit(f"  [SKIP] {album_dir.name}/{existing.name} (already {w}×{h} ≤ {jpg_max_size}px)")
+                        except Exception:
+                            pass
+                    if not should_skip:
+                        try:
+                            from PIL import Image
+                            import io as _io
+                            img = Image.open(_io.BytesIO(cover_data))
+                            if img.width > jpg_max_size or img.height > jpg_max_size:
+                                img.thumbnail((jpg_max_size, jpg_max_size), Image.LANCZOS)
+                            buf = _io.BytesIO()
+                            fmt = "JPEG" if cover_ext in ("jpg", "jpeg") else "PNG"
+                            if fmt == "JPEG" and img.mode in ("RGBA", "P", "LA"):
+                                img = img.convert("RGB")
+                            img.save(buf, fmt, quality=90)
+                            if not dry:
+                                dest_orig.write_bytes(buf.getvalue())
+                            saved += 1
+                            self.log.emit(f"  {'[DRY] ' if dry else ''}→ {out_dir.name}/{dest_orig.name}  (resized ≤{jpg_max_size}px)")
+                        except Exception as e:
+                            errors += 1
+                            self.log.emit(f"  [ERR] JPG resize: {e}")
                 else:
-                    if not dry:
-                        dest_orig.write_bytes(cover_data)
-                    saved += 1
-                    self.log.emit(f"  {'[DRY] ' if dry else ''}→ {album_dir.name}/{dest_orig.name}")
+                    # Save original mode: skip if correct-named file exists (case-insensitive)
+                    if existing and not overwrite:
+                        skipped += 1
+                        self.log.emit(f"  [SKIP] {album_dir.name}/{existing.name} (exists)")
+                    else:
+                        if not dry:
+                            dest_orig.write_bytes(cover_data)
+                        saved += 1
+                        self.log.emit(f"  {'[DRY] ' if dry else ''}→ {out_dir.name}/{dest_orig.name}")
 
             # ── Generate BMP ─────────────────────────────────
             if opts["gen_bmp"]:
-                # Use album folder name as default BMP filename if not specified
                 bmp_filename = name_bmp if name_bmp else (album_title or album_dir.name)
-                # Sanitize for filesystem safety
                 bmp_filename = re.sub(r'[\\/:*?"<>|]+', "_", bmp_filename).strip().strip(".")
                 if not bmp_filename:
                     bmp_filename = album_dir.name
-                dest_bmp = album_dir / f"{bmp_filename}.bmp"
+                bmp_out_dir = _out_dir(album_dir)
+                dest_bmp = bmp_out_dir / f"{bmp_filename}.bmp"
                 if dest_bmp.exists() and not overwrite:
                     skipped += 1
                     self.log.emit(f"  [SKIP] {album_dir.name}/{dest_bmp.name} (exists)")
@@ -12588,7 +12805,6 @@ class _CoverExtractWorker(QThread):
                         errors += 1
                         self.log.emit(f"  [ERR] BMP: {e}")
                 else:
-                    # PIL not available — ffmpeg fallback
                     if not dry:
                         try:
                             import tempfile, io as _io
@@ -15703,15 +15919,27 @@ class FileConverterPage(QWidget):
         tab_hdr_l.addWidget(self._tab_log_btn)
         tab_hdr_l.addStretch()
 
-        # Log filter combo (only shown when Log tab is active)
-        self._log_filter_combo = QComboBox()
-        self._log_filter_combo.addItems(["All", "Errors only"])
-        self._log_filter_combo.setFixedHeight(24)
-        self._log_filter_combo.setFixedWidth(110)
-        self._log_filter_combo.setStyleSheet("font-size:11px;")
-        self._log_filter_combo.setVisible(False)
-        self._log_filter_combo.currentIndexChanged.connect(self._apply_log_filter)
-        tab_hdr_l.addWidget(self._log_filter_combo)
+        # Log filter buttons (only shown when Log tab is active)
+        self._log_filter_widget = QWidget()
+        _lfw = QHBoxLayout(self._log_filter_widget); _lfw.setContentsMargins(0,0,0,0); _lfw.setSpacing(4)
+        self._log_filter_btns_fc = {}
+        _btn_style = (
+            "QPushButton { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.45);"
+            " border:1px solid rgba(255,255,255,0.10); border-radius:4px; padding:0 8px; font-size:11px; }"
+            "QPushButton:checked { background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.9);"
+            " border-color:rgba(255,255,255,0.25); }"
+            "QPushButton:hover { background:rgba(255,255,255,0.10); }"
+        )
+        for fk, fl in [("all","All"), ("done","Done"), ("errors","Errors")]:
+            b = QPushButton(fl); b.setCheckable(True); b.setChecked(fk=="all")
+            b.setFixedHeight(22); b.setStyleSheet(_btn_style)
+            b.clicked.connect(lambda _, k=fk: self._apply_log_filter(k))
+            _lfw.addWidget(b); self._log_filter_btns_fc[fk] = b
+        self._log_filter_widget.setVisible(False)
+        # keep compat reference
+        self._log_filter_combo = None
+        self._log_filter_mode = "all"
+        tab_hdr_l.addWidget(self._log_filter_widget)
 
         clrq = QPushButton("Clear Queue"); clrq.setObjectName("ghost"); clrq.setFixedHeight(24)
         clrq.clicked.connect(self._clear_queue)
@@ -15900,7 +16128,7 @@ class FileConverterPage(QWidget):
             self._tab_stack.setCurrentIndex(idx)
             self._clrq_btn.setVisible(idx == 0)
             self._clrs_btn.setVisible(idx != 0)
-            self._log_filter_combo.setVisible(idx == 2)
+            self._log_filter_widget.setVisible(idx == 2)
         self._tab_queue_btn.clicked.connect(lambda: _switch_to(0))
         self._tab_skip_btn.clicked.connect(lambda: _switch_to(1))
         self._tab_log_btn.clicked.connect(lambda: _switch_to(2))
@@ -16211,7 +16439,7 @@ class FileConverterPage(QWidget):
             name_item.setToolTip(path_str)
             tbl.setItem(row, 0, name_item)
             reason_item = QTableWidgetItem(reason)
-            reason_item.setForeground(QColor(tok("txt2")))
+            reason_item.setForeground(QColor("rgba(255,255,255,0.5)"))
             reason_item.setToolTip(path_str)
             tbl.setItem(row, 1, reason_item)
         tbl.setUpdatesEnabled(True)
@@ -16234,24 +16462,36 @@ class FileConverterPage(QWidget):
             self._skip_current_page += 1
             self._render_skip_page(self._skip_current_page)
 
-    def _apply_log_filter(self):
-        """Show all rows or errors-only rows in the log table based on the filter combo."""
-        errors_only = self._log_filter_combo.currentText() == "Errors only"
+    def _apply_log_filter(self, mode: str = None):
+        """Filter log table by mode: 'all', 'done', 'errors'."""
+        if mode is not None:
+            self._log_filter_mode = mode
+            for k, b in self._log_filter_btns_fc.items():
+                b.setChecked(k == mode)
+        mode = getattr(self, "_log_filter_mode", "all")
         tbl = self._log_table
-        visible = 0
         for row in range(tbl.rowCount()):
             status_item = tbl.item(row, 1)
-            is_error = status_item is not None and "Error" in status_item.text()
-            hide = errors_only and not is_error
-            tbl.setRowHidden(row, hide)
-            if not hide:
-                visible += 1
-        total_all = len(self._log_all_entries)
+            if status_item is None:
+                tbl.setRowHidden(row, mode != "all")
+                continue
+            is_error = "Error" in status_item.text()
+            is_done  = "Done"  in status_item.text()
+            if mode == "all":
+                tbl.setRowHidden(row, False)
+            elif mode == "errors":
+                tbl.setRowHidden(row, not is_error)
+            elif mode == "done":
+                tbl.setRowHidden(row, not is_done)
+        total_all    = len(self._log_all_entries)
         total_errors = sum(1 for _, ok, _, _ in self._log_all_entries if not ok)
-        if errors_only:
-            self._tab_log_btn.setText(f"Log  ({total_errors:,} errors of {total_all:,})")
-        else:
-            self._tab_log_btn.setText(f"Log  ({total_all:,})")
+        total_done   = sum(1 for _, ok, _, _ in self._log_all_entries if ok)
+        self._tab_log_btn.setText(f"Log  ({total_all:,})")
+        # Update button labels with counts
+        if hasattr(self, "_log_filter_btns_fc"):
+            self._log_filter_btns_fc["all"].setText(f"All  ({total_all:,})")
+            self._log_filter_btns_fc["done"].setText(f"Done  ({total_done:,})")
+            self._log_filter_btns_fc["errors"].setText(f"Errors  ({total_errors:,})")
 
     def _clear_skip_log(self):
         self._skip_table.setRowCount(0)
@@ -16296,7 +16536,16 @@ class FileConverterPage(QWidget):
                 status, pct = self._row_statuses[global_row]
             else:
                 status, pct = "Queued", 0
-            tbl.setItem(row, 3, QTableWidgetItem(status))
+            status_item = QTableWidgetItem(status)
+            if "Done" in status:
+                status_item.setForeground(QColor(tok("success")))
+            elif "Error" in status:
+                status_item.setForeground(QColor(tok("danger")))
+            elif status == "Queued":
+                status_item.setForeground(QColor(tok("txt2")))
+            else:
+                status_item.setForeground(QColor(tok("warning")))
+            tbl.setItem(row, 3, status_item)
             pb = QProgressBar(); pb.setRange(0, 100); pb.setValue(pct)
             pb.setFixedHeight(6); pb.setTextVisible(False)
             tbl.setCellWidget(row, 4, pb)
@@ -16553,7 +16802,9 @@ class FileConverterPage(QWidget):
         table_row = row - page_start
         if 0 <= table_row < self._TABLE_MAX_ROWS:
             item = self._queue_table.item(table_row, 3)
-            if item: item.setText(status_text)
+            if item:
+                item.setText(status_text)
+                item.setForeground(QColor(tok("success") if ok else tok("danger")))
             pb = self._queue_table.cellWidget(table_row, 4)
             if pb: pb.setValue(100 if ok else 0)
         if ok:
