@@ -53,9 +53,10 @@ chmod +x Scrobbox-x86_64.AppImage
 
 ### Scrobbling
 Submit your Rockbox `.scrobbler.log` to **Last.fm**, **Libre.fm**, or **ListenBrainz**. Tracks already-submitted entries to avoid duplicates. Optional log archiving after submission. Dry run mode.
+For Libre.fm put anything you want in api and shared secret sections and press "Connect to Libre.fm"
 
 ### Statistics
-Local stats from your submission history — total tracks, play time, sessions, top artists, albums, and tracks with album art. Includes a 53-week heatmap calendar, monthly listening trend chart, and configurable session gap detection.
+Local stats from your submission history — total tracks, play time, sessions, top artists, albums, and tracks with album art.
 
 ### Submission History
 Full searchable, paginated log of everything you've submitted across all platforms, with timestamps.
@@ -101,10 +102,7 @@ python scrobbox.py
 - `ffmpeg` — file conversion, spectrogram, integrity check
 - `rsync` — only if you use the Rsync page
 - `git`, `gcc`, `make` — only if you use the Rockbox database rebuilder (compiles the tool from source on first run)
-
-**Optional Python packages** (app runs without them, but some features are limited or disabled):
 - `numpy` — faster spectrogram rendering
-- `PyQt6-WebEngine` — TIDAL web login flow
 
 ---
 

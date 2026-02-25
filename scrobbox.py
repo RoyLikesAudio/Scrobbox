@@ -5,11 +5,10 @@ SCROBBOX  ·  Rockbox companion & multi-platform scrobbler
 Features:
   • Scrobble .scrobbler.log → Last.fm · Libre.fm · ListenBrainz
   • Statistics page with album art, top artists/tracks
-  • Last.fm deep stats — heatmap calendar, listening trends, milestones
   • Rockbox DB rebuilder — detects new music files on device
   • Rockbox config.cfg editor — full key/value editor with descriptions
   • Submission history with search/pagination
-  • Appearance customiser — dark/light, accent presets, full color override
+  • Appearance customiser — Accent colors
 
 Supports: Rockbox .scrobbler.log (all TZ modes), etc.
 """
@@ -21,38 +20,33 @@ import threading as _threading
 import re
 from pathlib import Path
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from collections import Counter, defaultdict
+from datetime import datetime, timezone
+from collections import Counter
 from typing import Optional
 
 import requests
 
-try:
-    from PyQt6.QtWebEngineWidgets import QWebEngineView
-    from PyQt6.QtWebEngineCore import QWebEngineProfile
-    _HAS_WEBENGINE = True
-except ImportError:
-    _HAS_WEBENGINE = False
+_HAS_WEBENGINE = False  # always use system browser; WebEngine not required
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QLineEdit, QMessageBox, QProgressBar,
-    QCheckBox, QFileDialog, QGroupBox, QGridLayout, QDialog,
+    QCheckBox, QFileDialog, QGridLayout, QDialog,
     QTabWidget, QSpinBox, QComboBox, QListWidget, QFrame,
     QScrollArea, QTableWidget, QTableWidgetItem, QHeaderView,
     QStackedWidget, QSizePolicy, QAbstractItemView, QColorDialog,
-    QGraphicsDropShadowEffect, QGraphicsOpacityEffect, QTextEdit, QSlider, QListWidgetItem,
-    QSplitter, QToolTip, QTreeWidget, QTreeWidgetItem,
+    QGraphicsOpacityEffect, QTextEdit, QListWidgetItem,
+    QSplitter, QTreeWidget, QTreeWidgetItem,
     QPlainTextEdit, QInputDialog,
 )
 from PyQt6.QtCore import (
     Qt, QUrl, QThread, pyqtSignal, QTimer, QPropertyAnimation,
-    QEasingCurve, QSize, QRect, QPoint, QRectF, QProcess,
+    QEasingCurve, QSize, QRectF, QProcess,
 )
 from PyQt6.QtGui import (
-    QColor, QFont, QDesktopServices, QPainter, QPen, QBrush,
-    QPalette, QIcon, QPixmap, QLinearGradient, QImage, QFontMetrics,
-    QPainterPath, QRadialGradient, QKeySequence, QShortcut,
+    QColor, QFont, QPainter, QBrush,
+    QIcon, QPixmap, QLinearGradient, QImage, QFontMetrics,
+    QPainterPath, QKeySequence, QShortcut,
 )
 
 from PyQt6 import sip
@@ -379,21 +373,45 @@ with _db_lock:
         _cur.execute("ALTER TABLE scrobbled ADD COLUMN platform TEXT NOT NULL DEFAULT 'lastfm'")
     if "submitted_at" not in _existing_cols:
         _cur.execute("ALTER TABLE scrobbled ADD COLUMN submitted_at INTEGER")
+
+    # Migrate: if the PK doesn't include platform, recreate the table so that
+    # the same track can be stored for multiple platforms.
+    _pk_cols = {row[1] for row in _cur.execute("PRAGMA table_info(scrobbled)") if row[5] > 0}
+    if "platform" not in _pk_cols:
+        _cur.executescript("""
+            ALTER TABLE scrobbled RENAME TO scrobbled_old;
+            CREATE TABLE scrobbled (
+                artist       TEXT NOT NULL,
+                album        TEXT NOT NULL,
+                title        TEXT NOT NULL,
+                ts           INTEGER NOT NULL,
+                platform     TEXT NOT NULL DEFAULT 'lastfm',
+                submitted_at INTEGER,
+                PRIMARY KEY (artist, album, title, ts, platform)
+            );
+            INSERT OR IGNORE INTO scrobbled (artist, album, title, ts, platform, submitted_at)
+                SELECT artist, album, title, ts,
+                       CASE WHEN typeof(platform) = 'text' AND platform IN ('lastfm','librefm','listenbrainz')
+                            THEN platform ELSE 'lastfm' END,
+                       CASE WHEN typeof(submitted_at) = 'integer' THEN submitted_at
+                            WHEN typeof(platform) = 'integer' THEN platform ELSE NULL END
+                FROM scrobbled_old;
+            DROP TABLE scrobbled_old;
+            CREATE INDEX IF NOT EXISTS idx_scrobbled_plat_ts ON scrobbled (platform, ts);
+            CREATE INDEX IF NOT EXISTS idx_scrobbled_submitted ON scrobbled (submitted_at DESC);
+        """)
+
+    # Fix rows where platform was corrupted by positional INSERT before explicit column names
+    _cur.execute(
+        "UPDATE scrobbled SET submitted_at = CAST(platform AS INTEGER), platform = 'lastfm'"
+        " WHERE platform NOT IN ('lastfm','librefm','listenbrainz')"
+        " AND CAST(platform AS INTEGER) > 1000000000"
+    )
     _db.commit()
 
 
 def _pk(plat: str) -> str:
     return plat.lower().replace(".", "").replace(" ", "")
-
-
-def db_is_done(artist, album, title, ts, plat):
-    with _db_lock:
-        cur = _db.cursor()
-        cur.execute(
-            "SELECT 1 FROM scrobbled WHERE artist=? AND album=? AND title=? AND ts=? AND platform=?",
-            (artist, album, title, ts, _pk(plat)),
-        )
-        return cur.fetchone() is not None
 
 
 def db_batch_done(tracks: list, plat: str) -> set:
@@ -412,11 +430,21 @@ def db_batch_done(tracks: list, plat: str) -> set:
         return set(cur.fetchall())
 
 
-def db_mark_done(artist, album, title, ts, plat):
+def db_mark_done(artist, album, title, ts, plat, save_history: bool = True):
+    """Record a scrobble in the local DB.
+
+    *save_history* should be passed by the caller from their already-loaded
+    config dict so we avoid a redundant disk read on every single track.
+    The default ``True`` preserves backwards compatibility for call-sites that
+    don't pass it explicitly.
+    """
+    if not save_history:
+        return
     with _db_lock:
         cur = _db.cursor()
         cur.execute(
-            "INSERT OR IGNORE INTO scrobbled VALUES (?,?,?,?,?,strftime('%s','now'))",
+            "INSERT OR IGNORE INTO scrobbled (artist, album, title, ts, platform, submitted_at)"
+            " VALUES (?,?,?,?,?,strftime('%s','now'))",
             (artist, album, title, ts, _pk(plat)),
         )
         _db.commit()
@@ -443,81 +471,6 @@ def db_delete(artist: str, album: str, title: str, ts: int, plat: str) -> bool:
         )
         _db.commit()
         return cur.rowcount > 0
-
-
-def db_stats_for_lfm(plat=P_LASTFM) -> dict:
-    """Aggregate stats from local DB for the Last.fm stats page."""
-    pk = _pk(plat)
-    with _db_lock:
-        cur = _db.cursor()
-        cur.execute("SELECT COUNT(*) FROM scrobbled WHERE platform=?", (pk,))
-        total = cur.fetchone()[0]
-
-        cur.execute(
-            "SELECT COUNT(DISTINCT artist) FROM scrobbled WHERE platform=?",
-            (pk,),
-        )
-        n_artists = cur.fetchone()[0]
-
-        cur.execute(
-            "SELECT COUNT(DISTINCT album) FROM scrobbled WHERE platform=?",
-            (pk,),
-        )
-        n_albums = cur.fetchone()[0]
-
-        cur.execute(
-            "SELECT artist, COUNT(*) as c FROM scrobbled WHERE platform=? GROUP BY artist ORDER BY c DESC LIMIT 20",
-            (pk,),
-        )
-        top_artists = cur.fetchall()
-
-        cur.execute(
-            "SELECT album, artist, COUNT(*) as c FROM scrobbled WHERE platform=? GROUP BY album, artist ORDER BY c DESC LIMIT 20",
-            (pk,),
-        )
-        top_albums = cur.fetchall()
-
-        cur.execute(
-            "SELECT title, artist, COUNT(*) as c FROM scrobbled WHERE platform=? GROUP BY title, artist ORDER BY c DESC LIMIT 20",
-            (pk,),
-        )
-        top_tracks = cur.fetchall()
-
-        # Daily play counts for the heatmap (last 53 weeks = ~1 year)
-        cutoff = int(time.time()) - 53 * 7 * 86400
-        cur.execute(
-            "SELECT date(ts,'unixepoch') as d, COUNT(*) FROM scrobbled "
-            "WHERE platform=? AND ts >= ? GROUP BY d",
-            (pk, cutoff),
-        )
-        daily = dict(cur.fetchall())
-
-        # Monthly counts for trend chart (last 24 months)
-        cutoff24 = int(time.time()) - 24 * 30 * 86400
-        cur.execute(
-            "SELECT strftime('%Y-%m', ts,'unixepoch') as m, COUNT(*) FROM scrobbled "
-            "WHERE platform=? AND ts >= ? GROUP BY m ORDER BY m",
-            (pk, cutoff24),
-        )
-        monthly = cur.fetchall()
-
-        # First and most recent scrobble
-        cur.execute("SELECT MIN(ts), MAX(ts) FROM scrobbled WHERE platform=?", (pk,))
-        row = cur.fetchone()
-        first_ts, last_ts = row if row else (None, None)
-
-    return {
-        "total": total,
-        "n_artists": n_artists,
-        "n_albums": n_albums,
-        "top_artists": top_artists,
-        "top_albums": top_albums,
-        "top_tracks": top_tracks,
-        "daily": daily,
-        "monthly": monthly,
-        "first_ts": first_ts,
-        "last_ts": last_ts,
-    }
 
 
 # ─────────────────────────────────────────────────────────────
@@ -594,11 +547,17 @@ def session_path(plat: str) -> Path:
     return SESSION_DIR / f"{_pk(plat)}_session.txt"
 
 def load_session(plat: str) -> Optional[str]:
-    p = session_path(plat)
-    return p.read_text().strip() or None if p.exists() else None
+    try:
+        p = session_path(plat)
+        return p.read_text(encoding="utf-8").strip() or None if p.exists() else None
+    except OSError:
+        return None
 
 def save_session(plat: str, key: str):
-    session_path(plat).write_text(key)
+    try:
+        session_path(plat).write_text(key, encoding="utf-8")
+    except Exception as e:
+        print(f"[Scrobbox] WARNING: failed to save session for {plat}: {e}", file=sys.stderr)
 
 def clear_session(plat: str):
     session_path(plat).unlink(missing_ok=True)
@@ -631,12 +590,13 @@ def lfm_call(params: dict, api_url: str, timeout=20) -> dict:
         r = requests.post(api_url, data=params, timeout=timeout)
         if r.status_code == 429 or r.status_code >= 500:
             if attempt < RETRIES - 1:
-                time.sleep(2 ** attempt)  # 1s, 2s backoff
+                time.sleep(2 ** attempt)  # 1s, 2s between retries (up to 3 attempts total)
                 continue
         r.raise_for_status()
         return r.json()
-    r.raise_for_status()
-    return r.json()
+    # Unreachable: loop always exits via return or raise_for_status above.
+    # Kept to satisfy static analysers that require all code paths to return.
+    raise RuntimeError("lfm_call: exhausted retries without returning")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -653,7 +613,7 @@ def _local_utc_offset_seconds() -> int:
         return -time.altzone
     return -time.timezone
 
-def parse_log(path: Path) -> list[Track]:
+def parse_log(path: Path) -> tuple[list[Track], int]:
     """Parse .scrobbler.log → list of Track (timestamp always true UTC epoch).
 
     Returns (tracks, skipped_future) where skipped_future is the count of entries
@@ -968,6 +928,39 @@ ROCKBOX_CONFIG_GROUPS = {
 #  WORKER (scrobble submission)
 # ─────────────────────────────────────────────────────────────
 
+class _LfmAuthWorker(QThread):
+    """Runs blocking Last.fm/Libre.fm auth HTTP calls off the main thread."""
+    token_ready   = pyqtSignal(str)
+    session_ready = pyqtSignal(str)
+    error         = pyqtSignal(str)
+
+    def __init__(self, mode: str, api_url: str, params: dict):
+        super().__init__()
+        self._mode    = mode
+        self._api_url = api_url
+        self._params  = params
+        # Keep alive until finished — local vars go out of scope immediately
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
+
+    def run(self):
+        try:
+            resp = lfm_call(self._params, self._api_url)
+            if "error" in resp:
+                self.error.emit(resp.get("message", "API error"))
+                return
+            if self._mode == "token":
+                self.token_ready.emit(resp["token"])
+            else:
+                self.session_ready.emit(resp["session"]["key"])
+        except Exception as e:
+            self.error.emit(str(e))
+
+
 class Worker(QThread):
     progress   = pyqtSignal(int, int)
     track_done = pyqtSignal(object, bool, str)
@@ -1005,6 +998,7 @@ class Worker(QThread):
             key    = self.conf.get("api_key", "")
             secret = self.conf.get("api_secret", "")
         session = load_session(self.platform)
+        save_history = self.conf.get("save_history", True)
         # Last.fm / Libre.fm support batches of up to 50 scrobbles per call
         BATCH = 50
         done_count = 0
@@ -1030,7 +1024,8 @@ class Worker(QThread):
                     raise Exception(resp.get("message", "API error"))
                 # Mark all in batch as done
                 for t in chunk:
-                    db_mark_done(t.artist, t.album, t.title, t.timestamp, self.platform)
+                    db_mark_done(t.artist, t.album, t.title, t.timestamp, self.platform,
+                                 save_history=save_history)
                     self.track_done.emit(t, True, "")
                     self._ok += 1
             except Exception as e:
@@ -1049,7 +1044,8 @@ class Worker(QThread):
                         r1 = lfm_call(p1, api_url)
                         if "error" in r1:
                             raise Exception(r1.get("message", "API error"))
-                        db_mark_done(t.artist, t.album, t.title, t.timestamp, self.platform)
+                        db_mark_done(t.artist, t.album, t.title, t.timestamp, self.platform,
+                                     save_history=save_history)
                         self.track_done.emit(t, True, "")
                         self._ok += 1
                     except Exception as e2:
@@ -1058,45 +1054,64 @@ class Worker(QThread):
             done_count += len(chunk)
             self.progress.emit(done_count, total)
 
+    @staticmethod
+    def _lbz_is_tagged(t) -> bool:
+        """Return True if the track has enough metadata for ListenBrainz."""
+        _untagged = {"", "<untagged>", "untagged"}
+        return (t.artist.strip().lower() not in _untagged and
+                t.title.strip().lower()  not in _untagged)
+
     def _submit_lbz(self, total):
-        token      = self.conf.get("lbz_token", "")
+        token        = self.conf.get("lbz_token", "")
+        save_history = self.conf.get("save_history", True)
         chunk_size = 100
         done = 0
         for i in range(0, len(self.tracks), chunk_size):
             if self.isInterruptionRequested():
                 return
-            chunk   = self.tracks[i:i+chunk_size]
-            payload = {
-                "listen_type": "import",
-                "payload": [{
-                    "listened_at": t.utc_ts,
-                    "track_metadata": {
-                        "artist_name": t.artist, "track_name": t.title, "release_name": t.album,
-                        "additional_info": {
-                            "tracknumber": t.tracknum, "duration": t.length,
-                            **({"recording_mbid": t.mbid} if t.mbid else {}),
+            chunk = self.tracks[i:i+chunk_size]
+
+            # Split tagged vs untagged — skip untagged without poisoning the whole batch
+            tagged   = [t for t in chunk if self._lbz_is_tagged(t)]
+            untagged = [t for t in chunk if not self._lbz_is_tagged(t)]
+            for t in untagged:
+                self.track_done.emit(t, False, "Skipped: missing artist/title tags")
+                self._fail += 1
+
+            if tagged:
+                payload = {
+                    "listen_type": "import",
+                    "payload": [{
+                        "listened_at": t.utc_ts,
+                        "track_metadata": {
+                            "artist_name": t.artist, "track_name": t.title, "release_name": t.album,
+                            "additional_info": {
+                                "tracknumber": t.tracknum, "duration": t.length,
+                                **({"recording_mbid": t.mbid} if t.mbid else {}),
+                            }
                         }
-                    }
-                } for t in chunk]
-            }
-            try:
-                r = requests.post(LBZ_API + "submit-listens", json=payload,
-                    headers={"Authorization": f"Token {token}", "Content-Type": "application/json"},
-                    timeout=30)
-                if r.status_code == 200:
-                    for t in chunk:
-                        db_mark_done(t.artist, t.album, t.title, t.timestamp, self.platform)
-                        self.track_done.emit(t, True, "")
-                        self._ok += 1
-                else:
-                    err = f"HTTP {r.status_code}: {r.text[:120]}"
-                    for t in chunk:
-                        self.track_done.emit(t, False, err)
+                    } for t in tagged]
+                }
+                try:
+                    r = requests.post(LBZ_API + "submit-listens", json=payload,
+                        headers={"Authorization": f"Token {token}", "Content-Type": "application/json"},
+                        timeout=30)
+                    if r.status_code == 200:
+                        for t in tagged:
+                            db_mark_done(t.artist, t.album, t.title, t.timestamp, self.platform,
+                                         save_history=save_history)
+                            self.track_done.emit(t, True, "")
+                            self._ok += 1
+                    else:
+                        err = f"HTTP {r.status_code}: {r.text[:120]}"
+                        for t in tagged:
+                            self.track_done.emit(t, False, err)
+                            self._fail += 1
+                except Exception as e:
+                    for t in tagged:
+                        self.track_done.emit(t, False, str(e))
                         self._fail += 1
-            except Exception as e:
-                for t in chunk:
-                    self.track_done.emit(t, False, str(e))
-                    self._fail += 1
+
             done += len(chunk)
             self.progress.emit(done, total)
 
@@ -1752,7 +1767,7 @@ class RockboxDbWorker(QThread):
                 null_pos  = raw.index(0, str_start)
                 old_bytes = bytes(raw[str_start:null_pos])
                 try:    old_path = old_bytes.decode('utf-8')
-                except: old_path = old_bytes.decode('latin-1')
+                except Exception: old_path = old_bytes.decode('latin-1')
 
                 # Walk the path components and resolve each against actual device
                 parts     = old_path.split('/')
@@ -1913,219 +1928,6 @@ class RockboxDbWorker(QThread):
 #  LAST.FM HISTORY FETCHER (for deep stats)
 # ─────────────────────────────────────────────────────────────
 
-class LfmWebLoginFetcher(QThread):
-    """
-    Authenticates with Last.fm or Libre.fm using auth.getMobileSession
-    (official API method for desktop apps). Then pulls full scrobble
-    history via user.getRecentTracks (200 tracks/page).
-
-    Requires API key + secret (set up in Platforms page).
-    """
-    progress  = pyqtSignal(str)
-    finished  = pyqtSignal(int, str)   # (count, error_or_empty)
-    login_ok  = pyqtSignal(str)        # emits username on success
-
-    def __init__(self, username: str, password: str, pages: int = 10,
-                 api_key: str = "", api_secret: str = "",
-                 platform: str = "Last.fm", api_url: str = ""):
-        super().__init__()
-        self.username   = username
-        self.password   = password
-        self.pages      = pages
-        self.api_key    = api_key
-        self.api_secret = api_secret
-        self.platform   = platform
-        self.api_url    = api_url or LASTFM_API
-
-    def run(self):
-        if not self.api_key or not self.api_secret:
-            self.finished.emit(0,
-                f"No API credentials found for {self.platform}.\n"
-                f"Add your API key and secret in Platforms → {self.platform}, "
-                "connect your account, then try again.")
-            return
-        self._run_api()
-
-    def _run_api(self):
-        self.progress.emit(f"Authenticating with {self.platform}…")
-
-        # auth.getMobileSession: uses MD5(username.lower() + MD5(password))
-        pw_md5    = hashlib.md5(self.password.encode("utf-8")).hexdigest()
-        auth_tok  = hashlib.md5((self.username.lower() + pw_md5).encode("utf-8")).hexdigest()
-
-        params = {
-            "method":    "auth.getMobileSession",
-            "username":  self.username,
-            "authToken": auth_tok,
-            "api_key":   self.api_key,
-        }
-        params["api_sig"] = api_sig(params, self.api_secret)
-        params["format"]  = "json"
-
-        try:
-            r = requests.post(self.api_url, data=params, timeout=20)
-            r.raise_for_status()
-            resp = r.json()
-        except Exception as e:
-            self.finished.emit(0, f"Network error during auth: {e}"); return
-
-        if "error" in resp:
-            code = resp.get("error", 0)
-            msg  = resp.get("message", "Unknown error")
-            if code in (4, 6):
-                msg = "Incorrect username or password."
-            elif code == 26:
-                msg = "API key suspended — get a new one at last.fm/api."
-            elif code == 10:
-                msg = "Invalid API key. Check the key in Platforms."
-            elif code == 14:
-                msg = "Unauthorized token — try connecting in Platforms first."
-            self.finished.emit(0, f"Login failed ({self.platform}): {msg}"); return
-
-        sk = resp.get("session", {}).get("key", "")
-        if not sk:
-            self.finished.emit(0, "Login failed: no session key returned."); return
-
-        actual_user = resp.get("session", {}).get("name", self.username)
-        self.login_ok.emit(actual_user)
-        self.progress.emit(f"Logged in as {actual_user} ✓  Fetching history…")
-
-        # Fetch recent tracks page by page
-        inserted = 0
-        plat_key = P_LIBREFM if "libre" in self.api_url.lower() else P_LASTFM
-        try:
-            for page in range(1, self.pages + 1):
-                self.progress.emit(f"Fetching page {page}/{self.pages} ({inserted:,} tracks so far)…")
-                p2 = {
-                    "method":  "user.getRecentTracks",
-                    "user":    actual_user,
-                    "api_key": self.api_key,
-                    "page":    page,
-                    "limit":   200,
-                    "format":  "json",
-                }
-                try:
-                    r2 = requests.get(self.api_url, params=p2, timeout=30)
-                    r2.raise_for_status()
-                    data = r2.json()
-                except Exception as e:
-                    self.progress.emit(f"Page {page} failed: {e} — skipping")
-                    continue
-
-                if "error" in data:
-                    self.progress.emit(f"API error on page {page}: {data.get('message')} — stopping")
-                    break
-
-                tracks = data.get("recenttracks", {}).get("track", [])
-                if isinstance(tracks, dict):
-                    tracks = [tracks]  # single-result edge case
-                if not tracks:
-                    break
-
-                for t in tracks:
-                    # Skip now-playing (no timestamp)
-                    date_info = t.get("date", {})
-                    if not date_info:
-                        continue
-                    uts = date_info.get("uts", "")
-                    if not uts:
-                        continue
-                    try:
-                        ts     = int(uts)
-                        artist = t.get("artist", {}).get("#text", "").strip()
-                        album  = t.get("album",  {}).get("#text", "").strip()
-                        title  = t.get("name", "").strip()
-                        if artist and title and ts > 0:
-                            db_mark_done(artist, album, title, ts, plat_key)
-                            inserted += 1
-                    except (ValueError, TypeError):
-                        continue
-
-                # Check total pages from response
-                attr = data.get("recenttracks", {}).get("@attr", {})
-                total_pages = int(attr.get("totalPages", 1))
-                self.progress.emit(f"Page {page}/{min(self.pages, total_pages)} — {inserted:,} imported")
-                if page >= total_pages:
-                    break
-
-            self.finished.emit(inserted, "")
-        except Exception as e:
-            self.finished.emit(inserted, str(e))
-
-
-# Keep old name as alias for any remaining references
-LfmHistoryFetcher = LfmWebLoginFetcher
-
-
-class LbzHistoryFetcher(QThread):
-    """
-    Fetches listen history from ListenBrainz using the public API.
-    Requires username + user token.
-    """
-    progress = pyqtSignal(str)
-    finished = pyqtSignal(int, str)
-
-    def __init__(self, username: str, token: str, pages: int = 10):
-        super().__init__()
-        self.username = username
-        self.token    = token
-        self.pages    = pages
-
-    def run(self):
-        inserted = 0
-        max_ts   = None  # for pagination (LBZ uses max_ts to get older listens)
-        headers  = {"Authorization": f"Token {self.token}"}
-
-        try:
-            for page in range(1, self.pages + 1):
-                self.progress.emit(f"Fetching page {page}/{self.pages} ({inserted:,} imported)…")
-                params = {"count": 100}
-                if max_ts is not None:
-                    params["max_ts"] = max_ts
-
-                try:
-                    r = requests.get(
-                        f"{LBZ_API}user/{self.username}/listens",
-                        headers=headers, params=params, timeout=30,
-                    )
-                    if r.status_code == 401:
-                        self.finished.emit(0, "Invalid token — check Platforms → ListenBrainz."); return
-                    if r.status_code == 404:
-                        self.finished.emit(0, f"User '{self.username}' not found on ListenBrainz."); return
-                    r.raise_for_status()
-                    data = r.json()
-                except Exception as e:
-                    self.progress.emit(f"Page {page} error: {e}"); break
-
-                listens = data.get("payload", {}).get("listens", [])
-                if not listens:
-                    break
-
-                for listen in listens:
-                    try:
-                        ts   = listen.get("listened_at", 0)
-                        meta = listen.get("track_metadata", {})
-                        artist = meta.get("artist_name", "").strip()
-                        title  = meta.get("track_name", "").strip()
-                        album  = meta.get("release_name", "").strip()
-                        if artist and title and ts > 0:
-                            db_mark_done(artist, album, title, ts, P_LISTENBRAINZ)
-                            inserted += 1
-                        # Track oldest ts for next page
-                        if max_ts is None or ts < max_ts:
-                            max_ts = ts
-                    except Exception:
-                        continue
-
-                self.progress.emit(f"Page {page} — {inserted:,} listens imported")
-                if len(listens) < 100:
-                    break  # reached the end
-
-            self.finished.emit(inserted, "")
-        except Exception as e:
-            self.finished.emit(inserted, str(e))
-
-
 # ─────────────────────────────────────────────────────────────
 #  ALBUM ART ENGINE
 # ─────────────────────────────────────────────────────────────
@@ -2193,16 +1995,52 @@ def _blur_pixmap(px: QPixmap, radius: int = 32) -> QPixmap:
     return result
 
 
+class _BlurWorker(QThread):
+    """Compute the blurred background pixmap off the GUI thread."""
+    done = pyqtSignal(object)   # emits QPixmap
+
+    def __init__(self, raw: bytes, w: int, h: int, parent=None):
+        super().__init__(parent)
+        self._raw = raw
+        self._w   = w
+        self._h   = h
+
+    def run(self):
+        try:
+            img = QImage()
+            if not img.loadFromData(self._raw):
+                return
+            src = QPixmap.fromImage(img)
+            if src.isNull():
+                return
+            filled = src.scaled(
+                self._w, self._h,
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                Qt.TransformationMode.SmoothTransformation)
+            cx = (filled.width()  - self._w) // 2
+            cy = (filled.height() - self._h) // 2
+            if cx > 0 or cy > 0:
+                filled = filled.copy(max(0, cx), max(0, cy), self._w, self._h)
+            blurred = _blur_pixmap(filled, radius=80)
+            self.done.emit(blurred)
+        except Exception:
+            pass
+
+
 class PageBackground(QWidget):
     """
     Full-page background layer: blurred album art + dark overlay.
     Sits behind all content via self.lower(). Mouse-transparent.
+    The blur is computed in a background thread so window resizes never
+    stall the GUI — the previous pixmap remains visible until the new one
+    is ready.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._raw:   Optional[bytes]   = None
-        self._px:    Optional[QPixmap] = None
-        self._color: Optional[QColor]  = None
+        self._raw:    Optional[bytes]   = None
+        self._px:     Optional[QPixmap] = None
+        self._color:  Optional[QColor]  = None
+        self._blur_w: Optional[_BlurWorker] = None
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.lower()
 
@@ -2210,38 +2048,52 @@ class PageBackground(QWidget):
         self._raw   = raw
         self._color = color
         self._px    = None
+        self._start_blur()
         self.update()
 
     def clear(self):
         self._raw = self._px = self._color = None
+        if self._blur_w and self._blur_w.isRunning():
+            self._blur_w.requestInterruption()
+        self._blur_w = None
         self.update()
 
     def resizeEvent(self, event):
+        # Invalidate cached pixmap and recompute at the new size in the background.
         self._px = None
+        self._start_blur()
         super().resizeEvent(event)
+
+    def _start_blur(self):
+        if not self._raw or self.width() <= 0 or self.height() <= 0:
+            return
+        # Cancel any in-progress blur for a previous size.
+        # Guard with sip.isdeleted: if the previous worker already finished
+        # and was collected, accessing it would raise RuntimeError.
+        if self._blur_w and not sip.isdeleted(self._blur_w) and self._blur_w.isRunning():
+            self._blur_w.requestInterruption()
+        w = _BlurWorker(self._raw, self.width(), self.height())
+        w.done.connect(self._on_blur_done, Qt.ConnectionType.QueuedConnection)
+        # Do NOT call deleteLater here: self._blur_w holds the only reference and
+        # we need to call isRunning() on it next time _start_blur fires.  The worker
+        # will be garbage-collected naturally when self._blur_w is reassigned.
+        self._blur_w = w
+        w.start()
+
+    def _on_blur_done(self, px: QPixmap):
+        if not sip.isdeleted(self):
+            self._px = px
+            self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         t = _current_theme
         painter.fillRect(self.rect(), QColor(t["bg0"]))
-        if self._raw:
-            if self._px is None:
-                img = QImage()
-                if img.loadFromData(self._raw):
-                    src = QPixmap.fromImage(img)
-                    if not src.isNull():
-                        filled = src.scaled(
-                            self.width(), self.height(),
-                            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                            Qt.TransformationMode.SmoothTransformation)
-                        cx = (filled.width()  - self.width())  // 2
-                        cy = (filled.height() - self.height()) // 2
-                        if cx > 0 or cy > 0:
-                            filled = filled.copy(max(0,cx), max(0,cy),
-                                                 self.width(), self.height())
-                        self._px = _blur_pixmap(filled, radius=80)
-            if self._px and not self._px.isNull():
-                painter.drawPixmap(0, 0, self._px)
+        if self._px and not self._px.isNull():
+            painter.drawPixmap(0, 0, self._px)
+        elif self._raw and self._px is None:
+            # Blur not ready yet — show a simple dark fill as placeholder
+            pass
         # Heavy dark scrim — keeps text readable across entire page
         grad = QLinearGradient(0, 0, 0, self.height())
         grad.setColorAt(0.0, QColor(0, 0, 0, 195))
@@ -2598,19 +2450,8 @@ class ArtFetcher(QThread):
 #  REUSABLE WIDGETS
 # ─────────────────────────────────────────────────────────────
 
-def Spacer(h=True):
-    s = QWidget()
-    s.setSizePolicy(
-        QSizePolicy.Policy.Expanding if h  else QSizePolicy.Policy.Minimum,
-        QSizePolicy.Policy.Expanding if not h else QSizePolicy.Policy.Minimum,
-    )
-    return s
-
 def HDivider():
     f = QFrame(); f.setFrameShape(QFrame.Shape.HLine); f.setFixedHeight(1); return f
-
-def VDivider():
-    f = QFrame(); f.setFrameShape(QFrame.Shape.VLine); f.setFixedWidth(1); return f
 
 def SectionLabel(text: str) -> QLabel:
     lbl = QLabel(text.upper()); lbl.setObjectName("sectiontitle"); return lbl
@@ -2819,184 +2660,42 @@ class AlbumArtLabel(QLabel):
 
 
 # ─────────────────────────────────────────────────────────────
-#  HEATMAP WIDGET  (GitHub-style contribution calendar)
-# ─────────────────────────────────────────────────────────────
-
-class HeatmapWidget(QWidget):
-    """Renders a 53-week × 7-day heatmap of play counts."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._daily: dict[str, int] = {}   # "YYYY-MM-DD" -> count
-        self._max = 1
-        self._cells: list[tuple] = []      # (QRect, date_str, count) for tooltip
-        self.setMinimumHeight(120)
-        self.setMouseTracking(True)
-
-    def set_data(self, daily: dict[str, int]):
-        self._daily = daily
-        self._max   = max(daily.values(), default=1)
-        self._cells = []
-        self.update()
-
-    def mouseMoveEvent(self, event):
-        pos = event.pos()
-        for rect, ds, count in self._cells:
-            if rect.contains(pos):
-                try:
-                    label = datetime.strptime(ds, "%Y-%m-%d").strftime("%d %b %Y")
-                except Exception:
-                    label = ds
-                tip = f"{label}  ·  {count} play{'s' if count != 1 else ''}" if count else f"{label}  ·  no plays"
-                QToolTip.showText(event.globalPosition().toPoint(), tip, self)
-                return
-        QToolTip.hideText()
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        t       = _current_theme
-        bg_col  = QColor(t["bg3"])
-        hi_col  = QColor(t["accent"])
-        txt_col = QColor(t["txt2"])
-        painter.fillRect(self.rect(), QColor(t["bg2"]))
-
-        W, H    = self.width(), self.height()
-        cell    = min((W - 60) // 53, (H - 30) // 7)
-        cell    = max(cell, 8)
-        gap     = 2
-        off_x   = 40
-        off_y   = 20
-
-        painter.setPen(txt_col)
-        f = painter.font(); f.setPointSize(9); painter.setFont(f)
-
-        today   = datetime.now().date()
-        start   = today - timedelta(weeks=52)
-        start   = start - timedelta(days=start.weekday())
-
-        day_labels = ["M","","W","","F","","S"]
-        for di, dl in enumerate(day_labels):
-            if dl:
-                painter.drawText(off_x - 22, off_y + di*(cell+gap) + cell, dl)
-
-        cells = []
-        last_month = ""
-        col = 0
-        cur = start
-        while cur <= today:
-            week_start = cur
-            for row in range(7):
-                d = week_start + timedelta(days=row)
-                if d > today:
-                    break
-                ds    = d.strftime("%Y-%m-%d")
-                count = self._daily.get(ds, 0)
-                x = off_x + col * (cell + gap)
-                y = off_y + row * (cell + gap)
-
-                if count == 0:
-                    c = bg_col
-                else:
-                    ratio = min(count / self._max, 1.0)
-                    c = QColor(
-                        int(bg_col.red()   + (hi_col.red()   - bg_col.red())   * ratio),
-                        int(bg_col.green() + (hi_col.green() - bg_col.green()) * ratio),
-                        int(bg_col.blue()  + (hi_col.blue()  - bg_col.blue())  * ratio),
-                    )
-                painter.setBrush(c)
-                painter.setPen(Qt.PenStyle.NoPen)
-                cw = cell - gap
-                painter.drawRoundedRect(x, y, cw, cw, 2, 2)
-                cells.append((QRect(x, y, cw, cw), ds, count))
-
-                if row == 0:
-                    month_str = d.strftime("%b")
-                    if month_str != last_month:
-                        painter.setPen(txt_col)
-                        painter.drawText(x, off_y - 5, month_str)
-                        last_month = month_str
-                        painter.setPen(Qt.PenStyle.NoPen)
-
-            cur += timedelta(weeks=1)
-            col += 1
-
-        self._cells = cells
-        painter.end()
-
-
-# ─────────────────────────────────────────────────────────────
-#  BAR CHART WIDGET  (monthly trend)
-# ─────────────────────────────────────────────────────────────
-
-class BarChartWidget(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._data: list[tuple[str,int]] = []
-        self.setMinimumHeight(160)
-
-    def set_data(self, monthly: list[tuple[str,int]]):
-        self._data = monthly[-24:]
-        self.update()
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        t = _current_theme
-        painter.fillRect(self.rect(), QColor(t["bg2"]))
-
-        if not self._data:
-            painter.setPen(QColor(t["txt2"]))
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No data")
-            painter.end(); return
-
-        W, H    = self.width(), self.height()
-        pad_l, pad_r, pad_t, pad_b = 44, 12, 12, 28
-        plot_w  = W - pad_l - pad_r
-        plot_h  = H - pad_t - pad_b
-        n       = len(self._data)
-        mx      = max(v for _, v in self._data) or 1
-        bar_w   = max(plot_w // n - 3, 4)
-        step    = plot_w / n
-
-        accent  = QColor(t["accent"])
-        accent2 = QColor(t["accent2"])
-        txt_col = QColor(t["txt2"])
-
-        painter.setPen(txt_col)
-        f = painter.font(); f.setPointSize(9); painter.setFont(f)
-
-        for i, (label, val) in enumerate(self._data):
-            bh   = int(plot_h * val / mx)
-            x    = pad_l + int(i * step)
-            y    = pad_t + plot_h - bh
-            grad = QLinearGradient(x, y, x, y + bh)
-            grad.setColorAt(0, accent2); grad.setColorAt(1, accent)
-            painter.setBrush(QBrush(grad))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRoundedRect(x, y, bar_w, bh, 2, 2)
-
-            # X label every 3 months
-            if i % 3 == 0 and len(label) >= 7:
-                painter.setPen(txt_col)
-                painter.drawText(x - 6, H - 4, label[2:])
-
-        # Y axis gridlines
-        for frac in (0.25, 0.5, 0.75, 1.0):
-            y   = pad_t + int(plot_h * (1 - frac))
-            val = int(mx * frac)
-            painter.setPen(QPen(QColor(t["border"]), 1, Qt.PenStyle.DotLine))
-            painter.drawLine(pad_l, y, W - pad_r, y)
-            painter.setPen(txt_col)
-            painter.drawText(0, y + 4, pad_l - 4, 20, Qt.AlignmentFlag.AlignRight, str(val))
-
-        painter.end()
-
-
-# ─────────────────────────────────────────────────────────────
 #  PAGE: SCROBBLE
 # ─────────────────────────────────────────────────────────────
+
+class _LogFindWorker(QThread):
+    """Run find_logs() in a background thread to avoid stalling on slow mounts."""
+    done = pyqtSignal(list)   # list[Path]
+
+    def __init__(self):
+        super().__init__()
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
+
+    def run(self):
+        self.done.emit(find_logs())
+
+
+class _DeviceScanWorker(QThread):
+    """Run find_rockbox_devices() in a background thread to avoid stalling on slow mounts."""
+    done = pyqtSignal(list)   # list[Path]
+
+    def __init__(self):
+        super().__init__()
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
+
+    def run(self):
+        self.done.emit(find_rockbox_devices())
+
 
 class LogLoader(QThread):
     """Parse a .scrobbler.log off the main thread."""
@@ -3214,13 +2913,33 @@ class ScrobblePage(QWidget):
         except Exception: return "local"
 
     def _auto_detect(self):
-        found = find_logs()
-        if not found:
-            QMessageBox.information(self, "Nothing found",
-                "No .scrobbler.log found.\n\nMake sure your player is connected and mounted.")
-            return
-        self._clear_logs()
-        for p in found: self._load_log(p)
+        self._auto_btn.setEnabled(False)
+        self._auto_btn.setText("⟳  Scanning…")
+        w = _LogFindWorker()
+        self._log_loaders.append(w)   # keep alive
+
+        def _on_found(paths: list):
+            self._auto_btn.setEnabled(True)
+            self._auto_btn.setText("⟳  Auto-detect")
+            if not paths:
+                QMessageBox.information(self, "Nothing found",
+                    "No .scrobbler.log found.\n\nMake sure your player is connected and mounted.")
+                return
+            self._clear_logs()
+            for p in paths:
+                self._load_log(p)
+
+        w.done.connect(_on_found, Qt.ConnectionType.QueuedConnection)
+        def _finished_bare_1(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None or sip.isdeleted(_obj): return
+
+            _obj.deleteLater()
+
+        w.finished.connect(_finished_bare_1, Qt.ConnectionType.QueuedConnection)
+        w.start()
 
     def _browse_log(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open log file", str(Path.home()),
@@ -3245,6 +2964,7 @@ class ScrobblePage(QWidget):
         loader = LogLoader(path)
         loader.done.connect(self._on_log_loaded)
         loader.error.connect(self._on_log_error)
+        self._log_loaders = [l for l in self._log_loaders if not l.isFinished()]  # prune finished
         self._log_loaders.append(loader)
         loader.start()
 
@@ -3308,6 +3028,7 @@ class ScrobblePage(QWidget):
                     self.art_ready.emit(raw)
                 ))
         f.result.connect(_on_result)
+        self._log_loaders = [l for l in self._log_loaders if not l.isFinished()]  # prune finished
         self._log_loaders.append(f)   # keep reference alive
         f.start()
 
@@ -3320,6 +3041,9 @@ class ScrobblePage(QWidget):
     def _rebuild_table(self):
         plat = self.get_platform()
         rows = [t for t in self.tracks if t.listened]
+        # Reset enabled for all tracks before checking this platform's done set
+        for t in rows:
+            t.enabled = True
         done_set = db_batch_done(rows, plat)
         self._submitted_set = done_set
         submitted = {id(t): (t.artist, t.album, t.title, t.timestamp) in done_set for t in rows}
@@ -3521,7 +3245,7 @@ class StatsPage(QWidget):
         self._gap_spin = QSpinBox()
         self._gap_spin.setRange(1, 180); self._gap_spin.setValue(20)
         self._gap_spin.setSuffix(" min"); self._gap_spin.setFixedWidth(88)
-        self._gap_spin.valueChanged.connect(lambda _: self.refresh())
+        self._gap_spin.valueChanged.connect(self._on_gap_changed)
         _glass = ("background:rgba(0,0,0,0.40); color:#fff; "
                   "border:1px solid rgba(255,255,255,0.18); border-radius:4px; padding:4px 6px;")
         self._gap_spin.setStyleSheet(f"QSpinBox {{ {_glass} }} "
@@ -3529,7 +3253,7 @@ class StatsPage(QWidget):
         _btn_ss = (f"QPushButton {{ {_glass} font-size:12px; padding:5px 14px; }}"
                    " QPushButton:hover { background:rgba(255,255,255,0.14); }")
         refresh_btn = QPushButton("Refresh"); refresh_btn.setStyleSheet(_btn_ss)
-        refresh_btn.clicked.connect(self.refresh)
+        refresh_btn.clicked.connect(lambda _: self.refresh())
         exp_btn = QPushButton("Export..."); exp_btn.setStyleSheet(_btn_ss)
         exp_btn.clicked.connect(self._export)
 
@@ -3746,6 +3470,14 @@ class StatsPage(QWidget):
                 self._bg.set_art(raw, _dominant_color(raw))
         QTimer.singleShot(0, _apply)
 
+    def _on_gap_changed(self, _value):
+        """Debounce the gap spinner so rapid spins don't trigger a full refresh each step."""
+        if not hasattr(self, "_gap_timer"):
+            self._gap_timer = QTimer()
+            self._gap_timer.setSingleShot(True)
+            self._gap_timer.timeout.connect(self.refresh)
+        self._gap_timer.start(300)
+
     def refresh(self, tracks=None):
         # Stop any in-progress fetchers (but keep the cache across refreshes)
         for f in self._fetchers:
@@ -3755,7 +3487,12 @@ class StatsPage(QWidget):
         self._fetchers.clear()
         self._art_queue.clear()
 
+        if not isinstance(tracks, (list, tuple)):
+            tracks = None
         tracks   = tracks or self.get_tracks()
+        _untagged = {"", "<untagged>", "untagged"}
+        tracks   = [t for t in tracks if t.artist.strip().lower() not in _untagged
+                                      and t.title.strip().lower()  not in _untagged]
         total    = len(tracks)
         listened = sum(1 for t in tracks if t.listened)
         skipped  = sum(1 for t in tracks if t.skipped)
@@ -3914,6 +3651,18 @@ class HistoryPage(QWidget):
             "QLineEdit:focus { border-color:rgba(200,134,26,0.7); background:rgba(255,255,255,0.10); }")
         self._search.textChanged.connect(self._apply_filter)
 
+        self._plat_filter = QComboBox()
+        self._plat_filter.addItems(["All Platforms", P_LASTFM, P_LIBREFM, P_LISTENBRAINZ])
+        self._plat_filter.setFixedHeight(30)
+        self._plat_filter.setFixedWidth(148)
+        self._plat_filter.setStyleSheet(
+            "QComboBox { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);"
+            " border-radius:6px; padding:0 10px; color:#fff; font-size:12px; }"
+            "QComboBox:focus { border-color:rgba(200,134,26,0.7); }"
+            "QComboBox::drop-down { border:none; }"
+            "QComboBox QAbstractItemView { background:#1a1c22; color:#fff; selection-background-color:rgba(200,134,26,0.25); border:1px solid rgba(255,255,255,0.12); }")
+        self._plat_filter.currentTextChanged.connect(self._apply_filter)
+
         _glass_btn = ("QPushButton { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.75);"
                       " border:1px solid rgba(255,255,255,0.12); border-radius:5px; font-size:12px;"
                       " padding:0 12px; min-height:28px; max-height:28px; font-weight:500; }"
@@ -3926,7 +3675,7 @@ class HistoryPage(QWidget):
         refresh_btn = QPushButton("↻  Refresh")
         refresh_btn.setStyleSheet(_glass_btn)
         refresh_btn.clicked.connect(self.refresh)
-        hdr_hl.addWidget(self._search); hdr_hl.addWidget(refresh_btn)
+        hdr_hl.addWidget(self._search); hdr_hl.addWidget(self._plat_filter); hdr_hl.addWidget(refresh_btn)
         root.addWidget(hdr)
 
         # ── Body ──────────────────────────────────────────────────────
@@ -4065,16 +3814,27 @@ class HistoryPage(QWidget):
         self._all_rows = rows; self._page = 0; self._apply_filter()
 
     def _apply_filter(self):
-        q = self._search.text().strip().lower()
-        self._filtered = ([r for r in self._all_rows if any(q in str(f).lower() for f in r[:3])]
-                          if q else self._all_rows)
+        q    = self._search.text().strip().lower()
+        plat = self._plat_filter.currentText()
+        rows = self._all_rows
+        if plat != "All Platforms":
+            pk = _pk(plat)  # DB stores "lastfm", "librefm", "listenbrainz"
+            rows = [r for r in rows if r[4] == pk]
+        if q:
+            # search artist, title, album, platform (cols 0-4)
+            rows = [r for r in rows if any(q in str(f).lower() for f in r[:5])]
+        self._filtered = rows
         self._page = 0; self._render_page()
 
-    # Platform → (label, bg color, text color)
+    # DB platform key → (bg color, text color)
     _PLAT_BADGE = {
-        "Last.fm":       ("#d51007", "#fff"),
-        "Libre.fm":      ("#2ecc71", "#0a0a0a"),
-        "ListenBrainz":  ("#eb743b", "#0a0a0a"),
+        "lastfm":       ("#d51007", "#fff"),
+        "librefm":      ("#2ecc71", "#0a0a0a"),
+        "listenbrainz": ("#eb743b", "#0a0a0a"),
+    }
+
+    _PLAT_LABEL = {
+        "lastfm": "Last.fm", "librefm": "Libre.fm", "listenbrainz": "ListenBrainz",
     }
 
     def _render_page(self):
@@ -4090,10 +3850,11 @@ class HistoryPage(QWidget):
             except Exception: local_str = str(ts)
             try:    sub_str = (datetime.fromtimestamp(sub_at).strftime("%d %b %Y  %H:%M") if sub_at else "—")
             except Exception: sub_str = "—"
-            for col, val in enumerate([artist, title, album, plat, local_str, sub_str]):
+            plat_label = self._PLAT_LABEL.get(plat, plat)
+            for col, val in enumerate([artist, title, album, plat_label, local_str, sub_str]):
                 item = QTableWidgetItem(val); item.setToolTip(val)
                 if col == 3:  # platform — colored badge via foreground
-                    bg, fg = self._PLAT_BADGE.get(val, ("#555", "#fff"))
+                    bg, fg = self._PLAT_BADGE.get(plat, ("#555", "#fff"))
                     item.setForeground(QColor(fg))
                     item.setBackground(QColor(bg + "33"))  # semi-transparent bg tint
                 self._tbl.setItem(i, col, item)
@@ -4154,7 +3915,13 @@ class _EjectWorker(QThread):
 
     def __init__(self, root_str: str):
         super().__init__()
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
         self.root_str = root_str
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
 
     def run(self):
         # Strip AppImage-injected library paths so system tools (udisksctl,
@@ -4833,7 +4600,7 @@ class RockboxToolsPage(QWidget):
         # Search + group filter
         filter_row = QHBoxLayout()
         self._cfg_search = QLineEdit(); self._cfg_search.setPlaceholderText("Search settings…")
-        self._cfg_search.textChanged.connect(self._filter_cfg)
+        self._cfg_search.textChanged.connect(self._schedule_cfg_filter)
         self._cfg_group_combo = QComboBox()
         self._cfg_group_combo.addItem("All groups")
         for g in ROCKBOX_CONFIG_GROUPS: self._cfg_group_combo.addItem(g)
@@ -4859,13 +4626,36 @@ class RockboxToolsPage(QWidget):
         if root_str:
             candidate = Path(root_str) / ".rockbox" / "config.cfg"
             if candidate.exists():
-                self._do_load_cfg(candidate); return
-        for root in find_rockbox_devices():
-            candidate = root / ".rockbox" / "config.cfg"
-            if candidate.exists():
-                self._do_load_cfg(candidate); return
-        QMessageBox.information(self, "Not found",
-            "Could not auto-detect config.cfg.\nSet the device root or browse manually.")
+                self._do_load_cfg(candidate)
+                return
+        # Scan mounted devices off the main thread
+        btn = self.sender()
+        if btn:
+            btn.setEnabled(False)
+        w = _DeviceScanWorker()
+
+        def _on_found(devices: list):
+            if btn and not sip.isdeleted(btn):
+                btn.setEnabled(True)
+            for root in devices:
+                candidate = root / ".rockbox" / "config.cfg"
+                if candidate.exists():
+                    self._do_load_cfg(candidate)
+                    return
+            QMessageBox.information(self, "Not found",
+                "Could not auto-detect config.cfg.\nSet the device root or browse manually.")
+
+        w.done.connect(_on_found, Qt.ConnectionType.QueuedConnection)
+        def _finished_bare_2(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None or sip.isdeleted(_obj): return
+
+            _obj.deleteLater()
+
+        w.finished.connect(_finished_bare_2, Qt.ConnectionType.QueuedConnection)
+        w.start()
 
     def _load_cfg(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open config.cfg", str(Path.home()),
@@ -5005,6 +4795,14 @@ class RockboxToolsPage(QWidget):
             hl.addWidget(badge)
 
         return row
+
+    def _schedule_cfg_filter(self):
+        """Debounce config search: rebuild UI at most once per 80 ms while typing."""
+        if not hasattr(self, "_cfg_filter_timer"):
+            self._cfg_filter_timer = QTimer()
+            self._cfg_filter_timer.setSingleShot(True)
+            self._cfg_filter_timer.timeout.connect(self._filter_cfg)
+        self._cfg_filter_timer.start(80)
 
     def _filter_cfg(self):
         self._rebuild_cfg_ui()
@@ -5547,13 +5345,36 @@ class RockboxToolsPage(QWidget):
         if root_str:
             candidate = Path(root_str) / ".rockbox" / "tagnavi.config"
             if candidate.exists():
-                self._tagnavi_do_load(candidate); return
-        for root in find_rockbox_devices():
-            candidate = root / ".rockbox" / "tagnavi.config"
-            if candidate.exists():
-                self._tagnavi_do_load(candidate); return
-        QMessageBox.information(self, "Not found",
-            "Could not auto-detect tagnavi.config.\nSet the device root or browse manually.")
+                self._tagnavi_do_load(candidate)
+                return
+        # Scan mounted devices off the main thread
+        btn = self.sender()
+        if btn:
+            btn.setEnabled(False)
+        w = _DeviceScanWorker()
+
+        def _on_found(devices: list):
+            if btn and not sip.isdeleted(btn):
+                btn.setEnabled(True)
+            for root in devices:
+                candidate = root / ".rockbox" / "tagnavi.config"
+                if candidate.exists():
+                    self._tagnavi_do_load(candidate)
+                    return
+            QMessageBox.information(self, "Not found",
+                "Could not auto-detect tagnavi.config.\nSet the device root or browse manually.")
+
+        w.done.connect(_on_found, Qt.ConnectionType.QueuedConnection)
+        def _finished_bare_3(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None or sip.isdeleted(_obj): return
+
+            _obj.deleteLater()
+
+        w.finished.connect(_finished_bare_3, Qt.ConnectionType.QueuedConnection)
+        w.start()
 
     def _tagnavi_load(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -5603,21 +5424,40 @@ class RockboxToolsPage(QWidget):
     # ─── Device detection helpers ─────────────────────────────
 
     def _detect_device(self):
-        # Look for any mounted volume with a .rockbox directory (name-independent)
-        devices = find_rockbox_devices()
-        if devices:
-            root = devices[0]
-            self._dev_path.setText(str(root))
-            c = self.conf(); c["device_root"] = str(root); save_conf(c)
-            if len(devices) > 1:
-                names = ", ".join(d.name for d in devices)
-                QMessageBox.information(self, "Multiple devices found",
-                    f"Found {len(devices)} Rockbox devices: {names}\n"
-                    f"Using: {root}\n\nYou can browse to select a different one.")
-            return
-        QMessageBox.information(self, "Not found",
-            "Could not auto-detect device.\n\nMake sure your iPod is connected and mounted.\n"
-            "Any device with a .rockbox folder will be detected automatically.")
+        # Run device scan off the main thread so sluggish/NFS mounts don't freeze the UI
+        detect_btn = self.sender()
+        if detect_btn:
+            detect_btn.setEnabled(False)
+        w = _DeviceScanWorker()
+
+        def _on_found(devices: list):
+            if detect_btn and not sip.isdeleted(detect_btn):
+                detect_btn.setEnabled(True)
+            if devices:
+                root = devices[0]
+                self._dev_path.setText(str(root))
+                c = self.conf(); c["device_root"] = str(root); save_conf(c)
+                if len(devices) > 1:
+                    names = ", ".join(d.name for d in devices)
+                    QMessageBox.information(self, "Multiple devices found",
+                        f"Found {len(devices)} Rockbox devices: {names}\n"
+                        f"Using: {root}\n\nYou can browse to select a different one.")
+            else:
+                QMessageBox.information(self, "Not found",
+                    "Could not auto-detect device.\n\nMake sure your iPod is connected and mounted.\n"
+                    "Any device with a .rockbox folder will be detected automatically.")
+
+        w.done.connect(_on_found, Qt.ConnectionType.QueuedConnection)
+        def _finished_bare_4(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None or sip.isdeleted(_obj): return
+
+            _obj.deleteLater()
+
+        w.finished.connect(_finished_bare_4, Qt.ConnectionType.QueuedConnection)
+        w.start()
 
     def _browse_device(self):
         path = QFileDialog.getExistingDirectory(self, "Select device root / iPod drive", str(Path.home()))
@@ -5633,8 +5473,8 @@ class RockboxToolsPage(QWidget):
 
 class WebAuthDialog(QDialog):
     """
-    Opens an actual website inside the app using QWebEngineView (if available),
-    or falls back to a system browser with a manual confirm button.
+    Opens the auth URL in the system browser and waits for the user to
+    click the manual confirm button.
 
     For Last.fm / Libre.fm: watches the URL; when the auth page is approved
     (URL changes from the auth approval page back to last.fm/home or similar),
@@ -5648,88 +5488,34 @@ class WebAuthDialog(QDialog):
                  parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Connect to {platform}")
-        self.resize(920, 680)
+        self.setFixedSize(420, 160)
         self._success_fragment = success_url_fragment
         self._approved = False
 
-        t = _current_theme
         self.setStyleSheet("background: rgba(5,7,11,0.95); color: rgba(255,255,255,0.85);")
 
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
+        outer.setContentsMargins(28, 24, 28, 24)
+        outer.setSpacing(16)
 
-        # ── Top bar ──────────────────────────────────────────
-        bar = QWidget()
-        bar.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
-        bar.setFixedHeight(46)
-        bl = QHBoxLayout(bar); bl.setContentsMargins(14, 0, 14, 0); bl.setSpacing(10)
+        info = QLabel(
+            f"A browser window has opened for <b>{platform}</b>.<br>"
+            f"Authorize there, then click Done."
+        )
+        info.setWordWrap(True)
+        info.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        info.setStyleSheet("color: rgba(255,255,255,0.65); font-size: 13px; background: transparent;")
+        outer.addWidget(info)
 
-        self._url_lbl = QLabel(url)
-        self._url_lbl.setStyleSheet("color: rgba(255,255,255,0.35); font-size: 11px; background: transparent;")
-        self._url_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        bl.addWidget(self._url_lbl, stretch=1)
+        outer.addStretch()
 
-        open_btn = QPushButton("Open in Browser")
-        open_btn.setObjectName("ghost")
-        open_btn.setFixedHeight(34)
-        open_btn.clicked.connect(lambda: open_url(QUrl(url)))
-        bl.addWidget(open_btn)
-
-        done_btn = QPushButton("✓  I've Authorized — Done")
+        done_btn = QPushButton("✓  Done")
         done_btn.setObjectName("primary")
-        done_btn.setFixedHeight(30)
+        done_btn.setFixedHeight(34)
         done_btn.clicked.connect(self._on_manual_done)
-        bl.addWidget(done_btn)
+        outer.addWidget(done_btn)
 
-        outer.addWidget(bar)
-
-        # ── Web view or fallback ──────────────────────────────
-        if _HAS_WEBENGINE:
-            self._view = QWebEngineView()
-            # Use a fresh off-the-record profile so sessions are clean
-            self._view.setUrl(QUrl(url))
-            self._view.urlChanged.connect(self._on_url_changed)
-            self._view.loadFinished.connect(self._check_current_url)
-            outer.addWidget(self._view, stretch=1)
-        else:
-            # No web engine — show instructions + open externally
-            fallback = QWidget()
-            fl = QVBoxLayout(fallback); fl.setContentsMargins(40, 40, 40, 40); fl.setSpacing(16)
-            fl.addStretch()
-
-            icon_lbl = QLabel("🌐"); icon_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-            icon_lbl.setStyleSheet("font-size: 48px; background: transparent;")
-            fl.addWidget(icon_lbl)
-
-            info = QLabel(
-                f"<b>Embedded browser not available.</b><br><br>"
-                f"PyQt6-WebEngine is not installed.<br>"
-                f"A browser window has been opened at:<br>"
-                f"<code>{url}</code><br><br>"
-                f"Authorize Scrobbox there, then click <b>✓ I've Authorized — Done</b> above."
-            )
-            info.setWordWrap(True)
-            info.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-            info.setStyleSheet("color: rgba(255,255,255,0.55); font-size: 13px; background: transparent; line-height: 1.6;")
-            fl.addWidget(info)
-            fl.addStretch()
-
-            # Auto-open in system browser
-            open_url(QUrl(url))
-            outer.addWidget(fallback, stretch=1)
-
-    def _on_url_changed(self, qurl: QUrl):
-        url_str = qurl.toString()
-        self._url_lbl.setText(url_str)
-        if self._success_fragment and self._success_fragment in url_str:
-            if not self._approved:
-                self._approved = True
-                QTimer.singleShot(800, self._emit_and_close)
-
-    def _check_current_url(self, ok: bool):
-        if _HAS_WEBENGINE:
-            self._on_url_changed(self._view.url())
+        open_url(QUrl(url))
 
     def _on_manual_done(self):
         self._approved = True
@@ -6677,54 +6463,46 @@ class PlatformsPage(QWidget):
                     "Enter your API key and shared secret first.\n\n"
                     f"Get them at: {'last.fm/api/account/create' if plat == P_LASTFM else 'libre.fm/api/account/create'}")
                 return
-            # Step 1: get a token
+            # Step 1: get a token — off main thread so UI stays responsive
             banner.set(f"Getting auth token from {display}…", "info")
-            try:
-                resp = lfm_call({"method":"auth.getToken","api_key":k,"format":"json"}, api_url)
-                if "error" in resp:
-                    raise Exception(resp.get("message", "Could not get token"))
-                token = resp["token"]
+            connect_btn.setEnabled(False)
+            w = _LfmAuthWorker("token", api_url,
+                               {"method": "auth.getToken", "api_key": k, "format": "json"})
+
+            def _on_token(token):
                 self._tokens[plat] = token
-            except Exception as e:
-                banner.set(f"Error: {e}", "danger")
-                QMessageBox.critical(self, "Auth error", str(e))
-                return
+                connect_btn.setEnabled(True)
+                full_auth_url = f"{auth_url}?api_key={k}&token={token}"
+                banner.set(f"Opening {display} in your browser — log in and click Authorise.", "warning")
+                success_frag = "last.fm/user/" if plat == P_LASTFM else "libre.fm/user/"
+                dlg = WebAuthDialog(full_auth_url, display, success_url_fragment=success_frag, parent=self)
 
-            # Step 2: open the auth URL in an embedded browser
-            full_auth_url = f"{auth_url}?api_key={k}&token={token}"
-            banner.set(f"Opening {display} in embedded browser — log in and click Authorise.", "warning")
-
-            # Success detection: after user approves, last.fm redirects to last.fm/user/<name>
-            # or just navigates away from the auth page
-            success_frag = "last.fm/user/" if plat == P_LASTFM else "libre.fm/user/"
-            dlg = WebAuthDialog(full_auth_url, display, success_url_fragment=success_frag, parent=self)
-
-            def on_approved():
-                # Step 3: exchange token for session key
-                banner.set(f"Authorised! Completing login…", "info")
-                params = {"method":"auth.getSession","api_key":k,"token":token}
-                params["api_sig"] = api_sig(params, s); params["format"] = "json"
-                try:
-                    r = lfm_call(params, api_url)
-                    if "error" in r:
-                        code = r.get("error", 0); msg = r.get("message", "Error")
-                        if code == 14:
+                def on_approved():
+                    banner.set(f"Authorised! Completing login…", "info")
+                    params = {"method": "auth.getSession", "api_key": k, "token": token}
+                    params["api_sig"] = api_sig(params, s); params["format"] = "json"
+                    w2 = _LfmAuthWorker("session", api_url, params)
+                    def _on_session(sk):
+                        save_session(plat, sk); self._tokens[plat] = None
+                        refresh_ui(); self.auth_changed.emit()
+                        banner.set(f"✓ Successfully connected to {display}!", "success")
+                    def _on_err2(msg):
+                        if "14" in msg or "unauthorized" in msg.lower():
                             msg = (f"Not authorized yet — make sure you clicked 'Authorise' on {display}.\n\n"
                                    "Try connecting again.")
-                        raise Exception(msg)
-                    save_session(plat, r["session"]["key"])
-                    self._tokens[plat] = None
-                    refresh_ui(); self.auth_changed.emit()
-                    banner.set(f"✓ Successfully connected to {display}!", "success")
-                except Exception as e:
-                    banner.set(f"Login failed: {e}", "danger")
-                    QMessageBox.critical(self, "Login error", str(e))
+                        banner.set(f"Login failed: {msg}", "danger")
+                        QMessageBox.critical(self, "Login error", msg)
+                    w2.session_ready.connect(_on_session); w2.error.connect(_on_err2); w2.start()
 
-            dlg.auth_approved.connect(on_approved)
-            result = dlg.exec()
-            # If dialog closed without auto-auth (fallback browser), trigger manually
-            if result == QDialog.DialogCode.Accepted and not load_session(plat):
-                on_approved()
+                dlg.auth_approved.connect(on_approved)
+                dlg.exec()
+
+            def _on_err(msg):
+                connect_btn.setEnabled(True)
+                banner.set(f"Error: {msg}", "danger")
+                QMessageBox.critical(self, "Auth error", msg)
+
+            w.token_ready.connect(_on_token); w.error.connect(_on_err); w.start()
 
         def logout():
             clear_session(plat); refresh_ui(); self.auth_changed.emit()
@@ -6749,7 +6527,7 @@ class PlatformsPage(QWidget):
         vb.addWidget(open_site_btn)
 
         note_lbl = QLabel(
-            "Log into ListenBrainz in the window above, then copy your User Token "
+            "Log into ListenBrainz in the browser tab that opened, then copy your User Token "
             "from your profile page and paste it below."
         )
         note_lbl.setObjectName("muted"); note_lbl.setWordWrap(True)
@@ -7044,46 +6822,45 @@ class SettingsPage(QWidget):
                 QMessageBox.warning(self, "Missing credentials",
                     "Enter your API key and shared secret first.")
                 return
+            # Step 1: get a token — off main thread so UI stays responsive
             banner.set(f"Getting auth token from {display}…", "info")
-            try:
-                resp = lfm_call({"method":"auth.getToken","api_key":k,"format":"json"}, api_url)
-                if "error" in resp:
-                    raise Exception(resp.get("message", "Could not get token"))
-                token = resp["token"]
+            connect_btn.setEnabled(False)
+            w = _LfmAuthWorker("token", api_url,
+                               {"method": "auth.getToken", "api_key": k, "format": "json"})
+
+            def _on_token(token):
                 self._tokens[plat] = token
-            except Exception as e:
-                banner.set(f"Error: {e}", "danger")
-                QMessageBox.critical(self, "Auth error", str(e))
-                return
+                connect_btn.setEnabled(True)
+                full_auth_url = f"{auth_url}?api_key={k}&token={token}"
+                banner.set(f"Opening {display} in your browser — log in and click Authorise.", "warning")
+                success_frag = "last.fm/user/" if plat == P_LASTFM else "libre.fm/user/"
+                dlg = WebAuthDialog(full_auth_url, display, success_url_fragment=success_frag, parent=self)
 
-            full_auth_url = f"{auth_url}?api_key={k}&token={token}"
-            banner.set(f"Opening {display} in embedded browser — log in and click Authorise.", "warning")
-            success_frag = "last.fm/user/" if plat == P_LASTFM else "libre.fm/user/"
-            dlg = WebAuthDialog(full_auth_url, display, success_url_fragment=success_frag, parent=self)
-
-            def on_approved():
-                banner.set("Authorised! Completing login…", "info")
-                params = {"method":"auth.getSession","api_key":k,"token":token}
-                params["api_sig"] = api_sig(params, s); params["format"] = "json"
-                try:
-                    r = lfm_call(params, api_url)
-                    if "error" in r:
-                        code = r.get("error", 0); msg = r.get("message", "Error")
-                        if code == 14:
+                def on_approved():
+                    banner.set("Authorised! Completing login…", "info")
+                    params = {"method": "auth.getSession", "api_key": k, "token": token}
+                    params["api_sig"] = api_sig(params, s); params["format"] = "json"
+                    w2 = _LfmAuthWorker("session", api_url, params)
+                    def _on_session(sk):
+                        save_session(plat, sk); self._tokens[plat] = None
+                        refresh_ui(); self.auth_changed.emit()
+                        banner.set(f"✓ Successfully connected to {display}!", "success")
+                    def _on_err2(msg):
+                        if "14" in msg or "unauthorized" in msg.lower():
                             msg = f"Not authorized yet — make sure you clicked 'Authorise' on {display}."
-                        raise Exception(msg)
-                    save_session(plat, r["session"]["key"])
-                    self._tokens[plat] = None
-                    refresh_ui(); self.auth_changed.emit()
-                    banner.set(f"✓ Successfully connected to {display}!", "success")
-                except Exception as e:
-                    banner.set(f"Login failed: {e}", "danger")
-                    QMessageBox.critical(self, "Login error", str(e))
+                        banner.set(f"Login failed: {msg}", "danger")
+                        QMessageBox.critical(self, "Login error", msg)
+                    w2.session_ready.connect(_on_session); w2.error.connect(_on_err2); w2.start()
 
-            dlg.auth_approved.connect(on_approved)
-            result = dlg.exec()
-            if result == QDialog.DialogCode.Accepted and not load_session(plat):
-                on_approved()
+                dlg.auth_approved.connect(on_approved)
+                dlg.exec()
+
+            def _on_err(msg):
+                connect_btn.setEnabled(True)
+                banner.set(f"Error: {msg}", "danger")
+                QMessageBox.critical(self, "Auth error", msg)
+
+            w.token_ready.connect(_on_token); w.error.connect(_on_err); w.start()
 
         def logout():
             clear_session(plat); refresh_ui(); self.auth_changed.emit()
@@ -7540,21 +7317,38 @@ def _tidal_resolve_stream_url(data: dict) -> str:
     return ""
 
 
+# Simple LRU-style cache for _tidal_req responses.
+# Artist album pages (e.g. Browse albums for Sting) are re-fetched every time
+# the user opens the view. Caching avoids redundant network round-trips.
+_tidal_req_cache: dict = {}
+_TIDAL_REQ_CACHE_MAX = 64
+
 def _tidal_req(path: str, timeout: int = 14) -> Optional[dict]:
     """Try custom base first, then every cluster endpoint; return first successful JSON."""
     import time as _time
+    if path in _tidal_req_cache:
+        return _tidal_req_cache[path]
     bases_to_try = []
     if _TIDAL_CUSTOM_BASE:
         bases_to_try.append(_TIDAL_CUSTOM_BASE.rstrip("/"))
     bases_to_try.extend(_TIDAL_BASES)
+    # Use a short connect timeout (4s) so dead/slow servers fail fast, and a
+    # longer read timeout (12s) for servers that are alive but slow to respond.
+    _CONNECT_TO = 4
+    _READ_TO    = 12
     for base in bases_to_try:
         try:
-            r = requests.get(base + path, timeout=timeout,
+            r = requests.get(base + path, timeout=(_CONNECT_TO, _READ_TO),
                              headers={"X-Client": "Scrobbox/4.0",
                                       "Accept": "application/json"})
             if r.status_code == 200:
                 try:
-                    return r.json()
+                    data = r.json()
+                    # Cache the result so repeated browse calls are instant
+                    if len(_tidal_req_cache) >= _TIDAL_REQ_CACHE_MAX:
+                        _tidal_req_cache.pop(next(iter(_tidal_req_cache)))
+                    _tidal_req_cache[path] = data
+                    return data
                 except Exception:
                     continue
             if r.status_code in (400, 404):
@@ -7564,11 +7358,18 @@ def _tidal_req(path: str, timeout: int = 14) -> Optional[dict]:
                 # Rate limited — wait briefly and retry this same base once before moving on
                 _time.sleep(2)
                 try:
-                    r2 = requests.get(base + path, timeout=timeout,
+                    r2 = requests.get(base + path, timeout=(_CONNECT_TO, _READ_TO),
                                       headers={"X-Client": "Scrobbox/4.0",
                                                "Accept": "application/json"})
                     if r2.status_code == 200:
-                        return r2.json()
+                        try:
+                            data2 = r2.json()
+                            if len(_tidal_req_cache) >= _TIDAL_REQ_CACHE_MAX:
+                                _tidal_req_cache.pop(next(iter(_tidal_req_cache)))
+                            _tidal_req_cache[path] = data2
+                            return data2
+                        except Exception:
+                            pass
                 except Exception:
                     pass
                 continue
@@ -7578,6 +7379,11 @@ def _tidal_req(path: str, timeout: int = 14) -> Optional[dict]:
         except Exception:
             continue
     return None
+
+
+def _tidal_req_invalidate(path: str):
+    """Remove a cached entry (e.g. after a download modifies server state)."""
+    _tidal_req_cache.pop(path, None)
 
 
 def _tidal_extract_tracks(data) -> list:
@@ -8420,6 +8226,10 @@ class _AlbumFlowWidget(QWidget):
         t = _current_theme
         CW = self.CARD_W
         CH = self.COVER_H
+        # Collect (cover_id, label) pairs for deferred loading so all widget
+        # construction completes first (fast, no I/O) and cover HTTP requests
+        # are then spread across event-loop ticks in small batches.
+        _deferred_covers: list = []
 
         for alb in albums[:200]:
             title  = (alb.get("title") or alb.get("name") or "Untitled").strip()
@@ -8482,7 +8292,8 @@ class _AlbumFlowWidget(QWidget):
             alb_cover_id = (alb.get("cover") or alb.get("coverId") or alb.get("cover_id")
                             or _tidal_find_cover_id(alb))
             if alb_cover_id:
-                _load_cover_into_label(str(alb_cover_id), cover_lbl, CW, corner_radius=9)
+                # Schedule cover load after widget construction completes
+                _deferred_covers.append((str(alb_cover_id), cover_lbl, CW))
 
             vb.addWidget(art_container)
 
@@ -8522,6 +8333,17 @@ class _AlbumFlowWidget(QWidget):
             self._cards.append(card)
 
         self._reflow_cols = 0   # force reflow on first show
+
+        # Defer cover fetches until after widget construction completes.
+        # _load_cover_into_label() now self-throttles via the global _cover_pending
+        # queue, so we just need a single singleShot(0) to push all requests after
+        # the current event-loop tick.  The queue cap (_COVER_MAX_WORKERS=6) ensures
+        # at most 6 QThreads exist at once regardless of how many albums are shown.
+        def _enqueue_covers():
+            for cid, lbl, sz in _deferred_covers:
+                _load_cover_into_label(cid, lbl, sz, corner_radius=9)
+        if _deferred_covers:
+            QTimer.singleShot(0, _enqueue_covers)
 
     def _cols_for_width(self, w: int) -> int:
         if w <= 0:
@@ -8564,53 +8386,104 @@ class _AlbumFlowWidget(QWidget):
         self._reflow()
 
 
-# Module-level set that holds all live _CoverFetchWorker instances.
-# This is the only reliable way to prevent PyQt6/Qt from destroying a QThread
-# while it is still running: keep a Python-side strong reference so the GC
-# (and Qt's parent-child ownership) cannot collect it prematurely.
-_active_cover_workers: set = set()
+# ── Global cover-fetch throttle ─────────────────────────────────────────────
+#
+# ROOT CAUSE OF SIGTRAP / "Too many open files":
+#   Every QThread.start() immediately allocates GLib GWakeup pipes (2 fds).
+#   With ulimit -n ~1024, spawning 200 album-card threads at once = ~400 fds
+#   just for wakeup pipes, exhausting the limit before any HTTP work starts.
+#
+# FIX: a global pending queue + hard cap on live QThread objects.
+#   _load_cover_into_label() never calls worker.start() directly; instead it
+#   enqueues (cid, size, callback).  _cover_drain() pops the queue only when
+#   len(_active_cover_workers) < _COVER_MAX_WORKERS, so at most N threads
+#   (and N*2 fd pairs) exist at any moment.  When a worker finishes it calls
+#   _cover_drain() again via a queued QTimer so the next batch starts.
+#
+# _active_cover_workers holds strong refs to live _CoverFetchWorker instances
+# so Python GC cannot collect them while the QThread is running.
+# A pending queue + _COVER_MAX_WORKERS cap prevents fd exhaustion:
+# each QThread allocates GLib GWakeup pipes on .start(), so we must never
+# start() more than N threads simultaneously.
+_COVER_MAX_WORKERS  = 24
+_active_cover_workers: set  = set()
+# Generic keepalive set for any QThread that would otherwise be a local variable.
+# Python GC destroys local QThread objects while still running → SIGABRT.
+# Store here; remove in finished handler.
+_live_workers: set = set()
+_cover_pending: list        = []   # (cid, size, corner_radius, circle, label) tuples
+_cover_cache: dict          = {}   # (cid, size) -> raw bytes
+_COVER_CACHE_MAX            = 512
+
+
+def _cover_drain():
+    """Start queued workers up to the cap. Call from main thread only."""
+    while _cover_pending and len(_active_cover_workers) < _COVER_MAX_WORKERS:
+        cid, size, corner_radius, circle, label = _cover_pending.pop(0)
+        # Cache hit — no thread needed
+        if (cid, size) in _cover_cache:
+            raw = _cover_cache[(cid, size)]
+            QTimer.singleShot(0, lambda r=raw, lbl=label, sz=size, cr=corner_radius, ci=circle:
+                _set_cover_on_label(lbl, r, sz, cr, ci))
+            continue
+        _load_cover_worker(cid, size, corner_radius, circle, label)
+
+
+def _load_cover_worker(cid, size, corner_radius, circle, label):
+    """Spawn exactly one worker. Only called from _cover_drain."""
+    worker = _CoverFetchWorker(cid, size)
+
+    def _on_done(raw: bytes):
+        if raw:
+            if len(_cover_cache) >= _COVER_CACHE_MAX:
+                _cover_cache.pop(next(iter(_cover_cache)))
+            _cover_cache[(cid, size)] = raw
+        try:
+            if not sip.isdeleted(label):
+                _set_cover_on_label(label, raw, size, corner_radius, circle)
+        except Exception:
+            pass
+
+    worker.done.connect(_on_done, Qt.ConnectionType.QueuedConnection)
+    worker.start()
 
 
 class _CoverFetchWorker(QThread):
-    """
-    Fetches a TIDAL cover on a background QThread and delivers raw bytes to
-    the main thread via a Qt signal.  QTimer.singleShot() posted from a plain
-    Python threading.Thread silently drops the callback in PyQt6 because plain
-    threads have no Qt event-loop affinity — signals are the correct mechanism.
-
-    Lifetime is managed by _active_cover_workers: the worker adds itself on
-    start and removes itself (via finished signal) when the thread exits,
-    preventing "QThread destroyed while still running" SIGABRT crashes.
-    """
+    """Fetches one TIDAL cover image on a background thread.
+    Adds itself to _active_cover_workers on construction;
+    removes itself and calls _cover_drain on finish."""
     done = pyqtSignal(bytes)
 
     _HEADERS = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        "Accept": "image/webp,image/jpeg,image/*,*/*;q=0.8",
-        "Referer": "https://listen.tidal.com/",
+        "Accept":     "image/webp,image/jpeg,image/*,*/*;q=0.8",
+        "Referer":    "https://listen.tidal.com/",
     }
 
     def __init__(self, cid: str, size: int):
-        super().__init__(None)   # no QObject parent — avoids cross-thread ownership crash
+        super().__init__(None)
         self._cid  = cid
         self._size = size
-        # Keep ourselves alive until the thread finishes
         _active_cover_workers.add(self)
         self.finished.connect(self._on_finished)
 
     def _on_finished(self):
         _active_cover_workers.discard(self)
         self.deleteLater()
+        QTimer.singleShot(0, _cover_drain)
 
     def run(self):
-        for sz in sorted({self._size, 640, 320, 160}, reverse=True):
-            url = f"https://resources.tidal.com/images/{self._cid.replace('-', '/')}/{sz}x{sz}.jpg"
+        primary   = self._size
+        fallbacks = [s for s in (640, 320, 160) if s != primary]
+        for sz in [primary] + fallbacks:
+            url = (f"https://resources.tidal.com/images/"
+                   f"{self._cid.replace('-', '/')}/{sz}x{sz}.jpg")
             try:
                 r = requests.get(url, timeout=10, headers=self._HEADERS)
                 ct = r.headers.get("content-type", "")
-                ok = (r.status_code == 200 and len(r.content) > 500
-                      and ("image" in ct or r.content[:3] in (b"\xff\xd8\xff", b"\x89PN")))
-                if ok:
+                if (r.status_code == 200 and len(r.content) > 500
+                        and ("image" in ct
+                             or r.content[:3] in (b"\xff\xd8\xff", b"\x89PN"))):
                     self.done.emit(r.content)
                     return
             except Exception:
@@ -8619,33 +8492,14 @@ class _CoverFetchWorker(QThread):
 
 def _load_cover_into_label(cover_id: str, label: QLabel, size: int,
                            corner_radius: int = 4, circle: bool = False):
-    """
-    Async cover art loader.  Uses a QThread + signal so Qt guarantees the
-    callback runs on the main thread.  The old plain-threading.Thread approach
-    with QTimer.singleShot() is unreliable in PyQt6 and silently drops covers.
-    Worker lifetime is managed by _active_cover_workers to prevent SIGABRT.
-    """
+    """Enqueue a cover fetch, respecting the _COVER_MAX_WORKERS cap."""
     if not cover_id:
         return
     cid = _tidal_normalize_cover_id(cover_id)
     if not cid:
         return
-
-    worker = _CoverFetchWorker(cid, size)
-
-    def _on_done(raw: bytes):
-        try:
-            if not sip.isdeleted(label):
-                _set_cover_on_label(label, raw, size, corner_radius, circle)
-        except Exception:
-            pass
-        try:
-            worker.done.disconnect(_on_done)
-        except Exception:
-            pass
-
-    worker.done.connect(_on_done, Qt.ConnectionType.QueuedConnection)
-    worker.start()
+    _cover_pending.append((cid, size, corner_radius, circle, label))
+    _cover_drain()
 
 
 def _set_cover_on_label(label: QLabel, raw: bytes, size: int,
@@ -9664,7 +9518,25 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/track/?id={tid}&quality={quality}")
         w.ok.connect(lambda d, tr=track, q=quality: self._got_stream_job(d, tr, q))
         w.fail.connect(lambda e, tr=track, q=quality: self._on_stream_fail(tr, q, str(e)))
-        w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+        def _finished_w_1(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None: return
+
+            try:
+
+                if w in self._workers: self._workers.remove(w)
+
+            except Exception: pass
+
+            try:
+
+                if not sip.isdeleted(_obj): _obj.deleteLater()
+
+            except Exception: pass
+
+        w.finished.connect(_finished_w_1, Qt.ConnectionType.QueuedConnection)
         self._workers.append(w)
         w.start()
 
@@ -9974,7 +9846,25 @@ class TidalDownloaderPage(QWidget):
                     self._st(f"No tracks found — the proxy may not support {_kind} lookup.")
             w.ok.connect(_got_pl)
             w.fail.connect(lambda e: self._st(f"Could not load {kind}: {e}"))
-            w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+            def _finished_w_2(_ref=__import__('weakref').ref(w)):
+
+                _obj = _ref()
+
+                if _obj is None: return
+
+                try:
+
+                    if w in self._workers: self._workers.remove(w)
+
+                except Exception: pass
+
+                try:
+
+                    if not sip.isdeleted(_obj): _obj.deleteLater()
+
+                except Exception: pass
+
+            w.finished.connect(_finished_w_2, Qt.ConnectionType.QueuedConnection)
             self._workers.append(w)
             w.start()
 
@@ -10009,7 +9899,25 @@ class TidalDownloaderPage(QWidget):
             w = _TidalWorker(path)
             w.ok.connect(lambda d, t=tab_idx: self._on_search_ok(d, t))
             w.fail.connect(lambda e, t=tab_idx: self._on_search_fail(t))
-            w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+            def _finished_w_3(_ref=__import__('weakref').ref(w)):
+
+                _obj = _ref()
+
+                if _obj is None: return
+
+                try:
+
+                    if w in self._workers: self._workers.remove(w)
+
+                except Exception: pass
+
+                try:
+
+                    if not sip.isdeleted(_obj): _obj.deleteLater()
+
+                except Exception: pass
+
+            w.finished.connect(_finished_w_3, Qt.ConnectionType.QueuedConnection)
             self._workers.append(w)
             w.start()
 
@@ -10054,13 +9962,35 @@ class TidalDownloaderPage(QWidget):
 
     # ── Populate tracks ───────────────────────────────────────
 
+    _TRACKS_PAGE_SIZE = 25
+
     def _populate_tracks(self, tracks: list):
         self._clear_tab(self._tracks_l)
         self._clear_album_header()
         active_ids = set(self._dl_wkrs.keys())
         self._track_rows = {tid: row for tid, row in self._track_rows.items()
                             if tid in active_ids}
-        for tr in tracks:
+        self._all_tracks = list(tracks)
+        self._tracks_shown = 0
+        self._show_more_btn = None
+        self._append_track_page()
+
+    def _append_track_page(self):
+        tracks = self._all_tracks
+        start = self._tracks_shown
+        end   = start + self._TRACKS_PAGE_SIZE
+        page  = tracks[start:end]
+
+        # Remove existing Show More button before adding rows
+        if self._show_more_btn is not None:
+            try:
+                self._show_more_btn.setParent(None)
+                self._show_more_btn.deleteLater()
+            except Exception:
+                pass
+            self._show_more_btn = None
+
+        for tr in page:
             row = _TidalTrackRow(tr)
             row.download_req.connect(self._on_dl_track)
             row.queue_req.connect(self._queue_side.add_track)
@@ -10069,6 +9999,17 @@ class TidalDownloaderPage(QWidget):
             tid = tr.get("id")
             if tid is not None:
                 self._track_rows[tid] = row
+
+        self._tracks_shown += len(page)
+
+        if self._tracks_shown < len(tracks):
+            remaining = len(tracks) - self._tracks_shown
+            btn = QPushButton(f"Show more  ({remaining} remaining)")
+            btn.setFixedHeight(36)
+            btn.setObjectName("ghost")
+            btn.clicked.connect(self._append_track_page)
+            self._tracks_l.insertWidget(self._tracks_l.count() - 1, btn)
+            self._show_more_btn = btn
 
     # ── Populate albums ───────────────────────────────────────
 
@@ -10155,7 +10096,25 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/album/?id={aid}")
         w.ok.connect(lambda d, a=album: self._show_album_tracks(d, a))
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+        def _finished_w_4(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None: return
+
+            try:
+
+                if w in self._workers: self._workers.remove(w)
+
+            except Exception: pass
+
+            try:
+
+                if not sip.isdeleted(_obj): _obj.deleteLater()
+
+            except Exception: pass
+
+        w.finished.connect(_finished_w_4, Qt.ConnectionType.QueuedConnection)
         self._workers.append(w)
         w.start()
 
@@ -10289,7 +10248,25 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/artist/?f={aid}")
         w.ok.connect(self._show_artist_albums)
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+        def _finished_w_5(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None: return
+
+            try:
+
+                if w in self._workers: self._workers.remove(w)
+
+            except Exception: pass
+
+            try:
+
+                if not sip.isdeleted(_obj): _obj.deleteLater()
+
+            except Exception: pass
+
+        w.finished.connect(_finished_w_5, Qt.ConnectionType.QueuedConnection)
         self._workers.append(w)
         w.start()
 
@@ -10297,10 +10274,14 @@ class TidalDownloaderPage(QWidget):
         albums = _tidal_extract_albums(data)
         tracks = _tidal_extract_tracks(data)
         n_alb = len(albums)
-        n_tr  = len(tracks)
-        self._st(f"{n_alb} album{'s' if n_alb!=1 else ''} · {n_tr} track{'s' if n_tr!=1 else ''}")
+        self._st(f"{n_alb} album{'s' if n_alb!=1 else ''}")
+        # Populate tracks with pagination — _populate_tracks only renders the
+        # first 25 rows immediately; the rest load on demand via Show More.
         if tracks:
             self._populate_tracks(tracks)
+        else:
+            self._clear_tab(self._tracks_l)
+            self._clear_album_header()
         self._switch_tab(1)
         self._populate_albums(albums)
 
@@ -10475,7 +10456,25 @@ class TidalDownloaderPage(QWidget):
         if tid is not None:
             self._dl_wkrs[tid] = w
         self._workers.append(w)
-        w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+        def _finished_w_6(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None: return
+
+            try:
+
+                if w in self._workers: self._workers.remove(w)
+
+            except Exception: pass
+
+            try:
+
+                if not sip.isdeleted(_obj): _obj.deleteLater()
+
+            except Exception: pass
+
+        w.finished.connect(_finished_w_6, Qt.ConnectionType.QueuedConnection)
         w.start()
 
     def _dl_prog(self, tid, recv: int, total: int):
@@ -10544,7 +10543,25 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/album/?id={aid}")
         w.ok.connect(lambda d, a=album: self._dl_album_tracks(d, a))
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+        def _finished_w_7(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None: return
+
+            try:
+
+                if w in self._workers: self._workers.remove(w)
+
+            except Exception: pass
+
+            try:
+
+                if not sip.isdeleted(_obj): _obj.deleteLater()
+
+            except Exception: pass
+
+        w.finished.connect(_finished_w_7, Qt.ConnectionType.QueuedConnection)
         self._workers.append(w)
         w.start()
 
@@ -10573,7 +10590,25 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/album/?id={aid}")
         w.ok.connect(lambda d, a=album: self._queue_album_tracks(d, a))
         w.fail.connect(lambda e: self._st(f"Error fetching album: {e}"))
-        w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+        def _finished_w_8(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None: return
+
+            try:
+
+                if w in self._workers: self._workers.remove(w)
+
+            except Exception: pass
+
+            try:
+
+                if not sip.isdeleted(_obj): _obj.deleteLater()
+
+            except Exception: pass
+
+        w.finished.connect(_finished_w_8, Qt.ConnectionType.QueuedConnection)
         self._workers.append(w)
         w.start()
 
@@ -10596,7 +10631,25 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/artist/?f={aid}")
         w.ok.connect(lambda d, a=artist: self._dl_artist_albums(d, a))
         w.fail.connect(lambda e: self._st(f"Error fetching artist: {e}"))
-        w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+        def _finished_w_9(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None: return
+
+            try:
+
+                if w in self._workers: self._workers.remove(w)
+
+            except Exception: pass
+
+            try:
+
+                if not sip.isdeleted(_obj): _obj.deleteLater()
+
+            except Exception: pass
+
+        w.finished.connect(_finished_w_9, Qt.ConnectionType.QueuedConnection)
         self._workers.append(w)
         w.start()
 
@@ -10619,7 +10672,25 @@ class TidalDownloaderPage(QWidget):
             ww.ok.connect(lambda d, a=alb, ni=i: (self._dl_album_tracks(d, a),
                                                     QTimer.singleShot(800, lambda: _fetch_next(ni + 1))))
             ww.fail.connect(lambda e, ni=i: QTimer.singleShot(400, lambda: _fetch_next(ni + 1)))
-            ww.finished.connect(lambda: self._workers.remove(ww) if ww in self._workers else None)
+            def _finished_ww_10(_ref=__import__('weakref').ref(ww)):
+
+                _obj = _ref()
+
+                if _obj is None: return
+
+                try:
+
+                    if ww in self._workers: self._workers.remove(ww)
+
+                except Exception: pass
+
+                try:
+
+                    if not sip.isdeleted(_obj): _obj.deleteLater()
+
+                except Exception: pass
+
+            ww.finished.connect(_finished_ww_10, Qt.ConnectionType.QueuedConnection)
             self._workers.append(ww)
             ww.start()
         _fetch_next()
@@ -10633,7 +10704,25 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/artist/?f={aid}")
         w.ok.connect(lambda d, a=artist: self._queue_artist_albums(d, a))
         w.fail.connect(lambda e: self._st(f"Error fetching artist: {e}"))
-        w.finished.connect(lambda: self._workers.remove(w) if w in self._workers else None)
+        def _finished_w_11(_ref=__import__('weakref').ref(w)):
+
+            _obj = _ref()
+
+            if _obj is None: return
+
+            try:
+
+                if w in self._workers: self._workers.remove(w)
+
+            except Exception: pass
+
+            try:
+
+                if not sip.isdeleted(_obj): _obj.deleteLater()
+
+            except Exception: pass
+
+        w.finished.connect(_finished_w_11, Qt.ConnectionType.QueuedConnection)
         self._workers.append(w)
         w.start()
 
@@ -10662,7 +10751,25 @@ class TidalDownloaderPage(QWidget):
                 QTimer.singleShot(400, lambda: _fetch_next(ni + 1))
             ww.ok.connect(_on_ok)
             ww.fail.connect(lambda e, ni=i: QTimer.singleShot(400, lambda: _fetch_next(ni + 1)))
-            ww.finished.connect(lambda: self._workers.remove(ww) if ww in self._workers else None)
+            def _finished_ww_12(_ref=__import__('weakref').ref(ww)):
+
+                _obj = _ref()
+
+                if _obj is None: return
+
+                try:
+
+                    if ww in self._workers: self._workers.remove(ww)
+
+                except Exception: pass
+
+                try:
+
+                    if not sip.isdeleted(_obj): _obj.deleteLater()
+
+                except Exception: pass
+
+            ww.finished.connect(_finished_ww_12, Qt.ConnectionType.QueuedConnection)
             self._workers.append(ww)
             ww.start()
         _fetch_next()
@@ -11012,12 +11119,18 @@ class _SpectrogramRenderWorker(QThread):
     def __init__(self, spec, sr, fft, dur, freq_min, freq_max, freq_scale,
                  cmap_name, db_range, gamma, filename, img_w, img_h, parent=None):
         super().__init__(parent)
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
         self._spec = spec; self._sr = sr; self._fft = fft; self._dur = dur
         self._freq_min = freq_min; self._freq_max = freq_max
         self._freq_scale = freq_scale; self._cmap_name = cmap_name
         self._db_range = db_range; self._gamma = gamma
         self._filename = filename
         self._img_w = img_w; self._img_h = img_h
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
 
     def run(self):
         import math as _m
@@ -12581,7 +12694,7 @@ class _CoverExtractWorker(QThread):
             if self._cancel_flag:
                 break
 
-            pct = int((i + 1) * 100 / total)
+            pct = int((i + 1) * 100 / total) if total else 0
             self.progress.emit(pct, f"{i+1}/{total}  {fpath.name}")
 
             album_dir = fpath.parent
@@ -12889,7 +13002,13 @@ class _MbClusterWorker(QThread):
 
     def __init__(self, files: list):
         super().__init__()
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
         self.files = files
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
 
     def run(self):
         try:
@@ -12933,6 +13052,8 @@ class _FileRenameWorker(QThread):
 
     def __init__(self, files: list, template: str):
         super().__init__()
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
         self.files    = files
         self.template = template
 
@@ -12940,6 +13061,10 @@ class _FileRenameWorker(QThread):
     def _safe(s: str) -> str:
         """Strip characters that are illegal in filenames."""
         return re.sub(r'[\\/:*?"<>|]', '_', s).strip()
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
 
     def run(self):
         try:
@@ -12995,6 +13120,145 @@ class _FileRenameWorker(QThread):
         self.finished.emit(renamed, errors)
 
 
+class _TagLoaderWorker(QThread):
+    """
+    Read mutagen tags + cover art for a single file in a background thread
+    so clicking a file in the tag editor never stalls the GUI.
+    Emits `done` with a dict containing all tag data, or `error` on failure.
+    """
+    done  = pyqtSignal(object)   # dict with keys: path, fields, info, cover
+    error = pyqtSignal(str)
+
+    def __init__(self, path: Path, fields: list, parent=None):
+        super().__init__(parent)
+        self._path   = path
+        self._fields = fields   # list of (key, label) from _FIELDS
+
+    def run(self):
+        try:
+            import mutagen
+            path = self._path
+            result: dict = {"path": path, "fields": {}, "info": {}, "cover": None}
+
+            size_mb = path.stat().st_size / 1048576
+            result["size_mb"] = size_mb
+
+            audio = mutagen.File(str(path), easy=True)
+            if audio is None:
+                self.error.emit(f"Could not read tags from {path.name}")
+                return
+
+            for key, _ in self._fields:
+                val  = audio.tags.get(key) if audio.tags else None
+                text = str(val[0]) if isinstance(val, list) and val else str(val) if val else ""
+                result["fields"][key] = text
+
+            info = audio.info
+            result["info"] = {
+                "duration":   int(getattr(info, "length", 0)),
+                "bitrate":    getattr(info, "bitrate", 0),
+                "sample_rate":getattr(info, "sample_rate", 0),
+                "channels":   getattr(info, "channels", 0),
+                "format":     type(info).__name__,
+            }
+
+            audio_raw = mutagen.File(str(path))
+            if audio_raw is not None:
+                result["cover"] = _TagLoaderWorker._extract_cover(audio_raw, path.suffix.lower())
+
+            self.done.emit(result)
+        except ImportError:
+            self.error.emit("mutagen not installed — install it for full tag editing")
+        except Exception as e:
+            self.error.emit(str(e))
+
+    @staticmethod
+    def _extract_cover(audio, suffix: str):
+        """Duplicate of MusicTagEditorPage._extract_cover — needed here in worker."""
+        try:
+            if suffix == ".flac":
+                pics = audio.pictures
+                return pics[0].data if pics else None
+            elif suffix == ".mp3":
+                apics = audio.tags.getall("APIC") if audio.tags else []
+                return apics[0].data if apics else None
+            elif suffix in (".m4a", ".aac"):
+                covr = (audio.tags or {}).get("covr")
+                return bytes(covr[0]) if covr else None
+            elif suffix in (".ogg", ".opus", ".oga"):
+                import base64
+                from mutagen.flac import Picture
+                tags = audio.tags or {}
+                mbp  = tags.get("metadata_block_picture") or tags.get("METADATA_BLOCK_PICTURE")
+                if mbp:
+                    entries = mbp if isinstance(mbp, list) else [mbp]
+                    for entry in entries:
+                        try:
+                            pic = Picture(base64.b64decode(entry))
+                            if pic.data:
+                                return pic.data
+                        except Exception:
+                            pass
+                for key in (audio.tags or {}).keys():
+                    if "apic" in key.lower() or "picture" in key.lower():
+                        val = (audio.tags or {})[key]
+                        if isinstance(val, list) and val:
+                            val = val[0]
+                        if hasattr(val, "data"):
+                            return val.data
+            else:
+                if hasattr(audio, "tags") and audio.tags:
+                    for key in audio.tags.keys():
+                        if "APIC" in key or "picture" in key.lower():
+                            val = audio.tags[key]
+                            if hasattr(val, "data"):
+                                return val.data
+        except Exception:
+            pass
+        return None
+
+
+class _MultiTagLoaderWorker(QThread):
+    """
+    Read mutagen tags for a list of paths in a background thread.
+    Used by multi-file selection to compare tag values without stalling the GUI.
+    Emits `done` with a dict mapping field-key → list[str] (one entry per path).
+    """
+    done  = pyqtSignal(object)   # dict: {key: [str, ...]}
+    error = pyqtSignal(str)
+
+    def __init__(self, paths: list, fields: list, parent=None):
+        super().__init__(parent)
+        self._paths  = paths
+        self._fields = fields
+
+    def run(self):
+        try:
+            import mutagen
+            all_vals: dict[str, list[str]] = {key: [] for key, _ in self._fields}
+            for path in self._paths:
+                if self.isInterruptionRequested():
+                    return
+                try:
+                    audio = mutagen.File(str(path), easy=True)
+                    if audio is None:
+                        continue
+                    for key, _ in self._fields:
+                        val  = audio.tags.get(key) if audio.tags else None
+                        if isinstance(val, list):
+                            text = str(val[0]).strip() if val else ""
+                        elif val is not None:
+                            text = str(val).strip()
+                        else:
+                            text = ""
+                        all_vals[key].append(text)
+                except Exception:
+                    pass
+            self.done.emit(all_vals)
+        except ImportError:
+            self.error.emit("mutagen not installed")
+        except Exception as e:
+            self.error.emit(str(e))
 
 
 class MusicTagEditorPage(QWidget):
@@ -14198,6 +14462,8 @@ class MusicTagEditorPage(QWidget):
         self._load_tags(self._current)
 
     def _load_tags(self, path: Path):
+        """Load tags for *path* using a background worker so the GUI never stalls."""
+        # Clear UI immediately so the user sees a clean slate while the worker runs
         for edit in self._tag_edits.values():
             edit.clear()
         self._cover_lbl.setText("No Cover")
@@ -14218,48 +14484,73 @@ class MusicTagEditorPage(QWidget):
             self._status_bar.setText(f"File not found (deleted?): {path.name}")
             self._save_btn.setEnabled(False)
             return
+
+        # Show basic file info immediately (just a stat() call, very fast)
         size_mb = path.stat().st_size / 1048576
-        self._file_info_lbl.setText(f"{path.suffix.upper()[1:]}  ·  {size_mb:.1f} MB\n{path.parent.name}")
+        self._file_info_lbl.setText(
+            f"{path.suffix.upper()[1:]}  ·  {size_mb:.1f} MB\n{path.parent.name}")
+        self._status_bar.setText(f"Loading {path.name}…")
 
+        # Cancel any previous in-flight load for a different file.
+        # Guard with sip.isdeleted() so we never call isRunning() on a
+        # deleted C++ QThread object (causes SIGABRT in PyQt6).
         try:
-            import mutagen
-            audio = mutagen.File(str(path), easy=True)
-            if audio is None:
-                self._status_bar.setText(f"Could not read tags from {path.name}")
+            if (hasattr(self, "_tag_loader") and self._tag_loader is not None
+                    and not sip.isdeleted(self._tag_loader)
+                    and self._tag_loader.isRunning()):
+                self._tag_loader.requestInterruption()
+        except RuntimeError:
+            self._tag_loader = None
+
+        worker = _TagLoaderWorker(path, list(self._FIELDS))
+        self._tag_loader = worker
+
+        def _on_done(result: dict):
+            # Guard: user may have clicked another file before this one finished
+            if self._current != result["path"]:
                 return
+            fields = result["fields"]
+            self._orig_vals = dict(fields)
+            for key, text in fields.items():
+                if key in self._tag_edits:
+                    self._tag_edits[key].setText(text)
+                if key in self._orig_lbls:
+                    self._orig_lbls[key].setText(text if text else "—")
 
-            # Fill tag fields + store originals
-            for key, _ in self._FIELDS:
-                val  = audio.tags.get(key) if audio.tags else None
-                text = str(val[0]) if isinstance(val, list) and val else str(val) if val else ""
-                self._tag_edits[key].setText(text)
-                self._orig_vals[key] = text
-                self._orig_lbls[key].setText(text if text else "—")
-
-            # Technical info
-            info = audio.info
-            self._info_duration.setText(_fmt_dur(int(getattr(info, "length", 0))))
-            br = getattr(info, "bitrate", 0)
-            self._info_bitrate.setText(f"{br//1000} kbps" if br else "—")
-            sr = getattr(info, "sample_rate", 0)
+            info = result["info"]
+            self._info_duration.setText(_fmt_dur(info.get("duration", 0)))
+            br = info.get("bitrate", 0)
+            self._info_bitrate.setText(f"{br // 1000} kbps" if br else "—")
+            sr = info.get("sample_rate", 0)
             self._info_samplerate.setText(f"{sr:,} Hz" if sr else "—")
-            ch = getattr(info, "channels", 0)
+            ch = info.get("channels", 0)
             self._info_channels.setText(str(ch) if ch else "—")
-            self._info_filesize.setText(f"{size_mb:.2f} MB")
-            self._info_format.setText(type(info).__name__)
+            self._info_filesize.setText(f"{result.get('size_mb', 0):.2f} MB")
+            self._info_format.setText(info.get("format", "—"))
 
-            # Cover art
-            audio_raw = mutagen.File(str(path))
-            cover_data = self._extract_cover(audio_raw, path.suffix.lower())
-            if cover_data:
-                self._cover_data = cover_data
-                self._show_cover(cover_data)
+            cover = result.get("cover")
+            if cover:
+                self._cover_data = cover
+                self._show_cover(cover)
 
             self._status_bar.setText(f"Loaded: {path.name}")
-        except ImportError:
-            self._status_bar.setText("mutagen not installed — install it for full tag editing")
-        except Exception as e:
-            self._status_bar.setText(f"Error: {e}")
+
+        def _on_error(msg: str):
+            if self._current != path:
+                return
+            self._status_bar.setText(msg)
+
+        def _on_worker_finished():
+            # Clear the reference BEFORE deleteLater so isRunning() is never
+            # called on a deleted C++ object (would cause SIGABRT).
+            if self._tag_loader is worker:
+                self._tag_loader = None
+            worker.deleteLater()
+
+        worker.done.connect(_on_done, Qt.ConnectionType.QueuedConnection)
+        worker.error.connect(_on_error, Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(_on_worker_finished, Qt.ConnectionType.QueuedConnection)
+        worker.start()
 
     def _ctrl_s_save(self):
         """Ctrl+S: save multi if multiple selected, else save single."""
@@ -14344,7 +14635,7 @@ class MusicTagEditorPage(QWidget):
             self._sel_timer = QTimer()
             self._sel_timer.setSingleShot(True)
             self._sel_timer.timeout.connect(self._on_selection_settled)
-        self._sel_timer.start(120)
+        self._sel_timer.start(250)  # 250ms debounce – avoids flooding on Ctrl+A in large libraries
 
     def _on_selection_settled(self):
         selected = self._file_list.selectedItems()
@@ -14374,56 +14665,70 @@ class MusicTagEditorPage(QWidget):
             )
             return
 
-        try:
-            import mutagen
-        except ImportError:
-            self._status_bar.setText("mutagen not installed")
-            return
-
         selected_rows  = [self._file_list.row(it) for it in selected]
         selected_paths = [self._files[r] for r in selected_rows if 0 <= r < len(self._files)]
         if not selected_paths:
             return
 
-        all_vals: dict[str, list[str]] = {key: [] for key, _ in self._FIELDS}
-        for path in selected_paths:
-            try:
-                audio = mutagen.File(str(path), easy=True)
-                if audio is None:
+        self._status_bar.setText(f"Reading tags for {n} files…")
+
+        # Cancel any previous multi-load in flight
+        try:
+            if (hasattr(self, "_multi_loader") and self._multi_loader is not None
+                    and not sip.isdeleted(self._multi_loader)
+                    and self._multi_loader.isRunning()):
+                self._multi_loader.requestInterruption()
+        except RuntimeError:
+            self._multi_loader = None
+
+        worker = _MultiTagLoaderWorker(selected_paths, list(self._FIELDS))
+        self._multi_loader = worker
+        # Snapshot selection so we can guard against it changing mid-flight
+        _expected_paths = list(selected_paths)
+
+        def _on_done(all_vals: dict):
+            # Guard: selection may have changed while we were reading
+            cur_selected = self._file_list.selectedItems()
+            cur_rows  = [self._file_list.row(it) for it in cur_selected]
+            cur_paths = [self._files[r] for r in cur_rows if 0 <= r < len(self._files)]
+            if cur_paths != _expected_paths:
+                return
+
+            self._loading_multi = True
+            self._clear_diff_highlights()
+            for key, _ in self._FIELDS:
+                vals = all_vals.get(key, [])
+                edit = self._tag_edits.get(key)
+                if edit is None:
                     continue
-                for key, _ in self._FIELDS:
-                    val  = audio.tags.get(key) if audio.tags else None
-                    if isinstance(val, list):
-                        text = str(val[0]).strip() if val else ""
-                    elif val is not None:
-                        text = str(val).strip()
-                    else:
-                        text = ""
-                    all_vals[key].append(text)
-            except Exception:
-                pass
+                if not vals:
+                    edit.clear(); edit.setPlaceholderText("—")
+                    continue
+                non_empty        = [v for v in vals if v]
+                unique_non_empty = set(non_empty)
+                if len(unique_non_empty) <= 1:
+                    common = next(iter(unique_non_empty), "")
+                    edit.setText(common); edit.setPlaceholderText("")
+                else:
+                    edit.clear(); edit.setPlaceholderText("— multiple values —")
+            self._loading_multi = False
+            self._status_bar.setText(
+                f"{n} files selected  ·  Matching values shown  ·  "
+                "Blank fields keep existing values on save"
+            )
 
-        self._loading_multi = True
-        self._clear_diff_highlights()
-        for key, _ in self._FIELDS:
-            vals = all_vals[key]
-            edit = self._tag_edits[key]
-            if not vals:
-                edit.clear(); edit.setPlaceholderText("—")
-                continue
-            non_empty       = [v for v in vals if v]
-            unique_non_empty = set(non_empty)
-            if len(unique_non_empty) <= 1:
-                common = next(iter(unique_non_empty), "")
-                edit.setText(common); edit.setPlaceholderText("")
-            else:
-                edit.clear(); edit.setPlaceholderText("— multiple values —")
-        self._loading_multi = False
+        def _on_error(msg: str):
+            self._status_bar.setText(msg)
 
-        self._status_bar.setText(
-            f"{n} files selected  ·  Matching values shown  ·  "
-            "Blank fields keep existing values on save"
-        )
+        def _on_multi_finished():
+            if self._multi_loader is worker:
+                self._multi_loader = None
+            worker.deleteLater()
+
+        worker.done.connect(_on_done, Qt.ConnectionType.QueuedConnection)
+        worker.error.connect(_on_error, Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(_on_multi_finished, Qt.ConnectionType.QueuedConnection)
+        worker.start()
 
     def _save_tags_multi(self):
         # Support both flat-list multi-select and cluster-tree multi-select
@@ -14775,7 +15080,15 @@ class MusicTagEditorPage(QWidget):
         # lines to avoid flooding the log table with 10k+ insertions and freezing the UI.
         worker.log_line.connect(lambda msg, lvl: self._log(msg, lvl) if lvl in ("warn", "error") else None)
         worker.finished.connect(self._on_rename_done)
-        worker.finished.connect(worker.deleteLater)
+        def _finished_bare_5(_ref=__import__('weakref').ref(worker)):
+
+            _obj = _ref()
+
+            if _obj is None or sip.isdeleted(_obj): return
+
+            _obj.deleteLater()
+
+        worker.finished.connect(_finished_bare_5, Qt.ConnectionType.QueuedConnection)
         self._rename_worker = worker
         worker.start()
 
@@ -15132,7 +15445,15 @@ class MusicTagEditorPage(QWidget):
         worker.log_line.connect(self._on_bulk_resize_log)
         worker.originals_ready.connect(self._on_bulk_originals_ready)
         worker.finished.connect(self._on_bulk_resize_done)
-        worker.finished.connect(worker.deleteLater)
+        def _finished_bare_6(_ref=__import__('weakref').ref(worker)):
+
+            _obj = _ref()
+
+            if _obj is None or sip.isdeleted(_obj): return
+
+            _obj.deleteLater()
+
+        worker.finished.connect(_finished_bare_6, Qt.ConnectionType.QueuedConnection)
         self._bulk_worker = worker
         self._bulk_total  = len(files_to_process)
         worker.start()
@@ -15164,7 +15485,15 @@ class MusicTagEditorPage(QWidget):
         worker.log_line.connect(self._on_bulk_resize_log)
         worker.originals_ready.connect(self._on_bulk_originals_ready)
         worker.finished.connect(self._on_bulk_resize_done)
-        worker.finished.connect(worker.deleteLater)
+        def _finished_bare_7(_ref=__import__('weakref').ref(worker)):
+
+            _obj = _ref()
+
+            if _obj is None or sip.isdeleted(_obj): return
+
+            _obj.deleteLater()
+
+        worker.finished.connect(_finished_bare_7, Qt.ConnectionType.QueuedConnection)
         self._bulk_worker = worker
         self._bulk_total  = len(files_to_process)
         worker.start()
@@ -15228,7 +15557,15 @@ class MusicTagEditorPage(QWidget):
         worker = _IntegrityCheckWorker([self._current])
         worker.log_line.connect(self._log)
         worker.finished.connect(self._on_verify_done_single)
-        worker.finished.connect(worker.deleteLater)
+        def _finished_bare_8(_ref=__import__('weakref').ref(worker)):
+
+            _obj = _ref()
+
+            if _obj is None or sip.isdeleted(_obj): return
+
+            _obj.deleteLater()
+
+        worker.finished.connect(_finished_bare_8, Qt.ConnectionType.QueuedConnection)
         self._verify_worker = worker
         worker.start()
 
@@ -15248,7 +15585,15 @@ class MusicTagEditorPage(QWidget):
         worker.progress.connect(self._on_verify_progress)
         worker.log_line.connect(self._log)
         worker.finished.connect(self._on_verify_done_all)
-        worker.finished.connect(worker.deleteLater)
+        def _finished_bare_9(_ref=__import__('weakref').ref(worker)):
+
+            _obj = _ref()
+
+            if _obj is None or sip.isdeleted(_obj): return
+
+            _obj.deleteLater()
+
+        worker.finished.connect(_finished_bare_9, Qt.ConnectionType.QueuedConnection)
         self._verify_worker = worker
         worker.start()
 
@@ -15294,7 +15639,15 @@ class MusicTagEditorPage(QWidget):
         worker.progress.connect(self._on_rg_progress)
         worker.log_line.connect(self._log)
         worker.finished.connect(self._on_rg_done)
-        worker.finished.connect(worker.deleteLater)
+        def _finished_bare_10(_ref=__import__('weakref').ref(worker)):
+
+            _obj = _ref()
+
+            if _obj is None or sip.isdeleted(_obj): return
+
+            _obj.deleteLater()
+
+        worker.finished.connect(_finished_bare_10, Qt.ConnectionType.QueuedConnection)
         self._rg_worker = worker
         worker.start()
 
@@ -15329,7 +15682,13 @@ class _RgStripWorker(QThread):
 
     def __init__(self, files):
         super().__init__()
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
         self.files = files
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
 
     def run(self):
         stripped = errors = 0
@@ -15379,12 +15738,18 @@ class _CoverResizeWorker(QThread):
 
     def __init__(self, files, target_px, quality, extract_fn, resize_fn, embed_fn):
         super().__init__()
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
         self.files     = files
         self.target_px = target_px
         self.quality   = quality
         self._extract  = extract_fn
         self._resize   = resize_fn
         self._embed    = embed_fn
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
 
     def run(self):
         resized = skipped = errors = 0
@@ -15442,7 +15807,13 @@ class _IntegrityCheckWorker(QThread):
 
     def __init__(self, files: list):
         super().__init__()
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
         self.files = files
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
 
     def run(self):
         ok = errors = 0
@@ -16298,7 +16669,7 @@ class FileConverterPage(QWidget):
         src_p      = Path(self._src_edit.text().strip())
         if src_p.is_dir():
             try:    rel = path.relative_to(src_p)
-            except: rel = Path(path.name)
+            except Exception: rel = Path(path.name)
         else:
             rel = Path(path.name)
         if self._opt_struct.isChecked():
@@ -17053,7 +17424,7 @@ class _FileScanWorker(QThread):
                     if dst_root_p:
                         if self._same_struct and src_p.is_dir():
                             try:    rel = f.relative_to(src_p)
-                            except: rel = Path(f.name)
+                            except Exception: rel = Path(f.name)
                             dst_c = dst_root_p / rel.with_suffix(f".{dst_ext}")
                         else:
                             dst_c = dst_root_p / f.with_suffix(f".{dst_ext}").name
@@ -17137,7 +17508,7 @@ class _FileConvWorker(QThread):
 
             if opts["same_struct"]:
                 try:    rel = fpath.relative_to(src_root)
-                except: rel = Path(fpath.name)
+                except Exception: rel = Path(fpath.name)
                 dst_path = dst_root / rel.with_suffix(dst_suffix)
             else:
                 dst_path = dst_root / fpath.with_suffix(dst_suffix).name
@@ -17170,7 +17541,7 @@ class _FileConvWorker(QThread):
 
             if ok and opts.get("delete_src"):
                 try: fpath.unlink()
-                except: pass
+                except Exception: pass
 
             return idx, ok, str(fpath), str(dst_path), opts["fmt_name"], error_log
 
@@ -17181,7 +17552,7 @@ class _FileConvWorker(QThread):
                 try:
                     idx, ok, src, dst, fmt, error_log = fut.result()
                     done_count += 1
-                    pct = int(done_count * 100 / total)
+                    pct = int(done_count * 100 / total) if total else 0
                     self.file_progress.emit(idx, 100 if ok else 0)
                     self.file_done.emit(idx, ok, src, dst, fmt, error_log)
                     self.overall_progress.emit(pct, f"{done_count}/{total}")
@@ -17347,6 +17718,7 @@ class MainWindow(QMainWindow):
         self._page_settings    = SettingsPage(self._conf)
 
         self._page_scrobble.status_changed.connect(self._refresh_platform_dots)
+        self._page_scrobble.status_changed.connect(self._page_history.refresh)
         self._page_scrobble.art_ready.connect(self._page_history.set_bg_art)
         self._page_settings.auth_changed.connect(self._refresh_platform_dots)
         self._page_settings.auth_changed.connect(self._page_scrobble.refresh_for_platform)
@@ -17482,7 +17854,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         try:
-            if any(w for w in list(self._page_tidal._dl_wkrs.values())):
+            if any(w for w in list(self._page_tidal._dl_wkrs.values()) if w and w.isRunning()):
                 running.append("TIDAL downloads")
         except Exception:
             pass
@@ -17693,6 +18065,34 @@ class MainWindow(QMainWindow):
             if proc:
                 try: proc.kill()
                 except Exception: pass
+        except Exception:
+            pass
+        # Stop update checker
+        try:
+            if self._update_checker and self._update_checker.isRunning():
+                self._update_checker.quit()
+                self._update_checker.wait(1000)
+        except Exception:
+            pass
+        # Stop history loader
+        try:
+            w = getattr(self._page_history, "_loader", None)
+            if w and w.isRunning():
+                w.quit(); w.wait(500)
+        except Exception:
+            pass
+        # Stop stats page art fetchers
+        try:
+            for f in list(getattr(self._page_stats, "_fetchers", [])):
+                if f.isRunning():
+                    f.quit(); f.wait(200)
+        except Exception:
+            pass
+        # Stop scrobble page log loaders and art fetchers
+        try:
+            for f in list(getattr(self._page_scrobble, "_log_loaders", [])):
+                if f.isRunning():
+                    f.quit(); f.wait(200)
         except Exception:
             pass
 
