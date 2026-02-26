@@ -37,10 +37,10 @@ from PyQt6.QtWidgets import (
     QStackedWidget, QSizePolicy, QAbstractItemView, QColorDialog,
     QGraphicsOpacityEffect, QTextEdit, QListWidgetItem,
     QSplitter, QTreeWidget, QTreeWidgetItem,
-    QPlainTextEdit, QInputDialog,
+    QPlainTextEdit, QInputDialog, QStyledItemDelegate, QStyle,
 )
 from PyQt6.QtCore import (
-    Qt, QUrl, QThread, pyqtSignal, QTimer, QPropertyAnimation,
+    Qt, QUrl, QThread, pyqtSignal, pyqtProperty, QTimer, QPropertyAnimation,
     QEasingCurve, QSize, QRectF, QProcess,
 )
 from PyQt6.QtGui import (
@@ -81,7 +81,7 @@ def open_url(url):
 # ─────────────────────────────────────────────────────────────
 
 APP_NAME    = "Scrobbox"
-APP_VERSION = "0.6.0"   # bump this with each release
+APP_VERSION = "0.7.0"   # bump this with each release
 GITHUB_REPO = "RoyLikesAudio/Scrobbox"
 _sys = platform.system()
 
@@ -127,7 +127,6 @@ DARK = {
     "bg3":      "#1e2128",
     "bg4":      "#252930",
     "accent":   "#c8861a",
-    "accent2":  "#dfa030",
     "accentlo": "#c8861a18",
     "success":  "#3a9955",
     "danger":   "#c04040",
@@ -148,7 +147,7 @@ def tok(key: str) -> str:
 def build_stylesheet(t: dict) -> str:
     # Glass-dark aesthetic — structural colors are hardcoded rgba, only accent uses theme tokens
     _a  = t["accent"]
-    _a2 = t["accent2"]
+    _a2 = t["accent"]
     _alo= t["accentlo"]
     _bhi= t["bordhi"]
     _suc= t["success"]
@@ -158,13 +157,14 @@ def build_stylesheet(t: dict) -> str:
 * {{ font-family: 'Inter', 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', 'Helvetica Neue', sans-serif; }}
 QMainWindow, QDialog {{ background: #0d0f13; }}
 QWidget {{ background: #111318; color: #e2ddd6; font-size: 13px;
-          selection-background-color: {_a}; selection-color: #0a0a0a; }}
+          selection-background-color: rgba(255,255,255,0.20); selection-color: #fff; }}
 
-QWidget#sidebar {{ background: rgba(5,7,11,0.95); border-right: 1px solid rgba(255,255,255,0.06); }}
-QWidget#card {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }}
-QWidget#panel {{ background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; }}
-QWidget#page_hdr {{ background: rgba(5,7,11,0.65); border-bottom: 1px solid rgba(255,255,255,0.07); }}
-QWidget#card_top {{ background: rgba(5,7,11,0.65); border-bottom: 1px solid rgba(255,255,255,0.07); }}
+QWidget#sidebar {{ background: rgba(255,255,255,0.03); border-right: 1px solid rgba(255,255,255,0.10); }}
+QWidget#card {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; }}
+QWidget#panel {{ background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; }}
+QWidget#page_body {{ background: transparent; border: none; }}
+QWidget#page_hdr {{ background: rgba(0,0,0,0.30); border-bottom: 1px solid rgba(255,255,255,0.07); }}
+QWidget#card_top {{ background: rgba(0,0,0,0.30); border-bottom: 1px solid rgba(255,255,255,0.07); }}
 QWidget#inset {{ background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px; }}
 
 QWidget#card QLabel {{ background: transparent; color: #e2ddd6; }}
@@ -198,78 +198,92 @@ QLineEdit:disabled {{ color: rgba(255,255,255,0.25); }}
 QTextEdit {{ background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 5px;
              padding: 8px; color: #e2ddd6; font-size: 13px; }}
 QTextEdit:focus {{ border-color: {_a}; }}
-QPlainTextEdit {{ background: rgba(0,0,0,0.30); border: 1px solid rgba(255,255,255,0.10); border-radius: 5px;
-                  padding: 8px; color: rgba(255,255,255,0.80); font-size: 13px; }}
+QPlainTextEdit {{ background: rgba(0,0,0,0.40); border: 1px solid rgba(255,255,255,0.07); border-radius: 6px;
+                  padding: 10px; color: rgba(255,255,255,0.82); font-size: 12px;
+                  font-family: 'Cascadia Code','SF Mono','Consolas',monospace; }}
 QPlainTextEdit:focus {{ border-color: {_a}; }}
 
-QSpinBox, QComboBox {{ background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px;
+QSpinBox, QComboBox {{ background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); border-radius: 5px;
                        padding: 6px 10px; color: #e2ddd6; min-height: 30px; font-size: 13px; }}
-QSpinBox:focus, QComboBox:focus {{ border-color: {_a}; }}
+QSpinBox:focus, QComboBox:focus {{ border-color: {_a}; background: rgba(255,255,255,0.10); }}
 QComboBox::drop-down {{ border: none; width: 22px; }}
-QComboBox QAbstractItemView {{ background: #1e2128; border: 1px solid rgba(255,255,255,0.12);
-    selection-background-color: {_a}; selection-color: #0a0a0a; outline: none; padding: 2px; }}
+QComboBox QAbstractItemView {{ background: {t["bg1"]}; border: 1px solid rgba(255,255,255,0.30);
+    outline: none; padding: 3px; color: #e2ddd6; border-radius: 6px; }}
+QComboBox QAbstractItemView::item {{ padding: 6px 12px; background: transparent; border-radius: 4px; color: #e2ddd6; }}
+QComboBox QAbstractItemView::item:hover {{ background: rgba(255,255,255,0.10); color: #fff; }}
+QComboBox QAbstractItemView::item:selected {{ background: rgba(255,255,255,0.10); color: #fff; }}
+QComboBox QListView {{ background: {t["bg1"]}; border: 1px solid rgba(255,255,255,0.30);
+    outline: none; color: #e2ddd6; border-radius: 6px; }}
+QComboBox QListView::item {{ padding: 6px 12px; background: transparent; border-radius: 4px; color: #e2ddd6; }}
+QComboBox QListView::item:hover {{ background: rgba(255,255,255,0.10); color: #fff; }}
+QComboBox QListView::item:selected {{ background: rgba(255,255,255,0.10); color: #fff; }}
+QListView {{ background: {t["bg1"]}; }}
+QListView::item {{ background: transparent; color: #e2ddd6; }}
 
-QPushButton {{ background: rgba(255,255,255,0.07); color: #e2ddd6; border: 1px solid rgba(255,255,255,0.12);
+QPushButton {{ background: transparent; color: rgba(255,255,255,0.80); border: 1px solid rgba(255,255,255,0.18);
                border-radius: 5px; padding: 0 14px; font-weight: 500; font-size: 13px;
                min-height: 32px; max-height: 44px; }}
-QPushButton:hover    {{ background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.25); }}
+QPushButton:hover    {{ background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.40); }}
 QPushButton:pressed  {{ background: rgba(255,255,255,0.04); }}
-QPushButton:disabled {{ color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.07); }}
-QPushButton#primary {{ background: {_a}; color: #0a0a0a; border: none; font-weight: 600;
+QPushButton:disabled {{ color: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.08); }}
+QPushButton#primary {{ background: transparent; color: {_a}; border: 1px solid {_a}; font-weight: 600;
                         font-size: 13px; border-radius: 6px; padding: 0 18px;
                         min-height: 32px; max-height: 44px; }}
-QPushButton#primary:hover    {{ background: {_a2}; }}
-QPushButton#primary:pressed  {{ background: {_a}; }}
-QPushButton#primary:disabled {{ background: rgba(200,134,26,0.20); color: rgba(10,10,10,0.4); }}
-QPushButton#run {{ background: {_suc}; color: #ffffff; border: none; font-weight: 600;
+QPushButton#primary:hover    {{ background: rgba(255,255,255,0.12); border-color: {_a}; }}
+QPushButton#primary:pressed  {{ background: rgba(255,255,255,0.04); }}
+QPushButton#primary:disabled {{ border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.20); }}
+QPushButton#run {{ background: transparent; color: {_suc}; border: 1px solid {_suc}; font-weight: 600;
                    font-size: 13px; border-radius: 5px; padding: 0 22px;
                    min-height: 34px; max-height: 44px; }}
-QPushButton#run:hover    {{ background: {_suc}; border: 1px solid rgba(255,255,255,0.22); }}
-QPushButton#run:disabled {{ background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.25); }}
-QPushButton#ghost {{ background: transparent; border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.75);
+QPushButton#run:hover    {{ background: rgba(255,255,255,0.12); border-color: {_suc}; }}
+QPushButton#run:disabled {{ color: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.08); }}
+QPushButton#ghost {{ background: transparent; border: 1px solid rgba(255,255,255,0.16); color: rgba(255,255,255,0.65);
                      font-size: 12px; padding: 0 12px; border-radius: 5px; font-weight: 500;
                      min-height: 28px; max-height: 44px; }}
-QPushButton#ghost:hover    {{ border-color: {_a}; color: {_a}; background: {_alo}; }}
-QPushButton#ghost:checked  {{ background: {_alo}; border-color: {_a}; color: {_a}; }}
+QPushButton#ghost:hover    {{ border-color: rgba(255,255,255,0.40); background: rgba(255,255,255,0.12); }}
+QPushButton#ghost:checked  {{ background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.30); color: #fff; }}
 QPushButton#ghost:disabled {{ color: rgba(255,255,255,0.20); border-color: rgba(255,255,255,0.07); }}
-QPushButton#danger {{ background: rgba(192,64,64,0.15); border: 1px solid rgba(192,64,64,0.35); color: rgba(210,110,110,0.90);
+QPushButton#danger {{ background: transparent; border: 1px solid rgba(192,64,64,0.45); color: rgba(220,120,120,0.90);
                        font-size: 12px; border-radius: 5px; padding: 0 12px; font-weight: 500;
                        min-height: 28px; max-height: 44px; }}
-QPushButton#danger:hover {{ background: rgba(192,64,64,0.28); border-color: rgba(192,64,64,0.70); }}
-QPushButton#cancel {{ background: rgba(192,64,64,0.15); border: 1px solid rgba(192,64,64,0.35);
-    color: rgba(210,110,110,0.90); border-radius: 5px; font-size: 12px; padding: 0 10px; font-weight: 500;
+QPushButton#danger:hover {{ background: rgba(192,64,64,0.15); border-color: rgba(192,64,64,0.75); }}
+QPushButton#cancel {{ background: transparent; border: 1px solid rgba(192,64,64,0.45);
+    color: rgba(220,120,120,0.90); border-radius: 5px; font-size: 12px; padding: 0 10px; font-weight: 500;
     min-height: 28px; max-height: 44px; }}
-QPushButton#cancel:hover {{ background: rgba(192,64,64,0.28); border-color: rgba(192,64,64,0.70); }}
-QPushButton#navbtn {{ background: transparent; border: none; border-radius: 5px; color: rgba(255,255,255,0.65);
+QPushButton#cancel:hover {{ background: rgba(192,64,64,0.15); border-color: rgba(192,64,64,0.75); }}
+QPushButton#navbtn {{ background: transparent; border: none; border-radius: 6px; color: rgba(255,255,255,0.50);
                        text-align: left; padding: 0 12px; font-size: 13px;
                        min-height: 34px; max-height: 44px; }}
-QPushButton#navbtn:hover {{ background: rgba(255,255,255,0.06); color: #e2ddd6; }}
-QPushButton#navbtn_active {{ background: {_alo}; border: none;
-    border-left: 3px solid {_a}; border-radius: 0px;
-    border-top-right-radius: 5px; border-bottom-right-radius: 5px;
-    color: {_a}; text-align: left; padding: 0 12px; padding-left: 9px;
+QPushButton#navbtn:hover {{ background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); color: rgba(255,255,255,0.90); }}
+QPushButton#navbtn_active {{ background: rgba(255,255,255,0.08);
+    border: none;
+    border-left: 2px solid {_a};
+    border-radius: 0px;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    color: {_a}; text-align: left; padding: 0 12px;
     font-size: 13px; font-weight: 600; min-height: 34px; max-height: 44px; }}
 QPushButton#tabbtn {{ background: transparent; border: none; min-width: 60px;
     border-bottom: 2px solid transparent; color: rgba(255,255,255,0.45);
     font-size: 13px; padding: 0 14px; border-radius: 0; font-weight: 500; }}
 QPushButton#tabbtn:checked {{ border-bottom-color: {_a}; color: {_a}; font-weight: 600; }}
 QPushButton#tabbtn:hover:!checked {{ color: #e2ddd6; background: rgba(255,255,255,0.05); }}
-QPushButton#toggle {{ background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 5px; color: #e2ddd6; font-size: 12px; padding: 0 12px; font-weight: 500;
+QPushButton#toggle {{ background: transparent; border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 5px; color: rgba(255,255,255,0.80); font-size: 12px; padding: 0 12px; font-weight: 500;
     min-height: 28px; max-height: 44px; }}
-QPushButton#toggle:checked {{ background: {_alo}; border-color: {_a}; color: {_a}; font-weight: 600; }}
-QPushButton#toggle:hover:!checked {{ border-color: rgba(255,255,255,0.25); }}
+QPushButton#toggle:checked {{ border-color: {_a}; color: {_a}; font-weight: 600; }}
+QPushButton#toggle:hover:!checked {{ border-color: rgba(255,255,255,0.35); color: #fff; }}
 QPushButton#icon_btn {{ background: transparent; border: 1px solid rgba(255,255,255,0.12);
     border-radius: 5px; color: #e2ddd6; font-size: 12px; padding: 0 10px; font-weight: 500;
     min-height: 28px; max-height: 44px; }}
-QPushButton#icon_btn:hover {{ border-color: {_a}; color: {_a}; background: {_alo}; }}
+QPushButton#icon_btn:hover {{ border-color: rgba(255,255,255,0.40); color: #fff; background: rgba(255,255,255,0.07); }}
 
 QLabel#sectiontitle {{ color: rgba(255,255,255,0.30); font-size: 9px; font-weight: 700; letter-spacing: 2px; background: transparent; }}
 
 QWidget#queue_hdr QPushButton {{ background: transparent; border: 1px solid rgba(255,255,255,0.12);
     color: #e2ddd6; border-radius: 4px; font-size: 11px; padding: 0 8px;
     min-height: 22px; max-height: 26px; font-weight: 500; }}
-QWidget#queue_hdr QPushButton:hover {{ border-color: {_a}; color: {_a}; background: {_alo}; }}
+QWidget#queue_hdr QPushButton:hover {{ border-color: rgba(255,255,255,0.40); background: rgba(255,255,255,0.07); }}
 QWidget#queue_hdr QPushButton#danger {{ background: rgba(192,64,64,0.15); border-color: rgba(192,64,64,0.35); color: rgba(210,110,110,0.90); }}
 QWidget#queue_hdr QPushButton#danger:hover {{ background: rgba(192,64,64,0.28); border-color: rgba(192,64,64,0.70); }}
 
@@ -278,7 +292,7 @@ QWidget#alb_row QLabel {{ background: transparent; border: none; color: #e2ddd6;
 QWidget#alb_row QPushButton {{ background: transparent; border: 1px solid rgba(255,255,255,0.12);
     color: #e2ddd6; border-radius: 5px; font-size: 12px; padding: 0 12px;
     min-height: 30px; max-height: 34px; font-weight: 500; }}
-QWidget#alb_row QPushButton:hover {{ border-color: {_a}; color: {_a}; background: {_alo}; }}
+QWidget#alb_row QPushButton:hover {{ border-color: rgba(255,255,255,0.40); background: rgba(255,255,255,0.07); }}
 QWidget#alb_row QPushButton#dl_btn {{ background: {_a}; color: #0a0a0a; border: none;
     font-weight: 600; border-radius: 5px; padding: 0 14px;
     min-height: 30px; max-height: 34px; }}
@@ -287,20 +301,21 @@ QWidget#alb_row QPushButton#dl_btn:hover {{ background: {_a2}; }}
 QTableWidget {{ background: rgba(10,12,16,0.40); alternate-background-color: rgba(255,255,255,0.022);
                 gridline-color: transparent; border: none; outline: none; font-size: 13px; border-radius: 8px; }}
 QTableWidget::item {{ padding: 3px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); color: #e2ddd6; }}
-QTableWidget::item:selected {{ background: {_alo}; color: #e2ddd6; border: none; }}
-QTableWidget::item:hover {{ background: transparent; border: none; }}
+QTableWidget::item:selected {{ background: rgba(255,255,255,0.10); color: #fff; border: none; }}
+QTableWidget::item:hover {{ background: rgba(255,255,255,0.04); border: none; }}
 QHeaderView {{ border: none; background: transparent; }}
 QHeaderView::section {{ background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.30); padding: 6px 12px;
     border: none; border-bottom: 1px solid rgba(255,255,255,0.06);
     font-size: 10px; font-weight: 700; letter-spacing: 1.2px; }}
 QHeaderView::section:last-child {{ border-right: none; }}
 
-QScrollBar:vertical {{ background: transparent; width: 6px; margin: 0; }}
-QScrollBar::handle:vertical {{ background: rgba(255,255,255,0.15); border-radius: 3px; min-height: 24px; }}
-QScrollBar::handle:vertical:hover {{ background: rgba(255,255,255,0.30); }}
+QScrollBar:vertical {{ background: transparent; width: 5px; margin: 2px 0; }}
+QScrollBar::handle:vertical {{ background: rgba(255,255,255,0.12); border-radius: 3px; min-height: 32px; }}
+QScrollBar::handle:vertical:hover {{ background: rgba(255,255,255,0.25); }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
-QScrollBar:horizontal {{ background: transparent; height: 6px; }}
-QScrollBar::handle:horizontal {{ background: rgba(255,255,255,0.15); border-radius: 3px; }}
+QScrollBar:horizontal {{ background: transparent; height: 5px; margin: 0 2px; }}
+QScrollBar::handle:horizontal {{ background: rgba(255,255,255,0.12); border-radius: 3px; min-width: 32px; }}
+QScrollBar::handle:horizontal:hover {{ background: rgba(255,255,255,0.25); }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
 
 QProgressBar {{ background: rgba(255,255,255,0.08); border: none; border-radius: 3px;
@@ -316,10 +331,10 @@ QCheckBox:disabled {{ color: rgba(255,255,255,0.25); }}
 
 QListWidget {{ background: rgba(10,12,16,0.40); border: none; outline: none; border-radius: 6px; }}
 QListWidget::item {{ padding: 6px 12px; border: none; color: #e2ddd6; }}
-QListWidget::item:selected {{ background: {_alo}; color: {_a}; border: none; }}
+QListWidget::item:selected {{ background: rgba(255,255,255,0.10); color: #fff; border: none; }}
 QListWidget::item:hover {{ background: rgba(255,255,255,0.05); color: #e2ddd6; }}
 
-QToolTip {{ background: #1e2128; color: #e2ddd6; border: 1px solid rgba(255,255,255,0.12);
+QToolTip {{ background: #252830; color: #e2ddd6; border: 1px solid rgba(255,255,255,0.16);
             padding: 5px 8px; border-radius: 5px; font-size: 12px; }}
 
 QTabWidget::pane {{ border: 1px solid rgba(255,255,255,0.10); border-radius: 6px;
@@ -329,19 +344,24 @@ QTabBar::tab {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,2
 QTabBar::tab:selected {{ background: rgba(255,255,255,0.10); color: #e2ddd6; }}
 
 QSplitter::handle {{ background: rgba(255,255,255,0.07); }}
+QSplitter::handle:hover {{ background: rgba(255,255,255,0.25); }}
+QSplitter::handle:pressed {{ background: rgba(255,255,255,0.40); }}
 QTreeWidget {{ background: rgba(10,12,16,0.40); border: none; outline: none; border-radius: 6px; color: #e2ddd6; }}
 QTreeWidget::item {{ padding: 3px; }}
-QTreeWidget::item:selected {{ background: {_alo}; color: {_a}; }}
+QTreeWidget::item:selected {{ background: rgba(255,255,255,0.10); color: #fff; }}
 QTreeWidget::item:hover {{ background: rgba(255,255,255,0.05); }}
 QTreeWidget QHeaderView::section {{ background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.35);
     padding: 4px 8px; border: none; border-bottom: 1px solid rgba(255,255,255,0.06);
     font-size: 10px; font-weight: 700; letter-spacing: 1.0px; }}
-QMenu {{ background: #1e2128; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 4px; }}
+QMenu {{ background: #252830; border: 1px solid rgba(255,255,255,0.16); border-radius: 6px; padding: 4px; }}
 QMenu::item {{ padding: 6px 18px; color: #e2ddd6; border-radius: 4px; }}
-QMenu::item:selected {{ background: {_alo}; color: {_a}; }}
+QMenu::item:selected {{ background: rgba(255,255,255,0.10); color: #fff; }}
 QMenu::separator {{ height: 1px; background: rgba(255,255,255,0.08); margin: 3px 8px; }}
 QScrollArea {{ background: transparent; border: none; }}
+QScrollArea > QWidget {{ background: transparent; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
+QStackedWidget {{ background: transparent; }}
+QSplitter {{ background: transparent; }}
 """
 
 
@@ -2043,24 +2063,38 @@ class PageBackground(QWidget):
         self._blur_w: Optional[_BlurWorker] = None
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.lower()
+        # Fade-in animation for when new art is first shown
+        self._opacity = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self._opacity)
+        self._opacity.setOpacity(1.0)
+        self._anim = QPropertyAnimation(self._opacity, b"opacity", self)
+        self._anim.setDuration(600)
+        self._anim.setStartValue(0.0)
+        self._anim.setEndValue(1.0)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._has_shown_art = False   # track first-time vs resize blur
 
     def set_art(self, raw: bytes, color: Optional[QColor] = None):
         self._raw   = raw
         self._color = color
         self._px    = None
+        self._has_shown_art = False   # new art incoming — fade it in when ready
         self._start_blur()
         self.update()
 
     def clear(self):
         self._raw = self._px = self._color = None
+        self._has_shown_art = False
+        self._anim.stop()
+        self._opacity.setOpacity(1.0)
         if self._blur_w and self._blur_w.isRunning():
             self._blur_w.requestInterruption()
         self._blur_w = None
         self.update()
 
     def resizeEvent(self, event):
-        # Invalidate cached pixmap and recompute at the new size in the background.
-        self._px = None
+        # Don't clear _px — keep the old pixmap visible while the new blur computes.
+        # paintEvent will stretch it temporarily which looks fine under the dark scrim.
         self._start_blur()
         super().resizeEvent(event)
 
@@ -2083,26 +2117,45 @@ class PageBackground(QWidget):
     def _on_blur_done(self, px: QPixmap):
         if not sip.isdeleted(self):
             self._px = px
+            if not self._has_shown_art:
+                # First time showing this art — fade in
+                self._has_shown_art = True
+                self._anim.stop()
+                self._opacity.setOpacity(0.0)
+                self._anim.start()
             self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         t = _current_theme
         painter.fillRect(self.rect(), QColor(t["bg0"]))
         if self._px and not self._px.isNull():
-            painter.drawPixmap(0, 0, self._px)
-        elif self._raw and self._px is None:
-            # Blur not ready yet — show a simple dark fill as placeholder
-            pass
-        # Heavy dark scrim — keeps text readable across entire page
-        grad = QLinearGradient(0, 0, 0, self.height())
-        grad.setColorAt(0.0, QColor(0, 0, 0, 195))
-        grad.setColorAt(0.5, QColor(0, 0, 0, 170))
-        grad.setColorAt(1.0, QColor(0, 0, 0, 205))
-        painter.fillRect(self.rect(), QBrush(grad))
-        if self._color and self._raw:
-            tint = QColor(self._color); tint.setAlpha(20)
-            painter.fillRect(self.rect(), tint)
+            # Stretch old pixmap to fill — looks fine under the dark scrim
+            painter.drawPixmap(self.rect(), self._px)
+            # Heavy dark scrim — keeps text readable across entire page
+            grad = QLinearGradient(0, 0, 0, self.height())
+            grad.setColorAt(0.0, QColor(0, 0, 0, 195))
+            grad.setColorAt(0.5, QColor(0, 0, 0, 170))
+            grad.setColorAt(1.0, QColor(0, 0, 0, 205))
+            painter.fillRect(self.rect(), QBrush(grad))
+            if self._color and self._raw:
+                tint = QColor(self._color); tint.setAlpha(20)
+                painter.fillRect(self.rect(), tint)
+        else:
+            # No art loaded — show the same dreamy accent gradient as StaticPageBackground
+            g1 = QLinearGradient(0, 0, self.width() * 0.65, self.height() * 0.55)
+            a1 = QColor(_current_theme["accent"]); a1.setAlpha(70)
+            a2 = QColor(_current_theme["accent"]); a2.setAlpha(22)
+            g1.setColorAt(0.0, a1); g1.setColorAt(0.45, a2); g1.setColorAt(1.0, QColor(0, 0, 0, 0))
+            painter.fillRect(self.rect(), QBrush(g1))
+            g2 = QLinearGradient(self.width(), self.height(), self.width() * 0.3, self.height() * 0.3)
+            a3 = QColor(_current_theme["accent"]); a3.setAlpha(20)
+            g2.setColorAt(0.0, a3); g2.setColorAt(1.0, QColor(0, 0, 0, 0))
+            painter.fillRect(self.rect(), QBrush(g2))
+            vign = QLinearGradient(0, self.height() * 0.4, 0, self.height())
+            vign.setColorAt(0.0, QColor(0, 0, 0, 0)); vign.setColorAt(1.0, QColor(0, 0, 0, 90))
+            painter.fillRect(self.rect(), QBrush(vign))
         painter.end()
 
 
@@ -2457,6 +2510,126 @@ def SectionLabel(text: str) -> QLabel:
     lbl = QLabel(text.upper()); lbl.setObjectName("sectiontitle"); return lbl
 
 
+class StaticPageBackground(QWidget):
+    """Subtle static gradient background for utility pages that have no album art."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.lower()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        t = _current_theme
+        p.fillRect(self.rect(), QColor(t["bg0"]))
+        grad = QLinearGradient(0, 0, self.width() * 0.65, self.height() * 0.55)
+        a1 = QColor(_current_theme["accent"]); a1.setAlpha(70)
+        a2 = QColor(_current_theme["accent"]); a2.setAlpha(22)
+        grad.setColorAt(0.0, a1); grad.setColorAt(0.45, a2); grad.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.fillRect(self.rect(), QBrush(grad))
+        grad2 = QLinearGradient(self.width(), self.height(), self.width() * 0.3, self.height() * 0.3)
+        a3 = QColor(_current_theme["accent"]); a3.setAlpha(20)
+        grad2.setColorAt(0.0, a3); grad2.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.fillRect(self.rect(), QBrush(grad2))
+        vign = QLinearGradient(0, self.height() * 0.4, 0, self.height())
+        vign.setColorAt(0.0, QColor(0, 0, 0, 0)); vign.setColorAt(1.0, QColor(0, 0, 0, 90))
+        p.fillRect(self.rect(), QBrush(vign))
+        p.end()
+
+
+class SidebarBackground(QWidget):
+    """Dreamy accent gradient background for the sidebar."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.lower()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        p.fillRect(self.rect(), QColor(_current_theme["bg1"]))
+        grad = QLinearGradient(0, 0, self.width(), self.height() * 0.5)
+        a1 = QColor(_current_theme["accent"]); a1.setAlpha(45)
+        a2 = QColor(_current_theme["accent"]); a2.setAlpha(10)
+        grad.setColorAt(0.0, a1); grad.setColorAt(0.5, a2); grad.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.fillRect(self.rect(), QBrush(grad))
+        vign = QLinearGradient(0, self.height() * 0.5, 0, self.height())
+        vign.setColorAt(0.0, QColor(0, 0, 0, 0)); vign.setColorAt(1.0, QColor(0, 0, 0, 80))
+        p.fillRect(self.rect(), QBrush(vign))
+        p.end()
+
+
+class PageHeader(QWidget):
+    """Standardised page header: consistent height, title, optional subtitle."""
+    HEIGHT = 52
+
+    def __init__(self, title: str, subtitle: str = "", parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(self.HEIGHT)
+        self.setObjectName("page_hdr")
+        hl = QHBoxLayout(self)
+        hl.setContentsMargins(28, 0, 24, 0); hl.setSpacing(12)
+
+        title_lbl = QLabel(title)
+        title_lbl.setStyleSheet(
+            f"color:{tok('accent')}; font-size:17px; font-weight:700;"
+            " letter-spacing:-0.3px; background:transparent;")
+        hl.addWidget(title_lbl)
+
+        if subtitle:
+            sep = QLabel("·")
+            sep.setStyleSheet("color:rgba(255,255,255,0.20); background:transparent; font-size:14px;")
+            sub_lbl = QLabel(subtitle)
+            sub_lbl.setStyleSheet(
+                "color:rgba(255,255,255,0.35); font-size:12px; background:transparent;")
+            hl.addWidget(sep); hl.addWidget(sub_lbl)
+
+        hl.addStretch()
+        self._right = hl   # callers can addWidget() to add buttons on the right
+
+    def add_widget(self, w):
+        self._right.addWidget(w)
+
+
+class SidebarSectionLabel(QWidget):
+    """Section label with subtle lines on either side — ── LABEL ──"""
+    def __init__(self, text: str, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(20)
+        hl = QHBoxLayout(self); hl.setContentsMargins(0, 0, 0, 0); hl.setSpacing(6)
+        def _line():
+            l = QFrame(); l.setFrameShape(QFrame.Shape.HLine)
+            l.setStyleSheet("border: none; background: rgba(255,255,255,0.08);")
+            l.setFixedHeight(1)
+            return l
+        lbl = QLabel(text.upper())
+        lbl.setStyleSheet("color:rgba(255,255,255,0.28); font-size:9px; font-weight:700;"
+                          " letter-spacing:1.8px; background:transparent;")
+        lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        hl.addWidget(_line(), stretch=1)
+        hl.addWidget(lbl)
+        hl.addWidget(_line(), stretch=1)
+
+
+    """Section label with subtle lines on either side — ── LABEL ──"""
+    def __init__(self, text: str, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(20)
+        hl = QHBoxLayout(self); hl.setContentsMargins(0, 0, 0, 0); hl.setSpacing(6)
+        def _line():
+            l = QFrame(); l.setFrameShape(QFrame.Shape.HLine)
+            l.setStyleSheet("border: none; background: rgba(255,255,255,0.08);")
+            l.setFixedHeight(1)
+            return l
+        lbl = QLabel(text.upper())
+        lbl.setStyleSheet("color:rgba(255,255,255,0.28); font-size:9px; font-weight:700;"
+                          " letter-spacing:1.8px; background:transparent;")
+        lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        hl.addWidget(_line(), stretch=1)
+        hl.addWidget(lbl)
+        hl.addWidget(_line(), stretch=1)
+
+
 class StatusDot(QLabel):
     def __init__(self, color="#555"):
         super().__init__("●")
@@ -2497,6 +2670,59 @@ class NavButton(QPushButton):
         self.style().unpolish(self); self.style().polish(self)
 
 
+class _ComboDelegate(QStyledItemDelegate):
+    """Custom delegate so combo popup items always paint with our bg, not the native style."""
+    BG_HOVER = QColor(255, 255, 255, 28)
+    FG       = QColor("#e2ddd6")
+    FG_SEL   = QColor("#ffffff")
+
+    def paint(self, painter, option, index):
+        painter.save()
+        hover = option.state & QStyle.StateFlag.State_MouseOver
+        sel   = option.state & QStyle.StateFlag.State_Selected
+        # Base: same dark bg as sidebar
+        painter.fillRect(option.rect, QColor(_current_theme["bg1"]))
+        # Accent gradient tint (matches SidebarBackground)
+        total_h = option.rect.height() * index.model().rowCount()
+        grad = QLinearGradient(0, 0, option.rect.width(), total_h * 0.5)
+        a1 = QColor(_current_theme["accent"]); a1.setAlpha(45)
+        a2 = QColor(_current_theme["accent"]); a2.setAlpha(10)
+        grad.setColorAt(0.0, a1); grad.setColorAt(0.5, a2); grad.setColorAt(1.0, QColor(0, 0, 0, 0))
+        painter.fillRect(option.rect, QBrush(grad))
+        # Hover/select highlight
+        if hover or sel:
+            painter.fillRect(option.rect, self.BG_HOVER)
+        painter.setPen(self.FG_SEL if (hover or sel) else self.FG)
+        painter.drawText(option.rect.adjusted(12, 0, -4, 0),
+                         Qt.AlignmentFlag.AlignVCenter, index.data())
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        sh = super().sizeHint(option, index)
+        return sh.__class__(sh.width(), max(sh.height(), 30))
+
+
+_combo_delegate = None  # lazily created singleton
+
+
+def _apply_combo_delegate(combo: QComboBox):
+    global _combo_delegate
+    if _combo_delegate is None:
+        _combo_delegate = _ComboDelegate()
+    v = combo.view()
+    v.setItemDelegate(_combo_delegate)
+    if v.window():
+        v.window().setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+
+
+# Patch QComboBox so every instance automatically uses our delegate
+_orig_combo_init = QComboBox.__init__
+def _patched_combo_init(self, *args, **kwargs):
+    _orig_combo_init(self, *args, **kwargs)
+    _apply_combo_delegate(self)
+QComboBox.__init__ = _patched_combo_init
+
+
 class Banner(QLabel):
     def __init__(self, text="", severity="info"):
         super().__init__(text)
@@ -2507,17 +2733,17 @@ class Banner(QLabel):
     def set(self, text: str, severity: str = "info"):
         t = _current_theme
         colors = {
-            "success": (t["success"], t["success"]+"18"),
-            "danger":  (t["danger"],  t["danger"]+"12"),
-            "warning": (t["warning"], t["warning"]+"14"),
-            "info":    (t["accent"],  t["accentlo"]),
-            "muted":   (t["txt2"],    t["bg3"]),
+            "success": (t["success"],             "rgba(58,153,85,0.08)"),
+            "danger":  (t["danger"],               "rgba(192,64,64,0.08)"),
+            "warning": (t["warning"],              "rgba(200,150,30,0.08)"),
+            "info":    ("rgba(255,255,255,0.35)",  "rgba(255,255,255,0.04)"),
+            "muted":   ("rgba(255,255,255,0.25)",  "rgba(255,255,255,0.03)"),
         }
         fg, bg = colors.get(severity, colors["muted"])
         self.setText(text)
         self.setStyleSheet(
-            f"border: 1px solid {fg}44; border-radius: 8px; padding: 9px 13px; "
-            f"background: {bg}; color: rgba(255,255,255,0.55); font-size: 12px;"
+            f"border: 1px solid {fg}55; border-radius: 6px; padding: 8px 12px; "
+            f"background: {bg}; color: rgba(255,255,255,0.60); font-size: 12px;"
         )
         self.setVisible(bool(text))
 
@@ -2589,6 +2815,21 @@ class ScalableArtLabel(QWidget):
             self._raw = raw
             self._img = img
             self._anim.stop(); self._anim.start()
+        else:
+            self._raw = self._img = None
+        self.update()
+
+    def set_art_instant(self, raw: bytes):
+        """Set art without fade animation — for rebuilds where art was already visible."""
+        if not raw:
+            self._raw = self._img = None
+            self.update(); return
+        img = QImage()
+        if img.loadFromData(raw):
+            self._raw = raw
+            self._img = img
+            self._anim.stop()
+            self._opacity.setOpacity(1.0)
         else:
             self._raw = self._img = None
         self.update()
@@ -2744,12 +2985,13 @@ class ScrobblePage(QWidget):
         # ── Glass header bar ──────────────────────────────────────────
         hdr = QWidget()
         hdr.setFixedHeight(52)
-        hdr.setStyleSheet("background: rgba(5,7,11,0.65); border-bottom: 1px solid rgba(255,255,255,0.07);")
+        hdr.setObjectName("scrobble_hdr")
+        hdr.setStyleSheet("QWidget#scrobble_hdr { background: rgba(0,0,0,0.30); border-bottom: 1px solid rgba(255,255,255,0.07); }")
         hdr_hl = QHBoxLayout(hdr)
-        hdr_hl.setContentsMargins(28, 0, 20, 0); hdr_hl.setSpacing(10)
+        hdr_hl.setContentsMargins(28, 10, 20, 10); hdr_hl.setSpacing(10)
 
         title = QLabel("Scrobble")
-        title.setStyleSheet("color:#fff; font-size:18px; font-weight:700; letter-spacing:-0.3px; background:transparent;")
+        title.setStyleSheet(f"color:{tok('accent')}; font-size:18px; font-weight:700; letter-spacing:-0.3px; background:transparent;")
         hdr_hl.addWidget(title)
 
         sub = QLabel("Load a .scrobbler.log and submit to your scrobbling platform.")
@@ -2762,10 +3004,14 @@ class ScrobblePage(QWidget):
         self._skip_confirm_cb = QCheckBox("Skip confirm")
         self._skip_confirm_cb.setToolTip("Submit without asking for confirmation each time")
         self._skip_confirm_cb.setStyleSheet(_opt_ss)
+        self._skip_confirm_cb.setChecked(self.conf().get("scrobble_skip_confirm", False))
+        self._skip_confirm_cb.toggled.connect(lambda v: (self.conf().__setitem__("scrobble_skip_confirm", v), save_conf(self.conf())))
         self._dry_cb = QCheckBox("Dry run")
         self._dry_cb.setToolTip("Dry run: marks tracks as previewed only — nothing is actually sent to any platform")
         self._dry_cb.stateChanged.connect(self._refresh_queue_label)
         self._dry_cb.setStyleSheet(_opt_ss)
+        self._dry_cb.setChecked(self.conf().get("scrobble_dry_run", False))
+        self._dry_cb.toggled.connect(lambda v: (self.conf().__setitem__("scrobble_dry_run", v), save_conf(self.conf())))
         hdr_hl.addWidget(self._skip_confirm_cb); hdr_hl.addSpacing(4); hdr_hl.addWidget(self._dry_cb)
         root.addWidget(hdr)
 
@@ -2792,7 +3038,7 @@ class ScrobblePage(QWidget):
         _glass_btn = ("QPushButton { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.75); "
                       "border:1px solid rgba(255,255,255,0.12); border-radius:5px; font-size:12px; "
                       "padding:0 12px; min-height:28px; max-height:28px; font-weight:500; }"
-                      "QPushButton:hover { background:rgba(255,255,255,0.13); border-color:rgba(255,255,255,0.25); color:#fff; }")
+                      "QPushButton:hover { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.35); }")
         _danger_btn = ("QPushButton { background:rgba(192,64,64,0.15); color:rgba(210,100,100,0.85); "
                        "border:1px solid rgba(192,64,64,0.35); border-radius:5px; font-size:12px; "
                        "padding:0 12px; min-height:28px; max-height:28px; font-weight:500; }"
@@ -2821,6 +3067,8 @@ class ScrobblePage(QWidget):
             "QCheckBox::indicator { width:13px; height:13px; border-radius:3px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.05); }"
             f"QCheckBox::indicator:checked {{ background:{tok('accent')}; border-color:{tok('accent')}; }}")
         lc.addWidget(self._archive_cb)
+        self._archive_cb.setChecked(self.conf().get("scrobble_archive_log", False))
+        self._archive_cb.toggled.connect(lambda v: (self.conf().__setitem__("scrobble_archive_log", v), save_conf(self.conf())))
         body_vb.addWidget(log_card)
 
         # ── Queue toolbar ─────────────────────────────────────────────
@@ -2864,7 +3112,7 @@ class ScrobblePage(QWidget):
         self._table.viewport().setMouseTracking(False)
         self._table.viewport().setAttribute(Qt.WidgetAttribute.WA_Hover, False)
         h = self._table.horizontalHeader()
-        h.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed); self._table.setColumnWidth(0, 40)
+        h.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed); self._table.setColumnWidth(0, 48)
         for c in [1,2,3]: h.setSectionResizeMode(c, QHeaderView.ResizeMode.Stretch)
         for c in [4,5,6]: h.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
         self._table.cellClicked.connect(self._on_cell_click)
@@ -2893,9 +3141,9 @@ class ScrobblePage(QWidget):
         self._submit_btn.setStyleSheet(
             f"QPushButton {{ background:{tok('accent')}; color:#0a0a0a; border:none; border-radius:8px;"
             " font-weight:700; font-size:14px; padding:0 22px; }"
-            f"QPushButton:hover {{ background:{tok('accent2')}; }}"
-            "QPushButton:pressed { background:#b87516; }"
-            f"QPushButton:disabled {{ background:{tok('accent')}40; color:rgba(10,10,10,0.4); }}")
+            f"QPushButton:hover {{ background:{tok('accent')}; border: 2px solid rgba(255,255,255,0.45); padding:0 20px; }}"
+            f"QPushButton:pressed {{ background:{tok('accent')}; border: none; padding:0 22px; }}"
+            f"QPushButton:disabled {{ background:rgba(180,130,0,0.25); color:rgba(10,10,10,0.4); }}")
         self._submit_btn.setToolTip("Submit selected tracks  (Ctrl+Return)")
         self._submit_btn.clicked.connect(self._submit)
         _sc = QShortcut(QKeySequence("Ctrl+Return"), self)
@@ -3061,14 +3309,18 @@ class ScrobblePage(QWidget):
             cb = QCheckBox()
             cb.setChecked(t.enabled and not done)
             cb.setStyleSheet(
-                "QCheckBox { background:transparent; margin-left:9px; }"
+                "QCheckBox { background:transparent; }"
                 "QCheckBox::indicator { width:14px; height:14px; border-radius:3px;"
                 " border:1px solid rgba(255,255,255,0.22); background:rgba(255,255,255,0.06); }"
                 f"QCheckBox::indicator:checked {{ background:{tok('accent')}; border-color:{tok('accent')}; }}"
                 f"QCheckBox::indicator:checked:hover {{ background:{tok('accent')}; border-color:{tok('accent')}; }}"
                 "QCheckBox::indicator:hover { border-color:rgba(255,255,255,0.22); background:rgba(255,255,255,0.06); }")
             cb.stateChanged.connect(lambda st, tr=t, c=cb: self._on_cb_changed(tr, c))
-            self._table.setCellWidget(row, 0, cb)
+            # Center the checkbox in its cell
+            cb_wrap = QWidget(); cb_wrap.setStyleSheet("background:transparent;")
+            cb_lay = QHBoxLayout(cb_wrap); cb_lay.setContentsMargins(0,0,0,0)
+            cb_lay.setAlignment(Qt.AlignmentFlag.AlignCenter); cb_lay.addWidget(cb)
+            self._table.setCellWidget(row, 0, cb_wrap)
 
             local_str = t.local_dt.strftime("%d %b  %H:%M")
             utc_str   = t.utc_dt.strftime("%d %b  %H:%M")
@@ -3094,19 +3346,33 @@ class ScrobblePage(QWidget):
         track.enabled = cb.isChecked(); self._refresh_queue_label()
 
     def _on_cell_click(self, row, col):
+        w = self._table.cellWidget(row, 0)
+        cb = w.findChild(QCheckBox) if w else None
+        if not cb: return
+        # Only toggle via cellClicked when NOT clicking column 0 directly
+        # (col 0 click on the checkbox widget itself is handled by the checkbox)
         if col != 0:
-            w = self._table.cellWidget(row, 0)
-            if w: w.setChecked(not w.isChecked())
+            cb.setChecked(not cb.isChecked())
+        else:
+            # col 0 but missed the checkbox indicator — still toggle
+            pos = self._table.viewport().mapFromGlobal(self._table.cursor().pos())
+            cb_global = cb.mapToGlobal(cb.rect().topLeft())
+            cb_local = self._table.viewport().mapFromGlobal(cb_global)
+            cb_rect = cb.rect().translated(cb_local)
+            if not cb_rect.contains(pos):
+                cb.setChecked(not cb.isChecked())
 
     def _select_all(self):
         for i in range(self._table.rowCount()):
             w = self._table.cellWidget(i, 0)
-            if w: w.setChecked(True)
+            cb = w.findChild(QCheckBox) if w else None
+            if cb: cb.setChecked(True)
 
     def _deselect_all(self):
         for i in range(self._table.rowCount()):
             w = self._table.cellWidget(i, 0)
-            if w: w.setChecked(False)
+            cb = w.findChild(QCheckBox) if w else None
+            if cb: cb.setChecked(False)
 
     def _refresh_queue_label(self):
         plat     = self.get_platform()
@@ -3212,6 +3478,7 @@ class StatsPage(QWidget):
         self._fetchers: list[ArtFetcher] = []
         self._art_queue: list[ArtFetcher] = []
         self._art_labels: dict[tuple, AlbumArtLabel] = {}
+        self._track_art_labels: dict[tuple, AlbumArtLabel] = {}
         self._build()
 
     def _lfm_key(self) -> str:
@@ -3236,7 +3503,7 @@ class StatsPage(QWidget):
         hdr_hl.setContentsMargins(28, 0, 20, 0); hdr_hl.setSpacing(10)
 
         title = QLabel("Statistics")
-        title.setStyleSheet("color:#fff; font-size:18px; font-weight:700; "
+        title.setStyleSheet(f"color:{tok('accent')}; font-size:18px; font-weight:700; "
                             "letter-spacing:-0.3px; background:transparent;")
         hdr_hl.addWidget(title); hdr_hl.addStretch()
 
@@ -3275,7 +3542,28 @@ class StatsPage(QWidget):
             cards_hl.addWidget(c, stretch=1)
         root.addWidget(cards_wrap)
 
-        # ── Scrollable content ────────────────────────────────────────
+        # ── Scrollable content (or empty state) ──────────────────────
+        self._content_stack = QStackedWidget()
+        self._content_stack.setStyleSheet("background: transparent;")
+
+        # Empty state
+        empty_w = QWidget(); empty_w.setStyleSheet("background: transparent;")
+        empty_vb = QVBoxLayout(empty_w); empty_vb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_icon = QLabel("◉"); empty_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_icon.setStyleSheet(f"color:rgba(255,255,255,0.10); font-size:64px; background:transparent;")
+        empty_title = QLabel("No scrobble data yet")
+        empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_title.setStyleSheet("color:rgba(255,255,255,0.45); font-size:17px; font-weight:600; background:transparent;")
+        empty_sub = QLabel("Load a .scrobbler.log file on the Scrobble page to see your statistics.")
+        empty_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_sub.setWordWrap(True)
+        empty_sub.setStyleSheet("color:rgba(255,255,255,0.25); font-size:13px; background:transparent;")
+        empty_vb.addStretch(); empty_vb.addWidget(empty_icon); empty_vb.addSpacing(12)
+        empty_vb.addWidget(empty_title); empty_vb.addSpacing(6); empty_vb.addWidget(empty_sub)
+        empty_vb.addStretch()
+        self._content_stack.addWidget(empty_w)   # index 0 = empty
+
+        # Real scrollable content
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -3285,20 +3573,68 @@ class StatsPage(QWidget):
         body_vb = QVBoxLayout(body)
         body_vb.setContentsMargins(28, 16, 28, 28); body_vb.setSpacing(20)
         scroll.setWidget(body)
-        root.addWidget(scroll, stretch=1)
+        self._content_stack.addWidget(scroll)    # index 1 = content
+        root.addWidget(self._content_stack, stretch=1)
 
-        # ── Top Albums ────────────────────────────────────────────────
-        sec_lbl = QLabel("TOP ALBUMS"); sec_lbl.setObjectName("sectiontitle")
-        body_vb.addWidget(sec_lbl)
+        # ── Top Albums + Top Tracks cards side by side in glass panels ─
+        cards_row = QHBoxLayout(); cards_row.setSpacing(12); cards_row.setContentsMargins(0,0,0,0)
 
-        # Fixed-size flashcards in a left-aligned HBox (max 5)
-        self._albums_inner  = QWidget(); self._albums_inner.setStyleSheet("background:transparent;")
-        self._albums_layout = QHBoxLayout(self._albums_inner)
-        self._albums_layout.setSpacing(10); self._albums_layout.setContentsMargins(0,0,0,0)
-        self._albums_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        body_vb.addWidget(self._albums_inner)
+        ALBUM_ACCENT = tok('accent')   # uses current theme accent
+        TRACK_ACCENT = tok('accent')   # uses current theme accent
 
-        # ── Top Artists + Tracks ──────────────────────────────────────
+        def _make_card_panel(section_title: str, symbol: str, accent_color: str):
+            """Glass panel that holds a section title + horizontal card row."""
+            panel = QWidget()
+            panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            panel.setStyleSheet(
+                f"QWidget#card_panel {{ background:rgba(10,12,16,0.55);"
+                f" border:1px solid rgba(255,255,255,0.07);"
+                f" border-top: 2px solid {accent_color};"
+                f" border-radius:8px; }}"
+                "QWidget { background: transparent; }")
+            panel.setObjectName("card_panel")
+            vb = QVBoxLayout(panel); vb.setContentsMargins(14, 12, 14, 14); vb.setSpacing(10)
+
+            # Header row: symbol + title
+            hdr_hl = QHBoxLayout(); hdr_hl.setSpacing(6); hdr_hl.setContentsMargins(0,0,0,0)
+            sym_lbl = QLabel(symbol)
+            sym_lbl.setStyleSheet(f"color:{accent_color}; font-size:13px; background:transparent;")
+            ttl_lbl = QLabel(section_title)
+            ttl_lbl.setStyleSheet(
+                f"color:{accent_color}; font-size:10px; font-weight:700;"
+                " letter-spacing:2px; background:transparent;")
+            hdr_hl.addWidget(sym_lbl); hdr_hl.addWidget(ttl_lbl); hdr_hl.addStretch()
+            vb.addLayout(hdr_hl)
+
+            # Cards container
+            inner = QWidget(); inner.setStyleSheet("background:transparent;")
+            inner.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            layout = QHBoxLayout(inner)
+            layout.setSpacing(8); layout.setContentsMargins(0,0,0,0)
+            layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            vb.addWidget(inner)
+
+            panel._cards_inner  = inner
+            panel._cards_layout = layout
+            panel._accent       = accent_color
+            return panel
+
+        self._albums_panel = _make_card_panel("TOP ALBUMS", "◉", ALBUM_ACCENT)
+        self._tracks_panel = _make_card_panel("TOP TRACKS", "♪", TRACK_ACCENT)
+
+        self._albums_inner  = self._albums_panel._cards_inner
+        self._albums_layout = self._albums_panel._cards_layout
+        self._tracks_inner  = self._tracks_panel._cards_inner
+        self._tracks_layout = self._tracks_panel._cards_layout
+
+        cards_row.addWidget(self._albums_panel, stretch=1)
+        cards_row.addWidget(self._tracks_panel, stretch=1)
+        body_vb.addLayout(cards_row)
+
+        # Store reference to body layout for resize calculations
+        self._cards_row = cards_row
+
+        # ── Top Artists + Tracks ranked lists ────────────────────────
         bottom_row = QHBoxLayout(); bottom_row.setSpacing(14)
         self._top_artists_w = self._make_ranked_list("TOP ARTISTS")
         self._top_tracks_w  = self._make_ranked_list("TOP TRACKS")
@@ -3309,6 +3645,58 @@ class StatsPage(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._bg.setGeometry(self.rect())
+        if not hasattr(self, "_resize_timer"):
+            self._resize_timer = QTimer()
+            self._resize_timer.setSingleShot(True)
+            self._resize_timer.timeout.connect(self._on_resize_settle)
+        self._resize_timer.start(150)
+
+    def _on_resize_settle(self):
+        """Called after resize debounce. If mouse still held, wait for release."""
+        from PyQt6.QtWidgets import QApplication as _QApp
+        if _QApp.mouseButtons() & Qt.MouseButton.LeftButton:
+            # User is still dragging — wait for mouse release then rebuild
+            if not hasattr(self, "_release_timer"):
+                self._release_timer = QTimer()
+                self._release_timer.setSingleShot(True)
+                self._release_timer.timeout.connect(self._poll_mouse_release)
+            self._release_timer.start(50)
+        else:
+            self._rebuild_cards_only()
+
+    def _poll_mouse_release(self):
+        """Poll until mouse button is released, then rebuild."""
+        from PyQt6.QtWidgets import QApplication as _QApp
+        if _QApp.mouseButtons() & Qt.MouseButton.LeftButton:
+            self._release_timer.start(50)   # still held — keep polling
+        else:
+            self._rebuild_cards_only()      # released — now rebuild
+
+    def _rebuild_cards_only(self):
+        """Rebuild card layout using cached track data — no DB read, no art re-fetch, no flicker."""
+        lt = getattr(self, "_cached_lt", None)
+        if not lt:
+            return
+        self._clear_cards_keep_bg()   # preserve background art
+        alb_n, alb_cw = self._cards_fit_for(self._albums_panel, max_n=5)
+        trk_n, trk_cw = self._cards_fit_for(self._tracks_panel, max_n=5)
+        top_albums = Counter((t.artist, t.album) for t in lt).most_common(5)
+        for i, ((artist, album), cnt) in enumerate(top_albums[:alb_n]):
+            self._add_album_card(artist, album, cnt, index=i, card_w=alb_cw)
+            key = (artist.lower(), album.lower())
+            raw = ArtFetcher._cache.get(key)
+            lbl = self._art_labels.get(key)
+            if lbl and raw:
+                lbl.set_art_instant(raw)   # no fade — art was already visible
+        top_tracks_full = Counter((t.artist, t.title, t.album) for t in lt).most_common(5)
+        for i, ((artist, title, album), cnt) in enumerate(top_tracks_full[:trk_n]):
+            self._add_track_card(artist, title, album, cnt, index=i, card_w=trk_cw)
+            track_key = (artist.lower(), title.lower())
+            album_key  = (artist.lower(), album.lower())
+            raw = ArtFetcher._cache.get(album_key)
+            lbl = self._track_art_labels.get(track_key)
+            if lbl and raw:
+                lbl.set_art_instant(raw)
 
     def _make_stat_card(self, line1: str, line2: str) -> QWidget:
         """Compact glass-style stat card. No emoji, no per-card color."""
@@ -3366,16 +3754,30 @@ class StatsPage(QWidget):
         while self._albums_layout.count():
             item = self._albums_layout.takeAt(0)
             if item.widget(): item.widget().deleteLater()
+        while self._tracks_layout.count():
+            item = self._tracks_layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
         self._art_labels.clear()
+        self._track_art_labels: dict[tuple, AlbumArtLabel] = {}
         self._bg.clear()
 
-    def _make_album_card(self, artist: str, album: str, count: int, rank: int) -> tuple:
+    def _clear_cards_keep_bg(self):
+        """Clear card widgets only — preserve background art to avoid flicker on resize."""
+        while self._albums_layout.count():
+            item = self._albums_layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+        while self._tracks_layout.count():
+            item = self._tracks_layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+        self._art_labels.clear()
+        self._track_art_labels: dict[tuple, AlbumArtLabel] = {}
+
+    def _make_album_card(self, artist: str, album: str, count: int, rank: int, card_w: int = 150) -> tuple:
         """Square art card: art is always 1:1, compact info strip below."""
         t = _current_theme
 
-        # Fixed flashcard: 160px wide art square + 62px info strip
-        CARD_W = 160
-        ART_H  = 160
+        CARD_W = card_w
+        ART_H  = CARD_W
         INFO_H = 62
 
         card = QWidget()
@@ -3423,13 +3825,131 @@ class StatsPage(QWidget):
         vb.addWidget(info)
         return card, art
 
-    def _add_album_card(self, artist: str, album: str, count: int, index: int = 0):
+    def _cards_fit_for(self, panel: QWidget, max_n: int = 5, min_card: int = 100) -> tuple:
+        """Return (n_cards, card_width) fitting inside panel at minimum min_card px each."""
+        # Use the page width to calculate — panel.width() can lag after window resize
+        # Page width minus sidebar(160) minus body margins(56) divided by 2 panels minus gap(12)
+        page_w = self.width()
+        if page_w < 100:
+            page_w = 1200  # fallback before first paint
+        # Available width for one panel: half of (page - body_margins - gap_between_panels)
+        body_margins = 56   # 28px left + 28px right
+        gap = 12
+        panel_w = (page_w - body_margins - gap) // 2
+        padding = 28   # 14px left + 14px right inside panel
+        for n in range(max_n, 0, -1):
+            spacing = 8 * (n - 1)
+            cw = (panel_w - padding - spacing) // n
+            if cw >= min_card:
+                return n, cw
+        return 1, panel_w - padding
+
+    def _card_w_for(self, panel: QWidget, n: int = 5) -> int:
+        """Compute card width so n cards fit inside panel with padding and spacing."""
+        pw = panel.width()
+        if pw < 50:
+            pw = 600
+        padding = 28
+        spacing = 8 * (n - 1)
+        return max(80, (pw - padding - spacing) // n)
+
+    def _add_album_card(self, artist: str, album: str, count: int, index: int = 0, card_w: int = 0):
         key = (artist.lower(), album.lower())
-        card, art = self._make_album_card(artist, album, count, rank=index + 1)
+        card, art = self._make_album_card(artist, album, count, rank=index + 1, card_w=card_w or 150)
         self._albums_layout.addWidget(card)
         self._art_labels[key] = art
 
+    def _make_track_card(self, artist: str, title: str, album: str, count: int, rank: int, card_w: int = 150) -> tuple:
+        """Square art card for a top track — same aesthetic as album card."""
+        t = _current_theme
+        CARD_W = card_w
+        ART_H  = CARD_W
+        INFO_H = 62
+
+        card = QWidget()
+        card.setFixedSize(CARD_W, ART_H + INFO_H)
+        card.setStyleSheet(
+            "QWidget { background:rgba(10,12,16,0.60); border-radius:8px; border:none; }"
+            "QWidget:hover { background:rgba(255,255,255,0.07); }")
+        vb = QVBoxLayout(card)
+        vb.setContentsMargins(0, 0, 0, 0); vb.setSpacing(0)
+
+        art = ScalableArtLabel()
+        art.setFixedSize(CARD_W, ART_H)
+        art.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        art._card = card
+        vb.addWidget(art)
+
+        info = QWidget()
+        info.setFixedSize(CARD_W, INFO_H)
+        info.setStyleSheet("background:transparent;")
+        info_vb = QVBoxLayout(info)
+        info_vb.setContentsMargins(10, 6, 10, 8); info_vb.setSpacing(1)
+
+        meta_row = QHBoxLayout(); meta_row.setSpacing(4)
+        rank_lbl = QLabel(f"#{rank}")
+        rank_lbl.setStyleSheet(
+            f"color:{t['accent']}; font-size:10px; font-weight:700; background:transparent;")
+        cnt_lbl = QLabel(f"{count} play{'s' if count != 1 else ''}")
+        cnt_lbl.setStyleSheet(
+            "color:rgba(255,255,255,0.40); font-size:10px; background:transparent;")
+        meta_row.addWidget(rank_lbl); meta_row.addStretch(); meta_row.addWidget(cnt_lbl)
+        info_vb.addLayout(meta_row)
+
+        fm = QFontMetrics(QLabel().font())
+        tlbl = QLabel(title); tlbl.setWordWrap(False)
+        tlbl.setText(fm.elidedText(title, Qt.TextElideMode.ElideRight, CARD_W - 20))
+        tlbl.setStyleSheet("font-weight:700; font-size:12px; color:#fff; background:transparent;")
+        arlbl = QLabel(artist); arlbl.setWordWrap(False)
+        arlbl.setText(fm.elidedText(artist, Qt.TextElideMode.ElideRight, CARD_W - 20))
+        arlbl.setStyleSheet("font-size:11px; color:rgba(255,255,255,0.50); background:transparent;")
+        info_vb.addWidget(tlbl); info_vb.addWidget(arlbl)
+        vb.addWidget(info)
+        return card, art
+
+    def _add_track_card(self, artist: str, title: str, album: str, count: int, index: int = 0, card_w: int = 0):
+        if not hasattr(self, "_track_art_labels"):
+            self._track_art_labels = {}
+        key = (artist.lower(), title.lower())
+        card, art = self._make_track_card(artist, title, album, count, rank=index + 1, card_w=card_w or 150)
+        self._tracks_layout.addWidget(card)
+        self._track_art_labels[key] = art
+
     _ART_CONCURRENCY = 2   # low enough to avoid disk I/O storms
+
+    def _fetch_track_art_for(self, artist: str, title: str, album: str, all_tracks: list):
+        """Fetch art for a track card using its album name as the lookup key."""
+        if not hasattr(self, "_track_art_labels"):
+            self._track_art_labels = {}
+        track_key = (artist.lower(), title.lower())
+        album_key = (artist.lower(), album.lower())
+        # Reuse cached album art if available
+        if album_key in ArtFetcher._cache:
+            raw = ArtFetcher._cache[album_key]
+            lbl = self._track_art_labels.get(track_key)
+            if lbl and raw:
+                lbl.set_art(raw)
+            return
+        # Otherwise fetch via album
+        f = ArtFetcher(artist, album, self.get_log_paths(), all_tracks, api_key=self._lfm_key())
+        # Store the track_key so the result handler can find the right label
+        f._track_key = track_key
+        f.result.connect(self._on_track_art_result)
+        f.finished.connect(self._on_fetcher_done)
+        self._fetchers.append(f); self._art_queue.append(f)
+        self._drain_art_queue()
+
+    def _on_track_art_result(self, artist: str, album: str, raw: bytes):
+        # The sender() is the ArtFetcher that emitted; find its _track_key
+        sender = self.sender()
+        track_key = getattr(sender, "_track_key", None)
+        def _apply():
+            if not hasattr(self, "_track_art_labels") or not track_key:
+                return
+            lbl = self._track_art_labels.get(track_key)
+            if lbl and raw:
+                lbl.set_art(raw)
+        QTimer.singleShot(0, _apply)
 
     def _fetch_art_for(self, artist: str, album: str, all_tracks: list, is_top: bool = False):
         key = (artist.lower(), album.lower())
@@ -3508,12 +4028,30 @@ class StatsPage(QWidget):
         else:              self._card_time._num.setText("—")
 
         lt = [t for t in tracks if t.listened]
+        self._cached_lt = lt   # cache for resize rebuilds
+
+        # Show empty state if no data
+        self._content_stack.setCurrentIndex(0 if not lt else 1)
+        if not lt:
+            self._clear_albums()
+            return
+
         self._clear_albums()
-        top_albums = Counter((t.artist, t.album) for t in lt).most_common(10)
-        # Max 5 fixed-size flashcards, left-aligned, no stretching
-        for i, ((artist, album), cnt) in enumerate(top_albums[:5]):
-            self._add_album_card(artist, album, cnt, index=i)
+        top_albums = Counter((t.artist, t.album) for t in lt).most_common(5)
+
+        # Compute how many cards + width fit in each panel right now
+        alb_n, alb_cw = self._cards_fit_for(self._albums_panel, max_n=5)
+        trk_n, trk_cw = self._cards_fit_for(self._tracks_panel, max_n=5)
+
+        for i, ((artist, album), cnt) in enumerate(top_albums[:alb_n]):
+            self._add_album_card(artist, album, cnt, index=i, card_w=alb_cw)
             self._fetch_art_for(artist, album, lt, is_top=(i == 0))
+
+        # Top Tracks flashcards
+        top_tracks_full = Counter((t.artist, t.title, t.album) for t in lt).most_common(5)
+        for i, ((artist, title, album), cnt) in enumerate(top_tracks_full[:trk_n]):
+            self._add_track_card(artist, title, album, cnt, index=i, card_w=trk_cw)
+            self._fetch_track_art_for(artist, title, album, lt)
 
         t = _current_theme
 
@@ -3633,12 +4171,13 @@ class HistoryPage(QWidget):
         # ── Glass header ──────────────────────────────────────────────
         hdr = QWidget()
         hdr.setFixedHeight(52)
-        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
+        hdr.setObjectName("history_hdr")
+        hdr.setStyleSheet("QWidget#history_hdr { background:rgba(0,0,0,0.30); border-bottom:1px solid rgba(255,255,255,0.07); }")
         hdr_hl = QHBoxLayout(hdr)
         hdr_hl.setContentsMargins(28, 0, 20, 0); hdr_hl.setSpacing(12)
 
         title = QLabel("History")
-        title.setStyleSheet("color:#fff; font-size:18px; font-weight:700; letter-spacing:-0.3px; background:transparent;")
+        title.setStyleSheet(f"color:{tok('accent')}; font-size:18px; font-weight:700; letter-spacing:-0.3px; background:transparent;")
         hdr_hl.addWidget(title); hdr_hl.addStretch()
 
         self._search = QLineEdit()
@@ -3648,7 +4187,7 @@ class HistoryPage(QWidget):
         self._search.setStyleSheet(
             "QLineEdit { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);"
             " border-radius:6px; padding:0 10px; color:#fff; font-size:12px; }"
-            "QLineEdit:focus { border-color:rgba(200,134,26,0.7); background:rgba(255,255,255,0.10); }")
+            f"QLineEdit:focus {{ border-color:{tok('accent')}b3; background:rgba(255,255,255,0.10); }}")
         self._search.textChanged.connect(self._apply_filter)
 
         self._plat_filter = QComboBox()
@@ -3658,15 +4197,22 @@ class HistoryPage(QWidget):
         self._plat_filter.setStyleSheet(
             "QComboBox { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);"
             " border-radius:6px; padding:0 10px; color:#fff; font-size:12px; }"
-            "QComboBox:focus { border-color:rgba(200,134,26,0.7); }"
+            f"QComboBox:focus {{ border-color:{tok('accent')}b3; }}"
             "QComboBox::drop-down { border:none; }"
-            "QComboBox QAbstractItemView { background:#1a1c22; color:#fff; selection-background-color:rgba(200,134,26,0.25); border:1px solid rgba(255,255,255,0.12); }")
+            "QComboBox QAbstractItemView { background:#111318; color:#fff; border:1px solid rgba(255,255,255,0.14); outline:none; }"
+            "QComboBox QAbstractItemView::item { background:#111318; padding:5px 10px; color:#fff; }"
+            "QComboBox QAbstractItemView::item:hover { background:rgba(255,255,255,0.08); color:#fff; }"
+            f"QComboBox QAbstractItemView::item:selected {{ background:{tok('accent')}40; color:#fff; }}"
+            "QComboBox QListView { background:#111318; color:#fff; border:1px solid rgba(255,255,255,0.14); outline:none; }"
+            "QComboBox QListView::item { background:#111318; padding:5px 10px; color:#fff; }"
+            "QComboBox QListView::item:hover { background:rgba(255,255,255,0.08); color:#fff; }"
+            f"QComboBox QListView::item:selected {{ background:{tok('accent')}40; color:#fff; }}")
         self._plat_filter.currentTextChanged.connect(self._apply_filter)
 
         _glass_btn = ("QPushButton { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.75);"
                       " border:1px solid rgba(255,255,255,0.12); border-radius:5px; font-size:12px;"
                       " padding:0 12px; min-height:28px; max-height:28px; font-weight:500; }"
-                      "QPushButton:hover { background:rgba(255,255,255,0.13); color:#fff; border-color:rgba(255,255,255,0.25); }")
+                      "QPushButton:hover { background:rgba(255,255,255,0.13); border-color:rgba(255,255,255,0.25); }")
         _danger_btn = ("QPushButton { background:rgba(192,64,64,0.15); color:rgba(210,100,100,0.85);"
                        " border:1px solid rgba(192,64,64,0.35); border-radius:5px; font-size:12px;"
                        " padding:0 12px; min-height:28px; max-height:28px; font-weight:500; }"
@@ -3700,7 +4246,7 @@ class HistoryPage(QWidget):
             "QTableWidget { background:rgba(10,12,16,0.40); alternate-background-color:rgba(255,255,255,0.022);"
             " border:none; border-radius:10px; outline:none; font-size:13px; }"
             "QTableWidget::item { padding:4px 14px; border-bottom:1px solid rgba(255,255,255,0.035); color:rgba(255,255,255,0.85); }"
-            "QTableWidget::item:selected { background:rgba(200,134,26,0.15); color:#fff; border:none; }"
+            f"QTableWidget::item:selected {{ background:{tok('accent')}26; color:#fff; border:none; }}"
             "QTableWidget::item:hover { background:transparent; border:none; }"
             "QHeaderView { border:none; background:transparent; }"
             "QHeaderView::section { background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.30);"
@@ -3757,7 +4303,7 @@ class HistoryPage(QWidget):
         _pag_ss = ("QPushButton { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.60);"
                    " border:1px solid rgba(255,255,255,0.10); border-radius:5px; font-size:12px;"
                    " padding:0 14px; min-height:28px; max-height:28px; }"
-                   "QPushButton:hover:!disabled { background:rgba(255,255,255,0.12); color:#fff; }"
+                   "QPushButton:hover:!disabled { background:rgba(255,255,255,0.07); }"
                    "QPushButton:disabled { color:rgba(255,255,255,0.20); border-color:rgba(255,255,255,0.06); }")
         self._prev_btn = QPushButton("‹  Prev")
         self._next_btn = QPushButton("Next  ›")
@@ -3990,20 +4536,15 @@ class RockboxToolsPage(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # Glass header
-        hdr = QWidget(); hdr.setFixedHeight(52)
-        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
-        hdr_hl = QHBoxLayout(hdr); hdr_hl.setContentsMargins(28, 0, 20, 0); hdr_hl.setSpacing(10)
-        hdr_title = QLabel("Rockbox Tools")
-        hdr_title.setStyleSheet("color:#fff; font-size:18px; font-weight:700; letter-spacing:-0.3px; background:transparent;")
-        hdr_sub = QLabel("Database rebuilder, config.cfg editor and tagnavi.config editor.")
-        hdr_sub.setStyleSheet("color:rgba(255,255,255,0.35); font-size:12px; background:transparent;")
-        hdr_hl.addWidget(hdr_title); hdr_hl.addWidget(hdr_sub); hdr_hl.addStretch()
-        outer.addWidget(hdr)
+        self._bg = StaticPageBackground(self)
+        self._bg.setGeometry(self.rect())
+
+        outer.addWidget(PageHeader("Rockbox Tools", "database rebuilder · config.cfg editor · tagnavi editor"))
 
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        inner = QWidget()
+        scroll.setStyleSheet("QScrollArea{background:transparent;border:none;}")
+        inner = QWidget(); inner.setStyleSheet("background:transparent;")
         root  = QVBoxLayout(inner)
         root.setContentsMargins(28, 20, 28, 24)
         root.setSpacing(20)
@@ -4026,16 +4567,16 @@ class RockboxToolsPage(QWidget):
         # ── Tab widget: DB rebuilder | Config editor | Tagnavi ──
         tabs = QTabWidget()
         tabs.setDocumentMode(True)
-        tabs.setStyleSheet("""
-            QTabWidget::pane {{ border: 1px solid {_current_theme['border']}; border-radius: 6px;
-                                background: {_current_theme['bg0']}; }}
-            QTabBar::tab {{ background: {_current_theme['bg2']}; color: {_current_theme['txt1']};
-                            border: 1px solid {_current_theme['border']};
-                            border-bottom: none; border-radius: 4px 4px 0 0;
+        tabs.setStyleSheet(f"""
+            QTabWidget::pane {{ border: 1px solid rgba(255,255,255,0.10); border-radius: 6px;
+                                background: rgba(255,255,255,0.03); }}
+            QTabBar::tab {{ background: transparent; color: rgba(255,255,255,0.45);
+                            border: none;
+                            border-bottom: 2px solid transparent;
                             padding: 7px 18px; font-size: 13px; }}
-            QTabBar::tab:selected {{ background: {_current_theme['bg0']}; color: {_current_theme['accent']};
-                                      border-bottom: 2px solid {_current_theme['accent']}; font-weight: 600; }}
-            QTabBar::tab:hover {{ background: {_current_theme['bg3']}; }}
+            QTabBar::tab:selected {{ background: transparent; color: {tok('accent')};
+                                      border-bottom: 2px solid {tok('accent')}; font-weight: 600; }}
+            QTabBar::tab:hover {{ color: #e2ddd6; background: rgba(255,255,255,0.04); }}
         """)
 
         tabs.addTab(self._build_db_panel(),    "⚙ Database Rebuilder")
@@ -4046,6 +4587,10 @@ class RockboxToolsPage(QWidget):
         root.addStretch()
         scroll.setWidget(inner)
         outer.addWidget(scroll)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._bg.setGeometry(self.rect())
 
     # ─── DB Rebuilder Panel ───────────────────────────────────
 
@@ -4179,8 +4724,8 @@ class RockboxToolsPage(QWidget):
         self._db_cache_list = QListWidget()
         self._db_cache_list.setMaximumHeight(110)
         self._db_cache_list.setStyleSheet(
-            f"background: {_current_theme['bg3']}; border: 1px solid {_current_theme['border']};"
-            f"border-radius:4px; font-size:11px; color:{_current_theme['txt1']};")
+            "background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);"
+            "border-radius:4px; font-size:11px; color:#e2ddd6;")
         self._db_cache_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self._db_cache_list.setToolTip("Select one or more caches, then click Delete Selected to remove them.")
         vb.addWidget(self._db_cache_list)
@@ -4210,8 +4755,8 @@ class RockboxToolsPage(QWidget):
         self._db_log.setMinimumHeight(200)
         self._db_log.setPlaceholderText("Build output will appear here…")
         self._db_log.setStyleSheet(
-            f"background: {_current_theme['bg3']}; font-family: 'Cascadia Code','SF Mono','Consolas',monospace;"
-            f"font-size: 11px; color: {_current_theme['txt1']}; border: none; border-radius: 4px;"
+            "background: rgba(0,0,0,0.35); font-family: 'Cascadia Code','SF Mono','Consolas',monospace;"
+            "font-size: 11px; color: rgba(255,255,255,0.75); border: none; border-radius: 4px;"
         )
         vb.addWidget(self._db_log, stretch=1)
 
@@ -4219,7 +4764,15 @@ class RockboxToolsPage(QWidget):
         self._db_progress.setVisible(False); vb.addWidget(self._db_progress)
 
         btn_row = QHBoxLayout()
-        self._db_build_btn = QPushButton("🗄  Build Database"); self._db_build_btn.setObjectName("primary")
+        self._db_build_btn = QPushButton("Build Database")
+        self._db_build_btn.setFixedHeight(42)
+        self._db_build_btn.setMinimumWidth(170)
+        self._db_build_btn.setStyleSheet(
+            f"QPushButton {{ background:{tok('accent')}; color:#0a0a0a; border:none; border-radius:8px;"
+            " font-weight:700; font-size:14px; padding:0 22px; }"
+            f"QPushButton:hover {{ background:{tok('accent')}; border: 2px solid rgba(255,255,255,0.45); padding:0 20px; }}"
+            f"QPushButton:pressed {{ background:{tok('accent')}; border: none; padding:0 22px; }}"
+            f"QPushButton:disabled {{ background:rgba(180,130,0,0.25); color:rgba(10,10,10,0.4); }}")
         self._db_build_btn.setToolTip(
             "Build the Rockbox tagcache database from your music library.\n"
             "Existing .tcd files are replaced with a fresh build.")
@@ -4254,7 +4807,7 @@ class RockboxToolsPage(QWidget):
         self._db_lib_widget.setVisible(is_local)
         self._db_music_rel_widget.setVisible(is_local)
         accent = _current_theme["accent"]
-        active_style  = f"background:{accent}22; color:{accent}; border:1px solid {accent}60; border-radius:4px;"
+        active_style  = "background:rgba(255,255,255,0.10); color:#fff; border:1px solid rgba(255,255,255,0.30); border-radius:4px;"
         default_style = ""
         self._db_src_local.setStyleSheet(active_style  if is_local  else default_style)
         self._db_src_device.setStyleSheet(active_style if not is_local else default_style)
@@ -4788,7 +5341,7 @@ class RockboxToolsPage(QWidget):
         if key in self._cfg_data and current_val:
             badge = QLabel(f"  {current_val}  ")
             badge.setStyleSheet(
-                f"background:{t['accentlo']};color:{t['accent']};font-size:10px;"
+                f"background:rgba(255,255,255,0.10);color:#fff;font-size:10px;"
                 f"border-radius:3px;font-family:'Cascadia Code','SF Mono','Consolas',monospace;"
             )
             badge.setToolTip(f"Current value on device: {current_val}")
@@ -4922,7 +5475,7 @@ class RockboxToolsPage(QWidget):
                            border-radius: 4px; outline: none; font-size: 12px; }}
             QTreeWidget::item {{ padding: 4px 6px; border-radius: 3px; color: {_current_theme['txt0']}; }}
             QTreeWidget::item:hover {{ background: {_current_theme['bg3']}; }}
-            QTreeWidget::item:selected {{ background: {_current_theme['accentlo']}; color: {_current_theme['accent']}; }}
+            QTreeWidget::item:selected {{ background: rgba(255,255,255,0.10); color: #fff; }}
         """)
         self._tagnavi_tree.currentItemChanged.connect(self._tagnavi_on_select)
         lv.addWidget(self._tagnavi_tree, stretch=1)
@@ -5006,8 +5559,8 @@ class RockboxToolsPage(QWidget):
         self._tagnavi_preview = QTextEdit(); self._tagnavi_preview.setReadOnly(True)
         self._tagnavi_preview.setMaximumHeight(200)
         self._tagnavi_preview.setStyleSheet(
-            f"background:{_current_theme['bg3']};font-family:'Cascadia Code','SF Mono','Consolas',monospace;"
-            f"font-size:11px;color:{_current_theme['txt1']};border:none;border-radius:4px;"
+            "background: rgba(0,0,0,0.35); font-family: 'Cascadia Code','SF Mono','Consolas',monospace;"
+            "font-size: 11px; color: rgba(255,255,255,0.75); border: none; border-radius: 4px;"
         )
         pv.addWidget(self._tagnavi_preview)
         rv.addWidget(prev_card)
@@ -5016,7 +5569,9 @@ class RockboxToolsPage(QWidget):
         rv.addWidget(self._tagnavi_status)
 
         splitter.addWidget(right)
-        splitter.setSizes([280, 520])
+        _tagnavi_sizes = self.conf().get("splitter_tagnavi", [280, 520])
+        splitter.setSizes(_tagnavi_sizes)
+        splitter.splitterMoved.connect(lambda pos, idx: (self.conf().__setitem__("splitter_tagnavi", splitter.sizes()), save_conf(self.conf())))
         vb.addWidget(splitter, stretch=1)
 
         # Populate tree with default items
@@ -5712,16 +6267,12 @@ class RsyncPage(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # ── Top bar ───────────────────────────────────────────
-        top = QWidget()
-        top.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
-        top.setFixedHeight(60)
-        tb = QHBoxLayout(top); tb.setContentsMargins(24, 0, 24, 0); tb.setSpacing(16)
-        title_lbl = QLabel("Rsync"); title_lbl.setObjectName("heading")
-        sub_lbl   = QLabel("Friendly GUI for rsync — build sync profiles and run them with one click")
-        sub_lbl.setObjectName("secondary")
-        tb.addWidget(title_lbl); tb.addWidget(sub_lbl); tb.addStretch()
+        # Static background
+        self._bg = StaticPageBackground(self)
+        self._bg.setGeometry(self.rect())
 
+        # ── Page header ───────────────────────────────────────
+        hdr = PageHeader("Rsync", "friendly GUI for rsync — build sync profiles and run them with one click")
         rsync_bin = shutil.which("rsync")
         if rsync_bin:
             try:
@@ -5735,18 +6286,22 @@ class RsyncPage(QWidget):
         else:
             av_lbl = QLabel("⚠  rsync not in PATH")
             av_lbl.setStyleSheet(f"color:{t['warning']};background:transparent;font-size:12px;")
-        tb.addWidget(av_lbl)
-        outer.addWidget(top)
+        hdr.add_widget(av_lbl)
+        outer.addWidget(hdr)
 
         # ── Main split ────────────────────────────────────────
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setHandleWidth(1)
-        splitter.setStyleSheet(f"QSplitter::handle{{background:rgba(255,255,255,0.09);}}")
+        splitter.setHandleWidth(3)
+        splitter.setStyleSheet(
+            "QSplitter::handle { background: rgba(255,255,255,0.09); }"
+            "QSplitter::handle:hover { background: rgba(255,255,255,0.25); }"
+            "QSplitter::handle:pressed { background: rgba(255,255,255,0.40); }"
+        )
 
         # Left: profile panel
         left = QWidget()
-        left.setFixedWidth(215)
-        left.setStyleSheet("background:rgba(5,7,11,0.50); border-right:1px solid rgba(255,255,255,0.07);")
+        left.setMinimumWidth(160)
+        left.setStyleSheet("background:transparent; border-right:1px solid rgba(255,255,255,0.07);")
         lv = QVBoxLayout(left); lv.setContentsMargins(10, 14, 10, 12); lv.setSpacing(8)
         lv.addWidget(SectionLabel("Saved Profiles"))
         self._profile_list = QListWidget()
@@ -5754,7 +6309,7 @@ class RsyncPage(QWidget):
             f"QListWidget{{background:transparent;border:none;outline:none;}}"
             f"QListWidget::item{{padding:7px 8px;border-radius:5px;color:rgba(255,255,255,0.55);}}"
             f"QListWidget::item:hover{{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.87);}}"
-            f"QListWidget::item:selected{{background:{t['accentlo']};color:{t['accent']};}}")
+            f"QListWidget::item:selected{{background:rgba(255,255,255,0.10);color:#fff;}}")
         self._profile_list.currentRowChanged.connect(self._on_profile_select)
         lv.addWidget(self._profile_list, stretch=1)
         prof_btns = QHBoxLayout(); prof_btns.setSpacing(6)
@@ -5770,6 +6325,8 @@ class RsyncPage(QWidget):
 
         # Right: editor + output
         right = QWidget()
+        right.setStyleSheet("QWidget#rsync_right { background: transparent; }")
+        right.setObjectName("rsync_right")
         rv = QVBoxLayout(right); rv.setContentsMargins(0, 0, 0, 0); rv.setSpacing(0)
 
         # Editor scroll area
@@ -5872,7 +6429,7 @@ class RsyncPage(QWidget):
         self._cmd_preview.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self._cmd_preview.setWordWrap(True)
         self._cmd_preview.setStyleSheet(
-            f"background:rgba(5,7,11,0.50);border:1px solid rgba(255,255,255,0.09);border-radius:5px;"
+            f"background:rgba(0,0,0,0.20);border:1px solid rgba(255,255,255,0.09);border-radius:5px;"
             f"padding:10px 14px;font-family:'Cascadia Code','SF Mono','Consolas',monospace;"
             f"font-size:12px;color:rgba(255,255,255,0.55);")
         cc.addWidget(self._cmd_preview)
@@ -5883,8 +6440,8 @@ class RsyncPage(QWidget):
         rv.addWidget(editor_scroll, stretch=3)
 
         # ── Bottom run bar ────────────────────────────────────
-        run_bar = QWidget()
-        run_bar.setStyleSheet("background:rgba(5,7,11,0.60); border-top:1px solid rgba(255,255,255,0.07);")
+        run_bar = QWidget(); run_bar.setObjectName("rsync_run_bar")
+        run_bar.setStyleSheet("QWidget#rsync_run_bar { background:rgba(255,255,255,0.04); border-top:1px solid rgba(255,255,255,0.07); }")
         rb = QHBoxLayout(run_bar); rb.setContentsMargins(16, 8, 20, 8); rb.setSpacing(10)
         self._save_btn = QPushButton("💾  Save Profile"); self._save_btn.setObjectName("ghost")
         self._save_btn.setFixedHeight(38); self._save_btn.clicked.connect(self._save_profile)
@@ -5909,8 +6466,8 @@ class RsyncPage(QWidget):
         rv.addWidget(run_bar)
 
         # ── Terminal output ───────────────────────────────────
-        term_hdr = QWidget()
-        term_hdr.setStyleSheet("background:rgba(5,7,11,0.60); border-top:1px solid rgba(255,255,255,0.07);")
+        term_hdr = QWidget(); term_hdr.setObjectName("rsync_term_hdr")
+        term_hdr.setStyleSheet("QWidget#rsync_term_hdr { background:rgba(255,255,255,0.04); border-top:1px solid rgba(255,255,255,0.07); }")
         th = QHBoxLayout(term_hdr); th.setContentsMargins(16, 5, 14, 5)
         th.addWidget(SectionLabel("Output")); th.addStretch()
         self._status_dot = StatusDot(t["txt2"]); th.addWidget(self._status_dot)
@@ -5930,8 +6487,14 @@ class RsyncPage(QWidget):
         rv.addWidget(self._output, stretch=2)
 
         splitter.addWidget(right)
-        splitter.setSizes([215, 900])
+        _rsync_sizes = self.conf_ref[0].get("splitter_rsync", [215, 900])
+        splitter.setSizes(_rsync_sizes)
+        splitter.splitterMoved.connect(lambda pos, idx: (self.conf_ref[0].__setitem__("splitter_rsync", splitter.sizes()), save_conf(self.conf_ref[0])))
         outer.addWidget(splitter, stretch=1)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._bg.setGeometry(self.rect())
 
     # ── Profile list ──────────────────────────────────────────
 
@@ -6639,15 +7202,15 @@ class AppearancePage(QWidget):
         c = self.conf(); c["theme"] = name.lower()
         if "custom_accent" in c:
             a = c["custom_accent"]
-            _current_theme["accent"] = a; _current_theme["accent2"] = a
+            _current_theme["accent"] = a
             _current_theme["accentlo"] = a+"1a"; _current_theme["bordhi"] = a+"55"
         save_conf(c); self._sync_swatches(); self.theme_changed.emit(_current_theme)
 
     def _apply_accent(self, c1: str, c2: str):
         global _current_theme
-        _current_theme["accent"] = c1; _current_theme["accent2"] = c2
+        _current_theme["accent"] = c1
         _current_theme["accentlo"] = c1+"1a"; _current_theme["bordhi"] = c1+"55"
-        conf = self.conf(); conf["custom_accent"] = c1; conf["custom_accent2"] = c2; save_conf(conf)
+        conf = self.conf(); conf["custom_accent"] = c1; save_conf(conf)
         self._accent_swatch.set_color(c1); self._accent_hex.setText(c1)
         self.theme_changed.emit(_current_theme)
 
@@ -6687,24 +7250,16 @@ class SettingsPage(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # Page header
-        hdr = QWidget()
-        hdr.setFixedHeight(56)
-        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
-        hb = QHBoxLayout(hdr)
-        hb.setContentsMargins(28, 0, 28, 0)
-        title = QLabel("Settings")
-        tf = QFont(); tf.setPointSize(14); tf.setBold(True)
-        title.setFont(tf)
-        title.setStyleSheet("color:#fff;background:transparent;")
-        hb.addWidget(title)
-        hb.addStretch()
-        outer.addWidget(hdr)
+        self._bg = StaticPageBackground(self)
+        self._bg.setGeometry(self.rect())
+
+        outer.addWidget(PageHeader("Settings", "platforms · appearance · preferences"))
 
         # Tab bar
         tab_bar = QWidget()
         tab_bar.setFixedHeight(40)
-        tab_bar.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
+        tab_bar.setObjectName("settings_tab_bar")
+        tab_bar.setStyleSheet("QWidget#settings_tab_bar { background:transparent; border-bottom:1px solid rgba(255,255,255,0.07); }")
         tb = QHBoxLayout(tab_bar)
         tb.setContentsMargins(24, 0, 24, 0)
         tb.setSpacing(0)
@@ -6725,10 +7280,15 @@ class SettingsPage(QWidget):
 
         # Stacked content
         self._stack = QStackedWidget()
+        self._stack.setStyleSheet("background:transparent;")
         self._stack.addWidget(self._build_platforms_tab())
         self._stack.addWidget(self._build_appearance_tab())
         self._stack.addWidget(self._build_misc_tab())
         outer.addWidget(self._stack, stretch=1)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._bg.setGeometry(self.rect())
 
     def _switch_tab(self, idx: int):
         for i, btn in enumerate(self._tab_btns):
@@ -6738,11 +7298,12 @@ class SettingsPage(QWidget):
     # ── Platforms tab ─────────────────────────────────────────
 
     def _build_platforms_tab(self) -> QWidget:
-        w = QWidget()
+        w = QWidget(); w.setStyleSheet("background:transparent;")
         outer = QVBoxLayout(w); outer.setContentsMargins(0,0,0,0)
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        inner = QWidget()
+        scroll.setStyleSheet("QScrollArea{background:transparent;border:none;}")
+        inner = QWidget(); inner.setStyleSheet("background:transparent;")
         root  = QVBoxLayout(inner); root.setContentsMargins(28,24,28,20); root.setSpacing(20)
 
         sub = QLabel("Connect your scrobbling accounts and submit to each platform independently.")
@@ -6933,11 +7494,13 @@ class SettingsPage(QWidget):
     }
 
     def _build_appearance_tab(self) -> QWidget:
-        w = QWidget()
+        w = QWidget(); w.setStyleSheet("background:transparent;")
         outer = QVBoxLayout(w); outer.setContentsMargins(0,0,0,0)
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        inner = QWidget(); root = QVBoxLayout(inner)
+        scroll.setStyleSheet("QScrollArea{background:transparent;border:none;}")
+        inner = QWidget(); inner.setStyleSheet("background:transparent;")
+        root = QVBoxLayout(inner)
         root.setContentsMargins(28,24,28,20); root.setSpacing(20)
 
         # Color scheme card
@@ -6973,15 +7536,15 @@ class SettingsPage(QWidget):
         c = self.conf(); c["theme"] = name.lower()
         if "custom_accent" in c:
             a = c["custom_accent"]
-            _current_theme["accent"] = a; _current_theme["accent2"] = a
+            _current_theme["accent"] = a
             _current_theme["accentlo"] = a+"1a"; _current_theme["bordhi"] = a+"55"
         save_conf(c); self._sync_swatches(); self.theme_changed.emit(_current_theme)
 
     def _apply_accent(self, c1: str, c2: str):
         global _current_theme
-        _current_theme["accent"] = c1; _current_theme["accent2"] = c2
+        _current_theme["accent"] = c1
         _current_theme["accentlo"] = c1+"1a"; _current_theme["bordhi"] = c1+"55"
-        conf = self.conf(); conf["custom_accent"] = c1; conf["custom_accent2"] = c2; save_conf(conf)
+        conf = self.conf(); conf["custom_accent"] = c1; save_conf(conf)
         self._accent_swatch.set_color(c1); self._accent_hex.setText(c1)
         self.theme_changed.emit(_current_theme)
 
@@ -6998,11 +7561,13 @@ class SettingsPage(QWidget):
     # ── Miscellaneous tab ─────────────────────────────────────
 
     def _build_misc_tab(self) -> QWidget:
-        w = QWidget()
+        w = QWidget(); w.setStyleSheet("background:transparent;")
         outer = QVBoxLayout(w); outer.setContentsMargins(0,0,0,0)
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        inner = QWidget(); root = QVBoxLayout(inner)
+        scroll.setStyleSheet("QScrollArea{background:transparent;border:none;}")
+        inner = QWidget(); inner.setStyleSheet("background:transparent;")
+        root = QVBoxLayout(inner)
         root.setContentsMargins(28,24,28,20); root.setSpacing(20)
 
         c = self.conf
@@ -7087,22 +7652,6 @@ class SettingsPage(QWidget):
         primary_artist_chk.toggled.connect(_toggle_primary)
         tv.addWidget(primary_artist_chk)
         root.addWidget(tidal_card)
-
-        # ── Interface Settings ────────────────────────────────
-        ui_card = QWidget(); ui_card.setObjectName("card")
-        uv = QVBoxLayout(ui_card); uv.setContentsMargins(18,14,18,16); uv.setSpacing(12)
-        uv.addWidget(SectionLabel("Interface"))
-
-        font_row = QHBoxLayout()
-        font_lbl = QLabel("Font size (pt)"); font_lbl.setObjectName("secondary")
-        font_spin = QSpinBox(); font_spin.setRange(9, 18); font_spin.setValue(c().get("font_size", 13))
-        font_spin.setFixedWidth(80)
-        font_note = QLabel("(restart required)"); font_note.setObjectName("muted")
-        def _save_font(v): cc = c(); cc["font_size"] = v; save_conf(cc)
-        font_spin.valueChanged.connect(_save_font)
-        font_row.addWidget(font_lbl); font_row.addWidget(font_spin); font_row.addWidget(font_note); font_row.addStretch()
-        uv.addLayout(font_row)
-        root.addWidget(ui_card)
 
         # ── Data Management ───────────────────────────────────
         data_card = QWidget(); data_card.setObjectName("card")
@@ -7965,7 +8514,22 @@ class _TidalSettingsPanel(QScrollArea):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         inner = QWidget()
-        inner.setStyleSheet("background: #0a0c10;")
+        inner.setStyleSheet("background: transparent;")
+        # Paint the same dreamy gradient as the sidebar
+        def _paint_bg(event, w=inner):
+            p = QPainter(w)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+            p.fillRect(w.rect(), QColor(_current_theme["bg1"]))
+            grad = QLinearGradient(0, 0, w.width(), w.height() * 0.5)
+            a1 = QColor(_current_theme["accent"]); a1.setAlpha(45)
+            a2 = QColor(_current_theme["accent"]); a2.setAlpha(10)
+            grad.setColorAt(0.0, a1); grad.setColorAt(0.5, a2); grad.setColorAt(1.0, QColor(0, 0, 0, 0))
+            p.fillRect(w.rect(), QBrush(grad))
+            vign = QLinearGradient(0, w.height() * 0.5, 0, w.height())
+            vign.setColorAt(0.0, QColor(0, 0, 0, 0)); vign.setColorAt(1.0, QColor(0, 0, 0, 80))
+            p.fillRect(w.rect(), QBrush(vign))
+            p.end()
+        inner.paintEvent = _paint_bg
         self._root = QVBoxLayout(inner)
         self._root.setContentsMargins(14, 12, 14, 12)
         self._root.setSpacing(8)
@@ -7973,7 +8537,7 @@ class _TidalSettingsPanel(QScrollArea):
 
         # Floating frame look
         self.setStyleSheet(
-            f"QScrollArea{{background:#0a0c10;border:1px solid rgba(255,255,255,0.25);border-radius:10px;}}"
+            f"QScrollArea{{background:{_current_theme['bg1']};border:1px solid rgba(255,255,255,0.25);border-radius:10px;}}"
         )
 
         self._build()
@@ -8666,8 +9230,8 @@ class _TidalTrackRow(QWidget):
             f"_TidalTrackRow QPushButton{{background:transparent;border:1px solid rgba(255,255,255,0.09);"
             f"color:rgba(255,255,255,0.87);border-radius:5px;font-size:12px;padding:0 10px;"
             f"min-height:26px;max-height:28px;font-weight:500;}}"
-            f"_TidalTrackRow QPushButton:hover{{border-color:{t['accent']};color:{t['accent']};"
-            f"background:{t['accentlo']};}}"
+            f"_TidalTrackRow QPushButton:hover{{border-color:rgba(255,255,255,0.40);"
+            f"background:rgba(255,255,255,0.08);}}"
             f"_TidalTrackRow QPushButton:disabled{{color:rgba(255,255,255,0.35);background:transparent;"
             f"border-color:rgba(255,255,255,0.09)66;}}"
         )
@@ -8909,7 +9473,7 @@ class _TidalAlbumCard(QFrame):
         self._dl_overlay.setStyleSheet(
             "QPushButton{background:rgba(0,0,0,0.6);color:#fff;"
             "border:none;border-radius:15px;font-size:13px;}"
-            f"QPushButton:hover{{background:{t['accent']};color:#000;}}"
+            f"QPushButton:hover{{background:rgba(255,255,255,0.07);}}"
         )
         self._dl_overlay.clicked.connect(self._on_dl_click)
         vb.addWidget(art_container)
@@ -9186,14 +9750,14 @@ class _TidalQueueSidebar(QWidget):
         row.setObjectName("active_dl_row")
         row.setFixedHeight(66)
         row.setStyleSheet(
-            f"QWidget#active_dl_row {{ background:rgba(255,255,255,0.05); border:1px solid {t['accent']}44;"
+            f"QWidget#active_dl_row {{ background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);"
             f" border-radius:6px; }}"
             f"QWidget#active_dl_row QLabel {{ background:transparent; border:none; }}"
             f"QWidget#active_dl_row QPushButton {{ background:transparent; border:1px solid rgba(255,255,255,0.09);"
             f" color:rgba(255,255,255,0.87); border-radius:4px; font-size:13px; padding:0; "
             f" min-height:22px; max-height:22px; min-width:22px; max-width:22px; }}"
-            f"QWidget#active_dl_row QPushButton:hover {{ border-color:{t['accent']}; color:{t['accent']};"
-            f" background:{t['accentlo']}; }}"
+            f"QWidget#active_dl_row QPushButton:hover {{ border-color:rgba(255,255,255,0.40);"
+            f" background:rgba(255,255,255,0.10); }}"
             f"QWidget#active_dl_row QPushButton#cancel_btn {{ border-color:{t['danger']}66;"
             f" color:{t['danger']}; background:{t['danger']}14; }}"
             f"QWidget#active_dl_row QPushButton#cancel_btn:hover {{ border-color:{t['danger']}cc;"
@@ -9379,7 +9943,7 @@ class _TidalNowPlayingBar(QWidget):
         self.setFixedHeight(68)
         t = _current_theme
         self.setStyleSheet(
-            f"background:rgba(5,7,11,0.50);border-top:1px solid rgba(255,255,255,0.25);"
+            f"background:rgba(0,0,0,0.20);border-top:1px solid rgba(255,255,255,0.25);"
         )
         hb = QHBoxLayout(self)
         hb.setContentsMargins(14, 10, 14, 10)
@@ -9412,7 +9976,7 @@ class _TidalNowPlayingBar(QWidget):
 
         self._badge = QLabel()
         self._badge.setStyleSheet(
-            f"background:{tok('accentlo')};color:{tok('accent')};border-radius:4px;"
+            f"background:rgba(255,255,255,0.10);color:#fff;border-radius:4px;"
             f"padding:3px 10px;font-size:10px;font-weight:700;letter-spacing:0.5px;"
         )
         hb.addWidget(self._badge)
@@ -9587,11 +10151,15 @@ class TidalDownloaderPage(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
+        self._bg = StaticPageBackground(self)
+        self._bg.setGeometry(self.rect())
+
         # ── Header ────────────────────────────────────────────
         hdr = QWidget()
         hdr.setFixedHeight(60)
+        hdr.setObjectName("tidal_hdr")
         hdr.setStyleSheet(
-            f"background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);"
+            "QWidget#tidal_hdr { background:rgba(0,0,0,0.30); border-bottom:1px solid rgba(255,255,255,0.07); }"
         )
         hb  = QHBoxLayout(hdr)
         hb.setContentsMargins(16, 0, 14, 0)
@@ -9641,9 +10209,10 @@ class TidalDownloaderPage(QWidget):
 
         # ── Tab bar ───────────────────────────────────────────
         tab_bar = QWidget()
+        tab_bar.setObjectName("tidal_tab_bar")
         tab_bar.setFixedHeight(38)
         tab_bar.setStyleSheet(
-            f"background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);"
+            "QWidget#tidal_tab_bar { background:transparent; border-bottom:1px solid rgba(255,255,255,0.07); }"
         )
         tb = QHBoxLayout(tab_bar)
         tb.setContentsMargins(12, 0, 12, 0)
@@ -9712,6 +10281,7 @@ class TidalDownloaderPage(QWidget):
         body_hb.addWidget(self._queue_side)
 
         body_w = QWidget()
+        body_w.setStyleSheet("background:transparent;")
         body_w.setLayout(body_hb)
         root.addWidget(body_w, stretch=1)
 
@@ -10117,6 +10687,10 @@ class TidalDownloaderPage(QWidget):
         w.finished.connect(_finished_w_4, Qt.ConnectionType.QueuedConnection)
         self._workers.append(w)
         w.start()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._bg.setGeometry(self.rect())
 
     def _push_nav_state(self, breadcrumb: str = ""):
         """Save current view state to history stack."""
@@ -11413,6 +11987,7 @@ class _SpectrogramWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
         self._spec        = None
         self._sr          = 44100
         self._dur         = 0.0
@@ -11541,7 +12116,10 @@ class _SpectrogramWidget(QWidget):
         p = QPainter(self)
         W = self.width(); H = self.height()
 
-        p.fillRect(self.rect(), QColor(10, 10, 13))
+        if not self._full_img:
+            p.fillRect(self.rect(), QColor(0, 0, 0, 0))  # transparent — dreamy bg shows through
+        else:
+            p.fillRect(self.rect(), QColor(10, 10, 13))  # solid dark only when showing spectrogram
 
         if not self._full_img and not self._rendering:
             p.setPen(QColor(130, 130, 138))
@@ -11626,10 +12204,14 @@ class SpectrogramPage(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
+        self._bg = StaticPageBackground(self)
+        self._bg.setGeometry(self.rect())
+
         # ── Combined header + controls bar ────────────────────
         header = QWidget()
         header.setFixedHeight(56)
-        header.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
+        header.setObjectName("spec_header")
+        header.setStyleSheet("QWidget#spec_header { background:rgba(0,0,0,0.30); border-bottom:1px solid rgba(255,255,255,0.07); }")
         h_lay = QHBoxLayout(header)
         h_lay.setContentsMargins(16, 0, 12, 0)
         h_lay.setSpacing(10)
@@ -11638,7 +12220,7 @@ class SpectrogramPage(QWidget):
         title_lbl = QLabel("Spectrogram")
         tf = QFont(); tf.setPointSize(12); tf.setWeight(QFont.Weight.Bold)
         title_lbl.setFont(tf)
-        title_lbl.setStyleSheet("color:#fff;background:transparent;")
+        title_lbl.setStyleSheet(f"color:{tok('accent')};background:transparent;")
         h_lay.addWidget(title_lbl)
 
         # File label (flex)
@@ -11659,9 +12241,16 @@ class SpectrogramPage(QWidget):
                 f"border:1px solid rgba(255,255,255,0.09);border-radius:4px;"
                 f"padding:1px 6px;font-size:11px;}}"
                 f"QComboBox::drop-down{{border:none;width:16px;}}"
-                f"QComboBox QAbstractItemView{{background:#1a1d24;color:rgba(255,255,255,0.87);"
-                f"border:1px solid rgba(255,255,255,0.18);"
-                f"selection-background-color:{tok('accent')};selection-color:#000;}}"
+                f"QComboBox QAbstractItemView{{background:#111318;color:rgba(255,255,255,0.87);"
+                f"border:1px solid rgba(255,255,255,0.14);outline:none;}}"
+                f"QComboBox QAbstractItemView::item{{background:#111318;padding:5px 10px;color:rgba(255,255,255,0.87);}}"
+                f"QComboBox QAbstractItemView::item:hover{{background:rgba(255,255,255,0.08);color:#fff;}}"
+                f"QComboBox QAbstractItemView::item:selected{{background:rgba(255,255,255,0.10);color:#fff;}}"
+                f"QComboBox QListView{{background:#111318;color:rgba(255,255,255,0.87);"
+                f"border:1px solid rgba(255,255,255,0.14);outline:none;}}"
+                f"QComboBox QListView::item{{background:#111318;padding:5px 10px;color:rgba(255,255,255,0.87);}}"
+                f"QComboBox QListView::item:hover{{background:rgba(255,255,255,0.08);color:#fff;}}"
+                f"QComboBox QListView::item:selected{{background:rgba(255,255,255,0.10);color:#fff;}}"
             )
             return cb
 
@@ -11774,7 +12363,7 @@ class SpectrogramPage(QWidget):
 
         # ── Spectrogram widget ────────────────────────────────
         self._spec_widget = _SpectrogramWidget()
-        self._spec_widget.setStyleSheet("background:rgba(0,0,0,0.30);")
+        self._spec_widget.setStyleSheet("background:transparent;")
         root.addWidget(self._spec_widget, stretch=1)
 
         # ── Resolution & Export row ───────────────────────────
@@ -11808,8 +12397,8 @@ class SpectrogramPage(QWidget):
             btn.setStyleSheet(
                 f"QPushButton{{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"
                 f"border-radius:6px;padding:0;text-align:left;}}"
-                f"QPushButton:hover{{background:rgba(255,255,255,0.08);border-color:{tok('accent')}44;}}"
-                f"QPushButton:checked{{background:{tok('accentlo')};border:2px solid {tok('accent')};"
+                f"QPushButton:hover{{background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.35);}}"
+                f"QPushButton:checked{{background:rgba(255,255,255,0.10);border:2px solid rgba(255,255,255,0.50);"
                 f"border-radius:6px;}}"
             )
             inner = QVBoxLayout(btn)
@@ -11860,9 +12449,16 @@ class SpectrogramPage(QWidget):
             f"QComboBox{{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.87);border:1px solid rgba(255,255,255,0.09);"
             f"border-radius:4px;padding:2px 8px;font-size:11px;}}"
             f"QComboBox::drop-down{{border:none;width:16px;}}"
-            f"QComboBox QAbstractItemView{{background:#1a1d24;color:rgba(255,255,255,0.87);"
-            f"border:1px solid rgba(255,255,255,0.18);selection-background-color:{tok('accent')};"
-            f"selection-color:#000;}}"
+            f"QComboBox QAbstractItemView{{background:#111318;color:rgba(255,255,255,0.87);"
+            f"border:1px solid rgba(255,255,255,0.14);outline:none;}}"
+            f"QComboBox QAbstractItemView::item{{background:#111318;padding:5px 10px;color:rgba(255,255,255,0.87);}}"
+            f"QComboBox QAbstractItemView::item:hover{{background:rgba(255,255,255,0.08);color:#fff;}}"
+            f"QComboBox QAbstractItemView::item:selected{{background:rgba(255,255,255,0.10);color:#fff;}}"
+            f"QComboBox QListView{{background:#111318;color:rgba(255,255,255,0.87);"
+            f"border:1px solid rgba(255,255,255,0.14);outline:none;}}"
+            f"QComboBox QListView::item{{background:#111318;padding:5px 10px;color:rgba(255,255,255,0.87);}}"
+            f"QComboBox QListView::item:hover{{background:rgba(255,255,255,0.08);color:#fff;}}"
+            f"QComboBox QListView::item:selected{{background:rgba(255,255,255,0.10);color:#fff;}}"
         )
 
         fmt_lay = QVBoxLayout()
@@ -11905,7 +12501,7 @@ class SpectrogramPage(QWidget):
                 f"QPushButton{{border:2px solid transparent;border-radius:3px;"
                 f"background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
                 f"stop:0 {colors[0]},stop:0.5 {colors[1]},stop:1 {colors[2]});}}"
-                f"QPushButton:checked{{border-color:{tok('accent')};}}"
+                f"QPushButton:checked{{border-color:rgba(255,255,255,0.70);}}"
             )
             btn.setCheckable(True)
             btn.setChecked(cname == "Magma")
@@ -11934,7 +12530,7 @@ class SpectrogramPage(QWidget):
         # ── Audio file info panel ─────────────────────────────
         self._info_panel = QWidget()
         self._info_panel.hide()
-        self._info_panel.setStyleSheet("background:rgba(5,7,11,0.60); border-top:1px solid rgba(255,255,255,0.07);")
+        self._info_panel.setStyleSheet("background:rgba(0,0,0,0.25); border-top:1px solid rgba(255,255,255,0.07);")
         ip_lay = QVBoxLayout(self._info_panel)
         ip_lay.setContentsMargins(16, 10, 16, 10)
         ip_lay.setSpacing(4)
@@ -11957,6 +12553,10 @@ class SpectrogramPage(QWidget):
         root.addWidget(self._info_panel)
 
     # ── File open / drag-drop ─────────────────────────────────
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._bg.setGeometry(self.rect())
 
     def _open_file(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -12080,7 +12680,7 @@ class SpectrogramPage(QWidget):
 
         if ceil_hz >= 19000:
             quality   = "Full-range (≥19 kHz)"
-            badge_ss  = (f"background:{tok('accentlo')};color:{tok('accent')};border-radius:4px;"
+            badge_ss  = (f"background:rgba(255,255,255,0.10);color:#fff;border-radius:4px;"
                          f"padding:2px 10px;font-size:10px;font-weight:700;")
         elif ceil_hz >= 16000:
             quality   = "Partial (≥16 kHz)"
@@ -12178,22 +12778,10 @@ class AlbumCoverExtractorPage(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # ── Page header ───────────────────────────────────────
-        hdr = QWidget()
-        hdr.setFixedHeight(56)
-        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
-        hb = QHBoxLayout(hdr)
-        hb.setContentsMargins(20, 0, 20, 0)
-        title_lbl = QLabel("Album Cover Extractor")
-        tf = QFont(); tf.setPointSize(15); tf.setBold(True)
-        title_lbl.setFont(tf)
-        title_lbl.setStyleSheet("color:#fff;background:transparent;")
-        hb.addWidget(title_lbl)
-        hb.addStretch()
-        sub = QLabel("Extract & resize cover art from your music library")
-        sub.setObjectName("muted")
-        hb.addWidget(sub)
-        root.addWidget(hdr)
+        self._bg = StaticPageBackground(self)
+        self._bg.setGeometry(self.rect())
+
+        root.addWidget(PageHeader("Cover Extractor", "extract & resize cover art from your music library"))
 
         # ── Body ─────────────────────────────────────────────
         body = QWidget()
@@ -12206,12 +12794,13 @@ class AlbumCoverExtractorPage(QWidget):
 
         # Left panel — config
         cfg_panel = QWidget()
-        cfg_panel.setFixedWidth(320)
+        cfg_panel.setMinimumWidth(320)
+        cfg_panel.setMaximumWidth(480)
         cfg_panel.setObjectName("panel")
         cfg_panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         cv = QVBoxLayout(cfg_panel)
-        cv.setContentsMargins(16, 16, 16, 16)
-        cv.setSpacing(12)
+        cv.setContentsMargins(18, 18, 18, 18)
+        cv.setSpacing(14)
 
         def _section(text):
             lbl = QLabel(text.upper())
@@ -12283,6 +12872,13 @@ class AlbumCoverExtractorPage(QWidget):
             "When disabled, every audio file is scanned individually.")
         cv.addWidget(self._opt_per_album)
 
+        self._opt_convert_to_jpg = QCheckBox("Convert non-JPEG embedded covers to JPG")
+        self._opt_convert_to_jpg.setChecked(False)
+        self._opt_convert_to_jpg.setToolTip(
+            "Re-embed any non-JPEG cover (e.g. PNG) as JPEG in-place before extracting.\n"
+            "Requires mutagen + Pillow.")
+        cv.addWidget(self._opt_convert_to_jpg)
+
         # Sizes — uniform layout
         cv.addSpacing(4)
         cv.addWidget(_section("Sizes"))
@@ -12293,10 +12889,11 @@ class AlbumCoverExtractorPage(QWidget):
             row.addWidget(lbl)
             spin = QSpinBox()
             spin.setRange(64, 4096); spin.setValue(default)
-            spin.setFixedWidth(70); spin.setEnabled(enabled)
+            spin.setFixedWidth(80); spin.setFixedHeight(30); spin.setEnabled(enabled)
             setattr(self, spin_attr, spin)
             row.addWidget(spin)
-            row.addWidget(QLabel("px"))
+            px_lbl = QLabel("px"); px_lbl.setObjectName("secondary")
+            row.addWidget(px_lbl)
             row.addStretch()
             return row
 
@@ -12340,14 +12937,13 @@ class AlbumCoverExtractorPage(QWidget):
         btn_row = QHBoxLayout(); btn_row.setSpacing(8)
         self._run_btn = QPushButton("Extract covers")
         self._run_btn.setObjectName("primary")
-        self._run_btn.setFixedHeight(36)
-        self._run_btn.setMinimumWidth(130)
+        self._run_btn.setFixedHeight(34)
         self._run_btn.clicked.connect(self._start)
         btn_row.addWidget(self._run_btn)
 
         self._pause_btn = QPushButton("⏸ Pause")
         self._pause_btn.setObjectName("ghost")
-        self._pause_btn.setFixedHeight(36)
+        self._pause_btn.setFixedHeight(34)
         self._pause_btn.setEnabled(False)
         self._pause_btn.setCheckable(True)
         self._pause_btn.clicked.connect(self._toggle_pause)
@@ -12355,13 +12951,21 @@ class AlbumCoverExtractorPage(QWidget):
 
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setObjectName("danger")
-        self._cancel_btn.setFixedHeight(36)
+        self._cancel_btn.setFixedHeight(34)
         self._cancel_btn.setEnabled(False)
         self._cancel_btn.clicked.connect(self._cancel)
         btn_row.addWidget(self._cancel_btn)
         cv.addLayout(btn_row)
 
-        bl.addWidget(cfg_panel)
+        cfg_scroll = QScrollArea()
+        cfg_scroll.setWidgetResizable(True)
+        cfg_scroll.setWidget(cfg_panel)
+        cfg_scroll.setMinimumWidth(320)
+        cfg_scroll.setMaximumWidth(480)
+        cfg_scroll.setFrameShape(cfg_scroll.Shape.NoFrame)
+        cfg_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        cfg_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollArea > QWidget > QWidget { background: transparent; }")
+        bl.addWidget(cfg_scroll)
 
         # Right panel — progress + results
         right = QVBoxLayout()
@@ -12400,7 +13004,8 @@ class AlbumCoverExtractorPage(QWidget):
         lv = QVBoxLayout(log_widget)
         lv.setContentsMargins(0, 0, 0, 0)
         log_hdr = QWidget()
-        log_hdr.setStyleSheet("background:rgba(255,255,255,0.04); border-radius:8px 8px 0 0; border-bottom:1px solid rgba(255,255,255,0.07);")
+        log_hdr.setObjectName("tags_log_hdr")
+        log_hdr.setStyleSheet("QWidget#tags_log_hdr { background:rgba(255,255,255,0.04); border-radius:8px 8px 0 0; border-bottom:1px solid rgba(255,255,255,0.07); }")
         lhb = QHBoxLayout(log_hdr)
         lhb.setContentsMargins(14, 8, 14, 8)
         lhb.addWidget(QLabel("Log"))
@@ -12435,7 +13040,7 @@ class AlbumCoverExtractorPage(QWidget):
         self._log.setReadOnly(True)
         self._log.setPlaceholderText("Extraction log will appear here…")
         self._log.setStyleSheet(
-            "QTextEdit { background:rgba(0,0,0,0.25); color:rgba(255,255,255,0.75);"
+            "QTextEdit { background:transparent; color:rgba(255,255,255,0.75);"
             " font-family:'Cascadia Code','SF Mono','Consolas',monospace; font-size:11px;"
             " border:none; border-radius:0 0 8px 8px; padding:10px; }"
         )
@@ -12463,6 +13068,39 @@ class AlbumCoverExtractorPage(QWidget):
         right.addLayout(stats_row)
         right.addWidget(log_widget, stretch=1)
         bl.addLayout(right, stretch=1)
+
+        # ── Restore + persist cover-extractor checkbox options ──
+        # (must be at end of _build so all widgets like _bmp_size_spin exist first)
+        _ce_conf = load_conf().get("cover_extractor", {})
+        self._opt_bmp.blockSignals(True)
+        self._opt_save_original.setChecked(_ce_conf.get("save_original", True))
+        self._opt_resize_jpg.setChecked(_ce_conf.get("resize_jpg", False))
+        self._opt_bmp.setChecked(_ce_conf.get("bmp", True))
+        self._opt_bmp.blockSignals(False)
+        self._bmp_size_spin.setEnabled(self._opt_bmp.isChecked())
+        self._opt_dry.setChecked(_ce_conf.get("dry", False))
+        self._opt_overwrite.setChecked(_ce_conf.get("overwrite", False))
+        self._opt_per_album.setChecked(_ce_conf.get("per_album", True))
+        self._opt_convert_to_jpg.setChecked(_ce_conf.get("convert_to_jpg", False))
+        def _save_ce_opts():
+            c = load_conf(); c.setdefault("cover_extractor", {})
+            c["cover_extractor"].update({
+                "save_original": self._opt_save_original.isChecked(),
+                "resize_jpg":    self._opt_resize_jpg.isChecked(),
+                "bmp":           self._opt_bmp.isChecked(),
+                "dry":           self._opt_dry.isChecked(),
+                "overwrite":     self._opt_overwrite.isChecked(),
+                "per_album":     self._opt_per_album.isChecked(),
+                "convert_to_jpg":self._opt_convert_to_jpg.isChecked(),
+            }); save_conf(c)
+        for _cb in (self._opt_save_original, self._opt_resize_jpg, self._opt_bmp,
+                    self._opt_dry, self._opt_overwrite, self._opt_per_album,
+                    self._opt_convert_to_jpg):
+            _cb.toggled.connect(lambda _v, _fn=_save_ce_opts: _fn())
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._bg.setGeometry(self.rect())
 
     def _browse_folder(self):
         d = QFileDialog.getExistingDirectory(self, "Select Folder", str(Path.home()))
@@ -12580,6 +13218,7 @@ class AlbumCoverExtractorPage(QWidget):
             "resize_jpg":    self._opt_resize_jpg.isChecked(),
             "jpg_max_size":  self._jpg_size_spin.value(),
             "dst_folder":    self._dst_folder.text().strip(),
+            "convert_to_jpg": self._opt_convert_to_jpg.isChecked(),
         }
         self._worker = _CoverExtractWorker(folder, opts)
         self._worker.progress.connect(self._on_progress)
@@ -12820,6 +13459,20 @@ class _CoverExtractWorker(QThread):
 
             found += 1
 
+            # ── Convert cover to JPEG if requested ───────────
+            if opts.get("convert_to_jpg") and cover_ext != "jpg" and _HAS_PIL:
+                try:
+                    from PIL import Image as _PILImg
+                    import io as _io2
+                    img = _PILImg.open(_io2.BytesIO(cover_data)).convert("RGB")
+                    buf = _io2.BytesIO()
+                    img.save(buf, "JPEG", quality=92)
+                    cover_data = buf.getvalue()
+                    cover_ext  = "jpg"
+                    self.log.emit(f"  → converted embedded cover to JPEG for {fpath.name}")
+                except Exception as _ce:
+                    self.log.emit(f"  [WARN] cover→JPG convert failed for {fpath.name}: {_ce}")
+
             # ── Resolve output directory ─────────────────────
             def _out_dir(base_dir):
                 if dst_folder and Path(self._folder).is_dir():
@@ -12988,6 +13641,30 @@ def _peek_image_size(data: bytes):
             seg_len = struct.unpack_from('>H', data, i + 2)[0]
             i += 2 + seg_len
     return None
+
+
+class _FolderScanWorker(QThread):
+    """Scans a folder for audio files in a background thread."""
+    scan_done = pyqtSignal(object)  # list[Path]
+
+    def __init__(self, folder: str):
+        super().__init__()
+        _live_workers.add(self)
+        self.finished.connect(self._on_finished)
+        self.folder = folder
+        self._exts = {".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".wma", ".wav", ".aiff"}
+
+    def _on_finished(self):
+        _live_workers.discard(self)
+        self.deleteLater()
+
+    def run(self):
+        try:
+            files = sorted(p for p in Path(self.folder).rglob("*")
+                           if p.suffix.lower() in self._exts)
+            self.scan_done.emit(files)
+        except Exception:
+            self.scan_done.emit([])
 
 
 class _MbClusterWorker(QThread):
@@ -13322,48 +13999,39 @@ class MusicTagEditorPage(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # ── Page header ───────────────────────────────────────
-        hdr = QWidget()
-        hdr.setFixedHeight(56)
-        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
-        hb = QHBoxLayout(hdr)
-        hb.setContentsMargins(20, 0, 20, 0)
-        hb.setSpacing(8)
-        title_lbl = QLabel("Music Tag Editor")
-        tf = QFont(); tf.setPointSize(15); tf.setBold(True)
-        title_lbl.setFont(tf)
-        title_lbl.setStyleSheet("color:#fff;background:transparent;")
-        hb.addWidget(title_lbl)
-        hb.addStretch()
+        self._bg = StaticPageBackground(self)
+        self._bg.setGeometry(self.rect())
 
+        # ── Page header ───────────────────────────────────────
+        hdr = PageHeader("Music Tag Editor", "edit metadata and cover art in your music files")
         open_file_btn = QPushButton("🎵  Open File")
         open_file_btn.setObjectName("toggle")
         open_file_btn.setFixedHeight(32)
         open_file_btn.setMinimumWidth(120)
         open_file_btn.clicked.connect(self._open_file)
-        hb.addWidget(open_file_btn)
+        hdr.add_widget(open_file_btn)
 
         open_btn = QPushButton("📂  Open Folder")
         open_btn.setObjectName("toggle")
         open_btn.setFixedHeight(32)
         open_btn.setMinimumWidth(130)
         open_btn.clicked.connect(self._open_folder)
-        hb.addWidget(open_btn)
+        hdr.add_widget(open_btn)
         root.addWidget(hdr)
 
         # ── Body — three-panel splitter ───────────────────────
         body = QSplitter(Qt.Orientation.Horizontal)
         body.setHandleWidth(3)
-        body.setStyleSheet("""
-            QSplitter::handle { background: rgba(255,255,255,0.06); }
-            QSplitter::handle:hover { background: rgba(200,134,26,0.50); }
-            QSplitter::handle:pressed { background: rgba(200,134,26,0.85); }
+        body.setStyleSheet(f"""
+            QSplitter::handle {{ background: rgba(255,255,255,0.06); }}
+            QSplitter::handle:hover {{ background: rgba(255,255,255,0.25); }}
+            QSplitter::handle:pressed {{ background: rgba(255,255,255,0.40); }}
         """)
         root.addWidget(body, stretch=1)
 
         # ── LEFT: file list / cluster tree ────────────────────
         file_panel = QWidget()
-        file_panel.setStyleSheet("background:rgba(5,7,11,0.50); border-right:1px solid rgba(255,255,255,0.07);")
+        file_panel.setStyleSheet("background:rgba(0,0,0,0.25); border-right:1px solid rgba(255,255,255,0.07);")
         fv = QVBoxLayout(file_panel)
         fv.setContentsMargins(0, 0, 0, 0)
         fv.setSpacing(0)
@@ -13371,12 +14039,14 @@ class MusicTagEditorPage(QWidget):
         # Sub-header with count + sort combo + cluster toggle
         file_hdr = QWidget()
         file_hdr.setFixedHeight(38)
-        file_hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
+        file_hdr.setObjectName("tags_file_hdr")
+        file_hdr.setStyleSheet("QWidget#tags_file_hdr { background:transparent; border-bottom:1px solid rgba(255,255,255,0.07); }")
         fhb = QHBoxLayout(file_hdr)
         fhb.setContentsMargins(8, 0, 8, 0)
         fhb.setSpacing(6)
         self._file_count_lbl = QLabel("No folder loaded")
         self._file_count_lbl.setObjectName("muted")
+        self._file_count_lbl.setStyleSheet("background:transparent;")
         fhb.addWidget(self._file_count_lbl)
         fhb.addStretch()
 
@@ -13384,7 +14054,8 @@ class MusicTagEditorPage(QWidget):
 
         # Search bar
         search_bar = QWidget()
-        search_bar.setStyleSheet("background:rgba(5,7,11,0.50); border-bottom:1px solid rgba(255,255,255,0.07);")
+        search_bar.setObjectName("tags_search_bar")
+        search_bar.setStyleSheet("QWidget#tags_search_bar { background:rgba(0,0,0,0.15); border-bottom:1px solid rgba(255,255,255,0.07); }")
         sb_layout = QHBoxLayout(search_bar)
         sb_layout.setContentsMargins(8, 4, 8, 4)
         sb_layout.setSpacing(4)
@@ -13408,7 +14079,7 @@ class MusicTagEditorPage(QWidget):
 
         # Page 0: flat file list
         list_page = QWidget()
-        list_page.setStyleSheet("background:rgba(5,7,11,0.35);")
+        list_page.setStyleSheet("background:transparent;")
         lp_v = QVBoxLayout(list_page)
         lp_v.setContentsMargins(0, 0, 0, 0)
         lp_v.setSpacing(0)
@@ -13416,10 +14087,10 @@ class MusicTagEditorPage(QWidget):
         self._file_list = QListWidget()
         self._file_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self._file_list.setStyleSheet(
-            f"QListWidget{{background:rgba(5,7,11,0.50);border:none;outline:none;}}"
+            f"QListWidget{{background:rgba(0,0,0,0.20);border:none;outline:none;}}"
             f"QListWidget::item{{padding:5px 12px;border-bottom:1px solid rgba(255,255,255,0.09);"
             f"color:rgba(255,255,255,0.87);}}"
-            f"QListWidget::item:selected{{background:{t['accentlo']};color:{t['accent']};}}"
+            f"QListWidget::item:selected{{background:rgba(255,255,255,0.10);color:#fff;}}"
             f"QListWidget::item:hover:!selected{{background:rgba(255,255,255,0.08);}}"
         )
         self._file_list.currentRowChanged.connect(self._on_file_selected)
@@ -13430,7 +14101,7 @@ class MusicTagEditorPage(QWidget):
 
         # Page 1: cluster tree
         tree_page = QWidget()
-        tree_page.setStyleSheet("background:rgba(5,7,11,0.35);")
+        tree_page.setStyleSheet("background:transparent;")
         tp_v = QVBoxLayout(tree_page)
         tp_v.setContentsMargins(0, 0, 0, 0)
 
@@ -13439,9 +14110,9 @@ class MusicTagEditorPage(QWidget):
         self._cluster_tree.setHeaderHidden(True)
         self._cluster_tree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self._cluster_tree.setStyleSheet(
-            f"QTreeWidget{{background:rgba(5,7,11,0.50);border:none;outline:none;}}"
+            f"QTreeWidget{{background:rgba(0,0,0,0.20);border:none;outline:none;}}"
             f"QTreeWidget::item{{padding:4px 8px;color:rgba(255,255,255,0.87);}}"
-            f"QTreeWidget::item:selected{{background:{t['accentlo']};color:{t['accent']};}}"
+            f"QTreeWidget::item:selected{{background:rgba(255,255,255,0.10);color:#fff;}}"
             f"QTreeWidget::item:hover:!selected{{background:rgba(255,255,255,0.08);}}"
         )
         self._cluster_tree.itemClicked.connect(self._on_cluster_item_clicked)
@@ -13492,7 +14163,7 @@ class MusicTagEditorPage(QWidget):
 
         # ── CENTRE: tag fields + log ───────────────────────────
         fields_panel = QWidget()
-        fields_panel.setStyleSheet("background:rgba(0,0,0,0.20);")
+        fields_panel.setStyleSheet("background:transparent;")
         fld_v = QVBoxLayout(fields_panel)
         fld_v.setContentsMargins(0, 0, 0, 0)
         fld_v.setSpacing(0)
@@ -13500,7 +14171,9 @@ class MusicTagEditorPage(QWidget):
         # Toolbar
         tbar = QWidget()
         tbar.setFixedHeight(48)
-        tbar.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
+        tbar.setObjectName("tags_tbar")
+        tbar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        tbar.setStyleSheet("QWidget#tags_tbar { background:rgba(0,0,0,0.20); border-bottom:1px solid rgba(255,255,255,0.07); }")
         tb = QHBoxLayout(tbar)
         tb.setContentsMargins(16, 0, 16, 0)
         tb.setSpacing(8)
@@ -13549,7 +14222,7 @@ class MusicTagEditorPage(QWidget):
                 background: transparent; border: none;
                 border-bottom: 2px solid transparent;
                 color: rgba(255,255,255,0.35); font-size: 12px; font-weight: 600;
-                padding: 0 12px; border-radius: 0; min-height: 48px;
+                padding: 0 12px; border-radius: 0; min-height: 44px;
             }}
             QPushButton:checked {{
                 color: {t['accent']}; border-bottom: 2px solid {t['accent']};
@@ -13572,7 +14245,7 @@ class MusicTagEditorPage(QWidget):
 
         # ── Page 0: tag fields ────────────────────────────────
         tags_page = QWidget()
-        tags_page.setStyleSheet("background:rgba(0,0,0,0.15);")
+        tags_page.setStyleSheet("background:transparent;")
         tags_page_v = QVBoxLayout(tags_page)
         tags_page_v.setContentsMargins(0, 0, 0, 0)
         tags_page_v.setSpacing(0)
@@ -13692,31 +14365,41 @@ class MusicTagEditorPage(QWidget):
 
         # ── Page 1: log ───────────────────────────────────────
         log_page = QWidget()
-        log_page.setStyleSheet("background:rgba(0,0,0,0.15);")
+        log_page.setStyleSheet("background:transparent;")
         log_page_v = QVBoxLayout(log_page)
         log_page_v.setContentsMargins(0, 0, 0, 0)
         log_page_v.setSpacing(0)
 
         log_sub_hdr = QWidget()
-        log_sub_hdr.setFixedHeight(36)
-        log_sub_hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
+        log_sub_hdr.setFixedHeight(40)
+        log_sub_hdr.setObjectName("tags_log_sub_hdr")
+        log_sub_hdr.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        log_sub_hdr.setStyleSheet("QWidget#tags_log_sub_hdr { background:rgba(255,255,255,0.04); border-bottom:1px solid rgba(255,255,255,0.07); }")
         lsh = QHBoxLayout(log_sub_hdr)
-        lsh.setContentsMargins(16, 0, 12, 0); lsh.setSpacing(8)
+        lsh.setContentsMargins(16, 0, 12, 0); lsh.setSpacing(6)
+        lsh.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self._log_count_lbl = QLabel("No entries yet")
         self._log_count_lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:11px;background:transparent;")
         lsh.addWidget(self._log_count_lbl)
         lsh.addStretch()
-        self._log_filter_combo = QComboBox()
-        self._log_filter_combo.addItems(["All", "Errors only", "OK only"])
-        self._log_filter_combo.setFixedHeight(24)
-        self._log_filter_combo.setFixedWidth(110)
-        self._log_filter_combo.setStyleSheet("font-size:11px;")
-        self._log_filter_combo.currentIndexChanged.connect(self._apply_tag_log_filter)
-        lsh.addWidget(self._log_filter_combo)
+        _pill = (
+            "QPushButton{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);"
+            "border:1px solid rgba(255,255,255,0.10);border-radius:4px;padding:0 8px;font-size:11px;}"
+            "QPushButton:checked{background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.9);"
+            "border-color:rgba(255,255,255,0.25);}"
+            "QPushButton:hover{background:rgba(255,255,255,0.10);}"
+        )
+        self._log_filter_combo = None   # replaced by buttons below
+        self._log_filter_btns_te = {}
+        for fk, fl in [("all","All"), ("errors","Errors"), ("ok","OK")]:
+            b = QPushButton(fl); b.setCheckable(True); b.setChecked(fk=="all")
+            b.setFixedHeight(22); b.setStyleSheet(_pill)
+            b.clicked.connect(lambda _, k=fk: self._apply_tag_log_filter_btn(k))
+            lsh.addWidget(b); self._log_filter_btns_te[fk] = b
         log_clear_btn = QPushButton("Clear")
         log_clear_btn.setObjectName("ghost")
-        log_clear_btn.setFixedHeight(24); log_clear_btn.setFixedWidth(52)
-        log_clear_btn.setStyleSheet("font-size:11px;")
+        log_clear_btn.setFixedHeight(22)
+        log_clear_btn.setStyleSheet("font-size:11px; padding:0 8px;")
         log_clear_btn.clicked.connect(self._clear_tag_log)
         lsh.addWidget(log_clear_btn)
         log_page_v.addWidget(log_sub_hdr)
@@ -13741,14 +14424,14 @@ class MusicTagEditorPage(QWidget):
             f"QHeaderView::section{{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.35);"
             f"font-size:10px;font-weight:600;border:none;padding:3px 6px;"
             f"border-bottom:1px solid rgba(255,255,255,0.09);}}"
-            f"QTableWidget::item:alternate{{background:rgba(5,7,11,0.50);}}"
+            f"QTableWidget::item:alternate{{background:rgba(0,0,0,0.20);}}"
         )
         log_page_v.addWidget(self._log_table, stretch=1)
 
         self._log_stats_bar = QLabel("")
         self._log_stats_bar.setFixedHeight(22)
         self._log_stats_bar.setStyleSheet(
-            f"background:rgba(5,7,11,0.50);color:rgba(255,255,255,0.35);font-size:10px;"
+            f"background:rgba(0,0,0,0.20);color:rgba(255,255,255,0.35);font-size:10px;"
             f"padding:0 16px;border-top:1px solid rgba(255,255,255,0.09);"
         )
         log_page_v.addWidget(self._log_stats_bar)
@@ -13767,7 +14450,7 @@ class MusicTagEditorPage(QWidget):
         # ── RIGHT: cover / resize / verify / rg / file details ─
         right_outer = QWidget()
         right_outer.setMinimumWidth(180)
-        right_outer.setStyleSheet("background:rgba(5,7,11,0.50); border-left:1px solid rgba(255,255,255,0.07);")
+        right_outer.setStyleSheet("background:rgba(0,0,0,0.25); border-left:1px solid rgba(255,255,255,0.07);")
         right_outer_v = QVBoxLayout(right_outer)
         right_outer_v.setContentsMargins(0, 0, 0, 0)
         right_outer_v.setSpacing(0)
@@ -13776,13 +14459,16 @@ class MusicTagEditorPage(QWidget):
         right_scroll.setWidgetResizable(True)
         right_scroll.setFrameShape(QFrame.Shape.NoFrame)
         right_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        right_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         right_scroll.setStyleSheet(
-            f"QScrollArea{{background:rgba(5,7,11,0.50);border:none;}}"
-            f"QScrollArea > QWidget > QWidget{{background:rgba(5,7,11,0.50);}}"
+            "QScrollArea{background:transparent;border:none;}"
+            "QScrollBar:vertical{width:6px;background:transparent;border-radius:3px;}"
+            "QScrollBar::handle:vertical{background:rgba(255,255,255,0.15);border-radius:3px;min-height:20px;}"
+            "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}"
         )
 
         cover_panel = QWidget()
-        cover_panel.setStyleSheet("background:rgba(5,7,11,0.35);")
+        cover_panel.setStyleSheet("background:transparent;")
         cov_v = QVBoxLayout(cover_panel)
         cov_v.setContentsMargins(14, 16, 14, 16)
         cov_v.setSpacing(10)
@@ -13967,7 +14653,9 @@ class MusicTagEditorPage(QWidget):
         right_scroll.setWidget(cover_panel)
         right_outer_v.addWidget(right_scroll)
         body.addWidget(right_outer)
-        body.setSizes([200, 700, 224])
+        _tag_sizes = load_conf().get("splitter_tageditor", [200, 700, 224])
+        body.setSizes(_tag_sizes)
+        body.splitterMoved.connect(lambda pos, idx: (lambda c: (c.__setitem__("splitter_tageditor", body.sizes()), save_conf(c)))(load_conf()))
         body.setCollapsible(0, False)
         body.setCollapsible(1, False)
         body.setCollapsible(2, False)
@@ -14041,10 +14729,15 @@ class MusicTagEditorPage(QWidget):
             self._switch_to_log()
         tbl.scrollToBottom()
 
+    def _apply_tag_log_filter_btn(self, key: str):
+        for k, b in self._log_filter_btns_te.items():
+            b.setChecked(k == key)
+        self._apply_tag_log_filter()
+
     def _apply_tag_log_filter_row(self, row: int, level: str):
-        f = self._log_filter_combo.currentText()
-        hide = (f == "Errors only" and level not in ("error", "warn")) or \
-               (f == "OK only"     and level not in ("ok", "info"))
+        active = next((k for k, b in self._log_filter_btns_te.items() if b.isChecked()), "all")
+        hide = (active == "errors" and level not in ("error", "warn")) or \
+               (active == "ok"     and level not in ("ok", "info"))
         self._log_table.setRowHidden(row, hide)
 
     def _apply_tag_log_filter(self):
@@ -14087,15 +14780,30 @@ class MusicTagEditorPage(QWidget):
     #  FILE LOADING (unchanged + missing-tag highlight)
     # ─────────────────────────────────────────────────────────
 
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._bg.setGeometry(self.rect())
+
     def _open_folder(self):
         d = QFileDialog.getExistingDirectory(self, "Open Music Folder", str(Path.home()))
         if not d:
             return
         self._loaded_folder = d
-        exts = {".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".wma", ".wav", ".aiff"}
-        self._files = sorted(p for p in Path(d).rglob("*") if p.suffix.lower() in exts)
+        self._files = []
         self._cluster_multi_paths = []
+        self._file_list.clear()
+        self._file_count_lbl.setText("Scanning…")
+        self._status_bar.setText(f"Scanning {d}…")
+
+        worker = _FolderScanWorker(d)
+        worker.scan_done.connect(self._on_folder_scan_done)
+        self._scan_worker = worker
+        worker.start()
+
+    def _on_folder_scan_done(self, files: list):
+        self._files = files
         self._populate_file_list()
+        self._status_bar.setText(f"Loaded {len(files)} files.")
         if self._cluster_mode:
             self._build_clusters()
         elif self._files:
@@ -14118,13 +14826,31 @@ class MusicTagEditorPage(QWidget):
             self._file_list.setCurrentRow(idx)
 
     def _populate_file_list(self):
-        """Rebuild the list widget instantly with filenames."""
+        """Rebuild the list widget in batches to keep the UI responsive."""
         self._file_list.blockSignals(True)
         self._file_list.clear()
         self._file_count_lbl.setText(f"{len(self._files)} files" if self._files else "No folder loaded")
-        for path in self._files:
-            self._file_list.addItem(path.name)
-        self._file_list.blockSignals(False)
+        if not self._files:
+            self._file_list.blockSignals(False)
+            return
+
+        BATCH = 500
+        files = self._files
+        total = len(files)
+        idx = [0]  # mutable container for closure
+
+        def _add_batch():
+            start = idx[0]
+            end = min(start + BATCH, total)
+            for i in range(start, end):
+                self._file_list.addItem(files[i].name)
+            idx[0] = end
+            if end < total:
+                QTimer.singleShot(0, _add_batch)
+            else:
+                self._file_list.blockSignals(False)
+
+        QTimer.singleShot(0, _add_batch)
 
     def _filter_file_list(self, text: str):
         """Show only files whose name contains the search text (case-insensitive)."""
@@ -14534,6 +15260,7 @@ class MusicTagEditorPage(QWidget):
                 self._show_cover(cover)
 
             self._status_bar.setText(f"Loaded: {path.name}")
+            self._apply_value_highlights()
 
         def _on_error(msg: str):
             if self._current != path:
@@ -14559,21 +15286,31 @@ class MusicTagEditorPage(QWidget):
         elif self._save_btn.isEnabled():
             self._save_tags()
 
+    def _apply_value_highlights(self):
+        """Highlight fields that have a value with accent color."""
+        t = _current_theme
+        for key, edit in self._tag_edits.items():
+            if edit.text().strip():
+                edit.setStyleSheet(
+                    f"background:rgba(255,255,255,0.08);border:1px solid {t['accent']};"
+                    f"border-radius:4px;padding:8px 11px;color:rgba(255,255,255,0.87);"
+                )
+            else:
+                edit.setStyleSheet("")
+
     def _on_field_changed(self, key: str, text: str):
-        """Highlight fields that differ from the on-disk value."""
-        # Skip highlights while populating multi-select or cluster aggregate view
+        """Highlight fields that have a value with accent color."""
         if getattr(self, '_loading_multi', False):
             return
-        t      = _current_theme
-        orig   = self._orig_vals.get(key, "")
-        edit   = self._tag_edits[key]
-        if text != orig:
+        t    = _current_theme
+        edit = self._tag_edits[key]
+        if text.strip():
             edit.setStyleSheet(
                 f"background:rgba(255,255,255,0.08);border:1px solid {t['accent']};"
                 f"border-radius:4px;padding:8px 11px;color:rgba(255,255,255,0.87);"
             )
         else:
-            edit.setStyleSheet("")   # revert to stylesheet default
+            edit.setStyleSheet("")
 
     def _clear_diff_highlights(self):
         for edit in self._tag_edits.values():
@@ -14716,6 +15453,7 @@ class MusicTagEditorPage(QWidget):
                 f"{n} files selected  ·  Matching values shown  ·  "
                 "Blank fields keep existing values on save"
             )
+            self._apply_value_highlights()
 
         def _on_error(msg: str):
             self._status_bar.setText(msg)
@@ -16030,6 +16768,14 @@ class FileConverterPage(QWidget):
     def _save_presets(self):
         c = load_conf(); c[_CONV_PRESET_KEY] = self._presets; save_conf(c)
 
+    def _save_last_conv_settings(self):
+        c = load_conf(); c["conv_last_settings"] = self._current_settings(); save_conf(c)
+
+    def _restore_last_conv_settings(self):
+        s = load_conf().get("conv_last_settings")
+        if s:
+            self._apply_settings(s)
+
     # ── Build UI ──────────────────────────────────────────────
 
     def _build(self):
@@ -16038,38 +16784,27 @@ class FileConverterPage(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Header
-        hdr = QWidget(); hdr.setFixedHeight(56)
-        hdr.setStyleSheet("background:rgba(5,7,11,0.65); border-bottom:1px solid rgba(255,255,255,0.07);")
-        hb = QHBoxLayout(hdr); hb.setContentsMargins(20, 0, 20, 0)
-        hl = QLabel("File Converter")
-        hf = QFont(); hf.setPointSize(15); hf.setBold(True)
-        hl.setFont(hf); hl.setStyleSheet("color:#fff;background:transparent;")
-        hb.addWidget(hl); hb.addStretch()
-        hb.addWidget(QLabel("FFmpeg-powered · remembers converted files"))
-        root.addWidget(hdr)
+        self._bg = StaticPageBackground(self)
+        self._bg.setGeometry(self.rect())
+
+        root.addWidget(PageHeader("File Converter", "FFmpeg-powered · remembers converted files"))
 
         # Body: left config + right queue
         body = QHBoxLayout(); body.setContentsMargins(20,20,20,20); body.setSpacing(20)
         root.addWidget(self._w(body), stretch=1)
 
-        # ── Left panel (scrollable so it works on small monitors) ──
-        cfg_inner = QWidget(); cfg_inner.setObjectName("panel")
-        cfg_inner.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        cv  = QVBoxLayout(cfg_inner); cv.setContentsMargins(16,16,16,16); cv.setSpacing(10)
-        cfg_scroll = QScrollArea()
-        cfg_scroll.setWidget(cfg_inner)
-        cfg_scroll.setWidgetResizable(True)
-        cfg_scroll.setFixedWidth(350)
-        cfg_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        cfg_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        cfg_scroll.setStyleSheet("QScrollArea{background:transparent;border:none;}")
-        cfg = cfg_scroll
+        # ── Left panel (identical structure to Cover Extractor) ──
+        cfg = QWidget()
+        cfg.setObjectName("panel")
+        cfg.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        cfg.setMinimumWidth(320)
+        cfg.setMaximumWidth(480)
+        cv = QVBoxLayout(cfg)
+        cv.setContentsMargins(18, 18, 18, 18)
+        cv.setSpacing(14)
 
         def sec(txt):
             l = QLabel(txt); l.setObjectName("sectiontitle"); return l
-
-        # Source
         cv.addWidget(sec("SOURCE"))
         src_row = QHBoxLayout(); src_row.setSpacing(5)
         self._src_edit = QLineEdit()
@@ -16138,11 +16873,12 @@ class FileConverterPage(QWidget):
         self._cover_size_spin = QSpinBox()
         self._cover_size_spin.setRange(100, 4096)
         self._cover_size_spin.setValue(500)
-        self._cover_size_spin.setSuffix(" px")
-        self._cover_size_spin.setFixedWidth(82)
+        self._cover_size_spin.setFixedWidth(72)
         self._cover_size_spin.setEnabled(False)
+        _px_lbl = QLabel("px"); _px_lbl.setObjectName("secondary")
         cover_row.addWidget(self._opt_cover_resize)
         cover_row.addWidget(self._cover_size_spin)
+        cover_row.addWidget(_px_lbl)
         cover_row.addStretch()
         cv.addLayout(cover_row)
         self._opt_cover_resize.toggled.connect(self._cover_size_spin.setEnabled)
@@ -16195,17 +16931,19 @@ class FileConverterPage(QWidget):
 
         cv.addStretch()
 
-        # Action buttons
-        cv.addWidget(sec(""))
+        # Action buttons — directly in cv, identical to cover extractor
         btn_row = QHBoxLayout(); btn_row.setSpacing(8)
-        self._scan_btn = QPushButton("Scan & Queue"); self._scan_btn.setObjectName("ghost"); self._scan_btn.setFixedHeight(34)
-        self._scan_btn.clicked.connect(self._scan)
-        self._conv_btn = QPushButton("▶  Convert");   self._conv_btn.setObjectName("primary"); self._conv_btn.setFixedHeight(34)
+        self._conv_btn = QPushButton("▶  Convert")
+        self._conv_btn.setObjectName("primary")
+        self._conv_btn.setFixedHeight(34)
         self._conv_btn.clicked.connect(self._start_convert)
+        self._scan_btn = QPushButton("Scan & Queue")
+        self._scan_btn.setObjectName("ghost")
+        self._scan_btn.setFixedHeight(34)
+        self._scan_btn.clicked.connect(self._scan)
         btn_row.addWidget(self._scan_btn); btn_row.addWidget(self._conv_btn)
         cv.addLayout(btn_row)
 
-        # Sync button — full row, one-click scan+convert of new/changed files only
         self._sync_btn = QPushButton("⟳  Sync (find new & convert)")
         self._sync_btn.setObjectName("ghost")
         self._sync_btn.setFixedHeight(34)
@@ -16217,45 +16955,57 @@ class FileConverterPage(QWidget):
 
         ctrl_row = QHBoxLayout(); ctrl_row.setSpacing(8)
         self._pause_btn = QPushButton("⏸ Pause"); self._pause_btn.setObjectName("ghost")
-        self._pause_btn.setFixedHeight(28); self._pause_btn.setCheckable(True); self._pause_btn.setEnabled(False)
+        self._pause_btn.setFixedHeight(34); self._pause_btn.setCheckable(True); self._pause_btn.setEnabled(False)
         self._pause_btn.clicked.connect(self._toggle_pause)
         self._cancel_btn = QPushButton("Cancel"); self._cancel_btn.setObjectName("danger")
-        self._cancel_btn.setFixedHeight(28); self._cancel_btn.setEnabled(False)
+        self._cancel_btn.setFixedHeight(34); self._cancel_btn.setEnabled(False)
         self._cancel_btn.clicked.connect(self._cancel)
-        clr_btn = QPushButton("Clear Memory"); clr_btn.setObjectName("ghost"); clr_btn.setFixedHeight(28)
+        clr_btn = QPushButton("Clear Memory"); clr_btn.setObjectName("ghost"); clr_btn.setFixedHeight(34)
         clr_btn.setToolTip("Forget all previously converted files")
         clr_btn.clicked.connect(self._clear_history)
         ctrl_row.addWidget(self._pause_btn); ctrl_row.addWidget(self._cancel_btn)
-        ctrl_row.addWidget(clr_btn)
+        ctrl_row.addStretch(); ctrl_row.addWidget(clr_btn)
         cv.addLayout(ctrl_row)
-        body.addWidget(cfg)
+
+        cfg_scroll = QScrollArea()
+        cfg_scroll.setWidgetResizable(True)
+        cfg_scroll.setWidget(cfg)
+        cfg_scroll.setMinimumWidth(320)
+        cfg_scroll.setMaximumWidth(480)
+        cfg_scroll.setFrameShape(cfg_scroll.Shape.NoFrame)
+        cfg_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        cfg_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollArea > QWidget > QWidget { background: transparent; }")
+        body.addWidget(cfg_scroll)
 
         # ── Right panel: stats + queue ─────────────────────────
         right = QVBoxLayout(); right.setSpacing(10)
 
-        # Progress card
+        # Progress card (standalone — no stats inside)
         prog_card = QWidget(); prog_card.setObjectName("panel")
         prog_card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        pv = QVBoxLayout(prog_card); pv.setContentsMargins(14,10,14,10); pv.setSpacing(6)
-        pt = QHBoxLayout(); pt.addWidget(QLabel("Overall Progress")); pt.addStretch()
+        pv = QVBoxLayout(prog_card); pv.setContentsMargins(16, 12, 16, 12); pv.setSpacing(6)
+        pt = QHBoxLayout()
+        pt.addWidget(QLabel("Progress")); pt.addStretch()
         self._prog_lbl = QLabel("Ready"); self._prog_lbl.setObjectName("muted")
         pt.addWidget(self._prog_lbl); pv.addLayout(pt)
         self._prog_bar = QProgressBar(); self._prog_bar.setRange(0,100); self._prog_bar.setValue(0)
         self._prog_bar.setFixedHeight(8); pv.addWidget(self._prog_bar)
+        right.addWidget(prog_card)
 
-        stats_row = QHBoxLayout(); stats_row.setSpacing(12)
-        for attr, label, ck in [("_cs_queued","Queued","txt1"),("_cs_done","Done","success"),
-                                  ("_cs_skipped","Skipped","txt2"),("_cs_errors","Errors","danger")]:
+        # Stats row — identical layout to Cover Extractor
+        stats_row = QHBoxLayout(); stats_row.setSpacing(20)
+        for attr, label in [("_cs_queued","Queued"), ("_cs_done","Done"),
+                             ("_cs_skipped","Skipped"), ("_cs_errors","Errors")]:
             w = QWidget(); w.setObjectName("card")
             w.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-            wl = QVBoxLayout(w); wl.setContentsMargins(10,6,10,6); wl.setSpacing(1)
+            wl = QVBoxLayout(w); wl.setContentsMargins(12, 8, 12, 8); wl.setSpacing(2)
             num = QLabel("0")
-            nf = QFont(); nf.setPointSize(16); nf.setBold(True); num.setFont(nf)
+            nf = QFont(); nf.setPointSize(18); nf.setBold(True); num.setFont(nf)
             num.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            num.setStyleSheet(f"color:{t[ck]};background:transparent;")
+            num.setStyleSheet(f"color:{tok('accent')};background:transparent;")
             lbl2 = QLabel(label); lbl2.setAlignment(Qt.AlignmentFlag.AlignCenter); lbl2.setObjectName("muted")
             wl.addWidget(num); wl.addWidget(lbl2); setattr(self, attr, num); stats_row.addWidget(w)
-        pv.addLayout(stats_row); right.addWidget(prog_card)
+        right.addLayout(stats_row)
 
         # ── Queue + Skipped + Log tabs ─────────────────────────
         tabs_card = QWidget(); tabs_card.setObjectName("panel")
@@ -16263,62 +17013,56 @@ class FileConverterPage(QWidget):
         tabs_card_v = QVBoxLayout(tabs_card); tabs_card_v.setContentsMargins(0,0,0,0); tabs_card_v.setSpacing(0)
 
         # Tab bar header
-        tab_hdr = QWidget(); tab_hdr.setFixedHeight(38)
-        tab_hdr.setStyleSheet("background:rgba(255,255,255,0.05);border-radius:8px 8px 0 0;")
-        tab_hdr_l = QHBoxLayout(tab_hdr); tab_hdr_l.setContentsMargins(14,0,8,0); tab_hdr_l.setSpacing(0)
+        tab_hdr = QWidget()
+        tab_hdr.setObjectName("conv_tab_hdr")
+        tab_hdr.setStyleSheet("QWidget#conv_tab_hdr { background:rgba(255,255,255,0.04); border-radius:8px 8px 0 0; border-bottom:1px solid rgba(255,255,255,0.07); }")
+        tab_hdr_l = QHBoxLayout(tab_hdr); tab_hdr_l.setContentsMargins(14,8,8,8); tab_hdr_l.setSpacing(6)
 
-        self._tab_queue_btn  = QPushButton("Conversion Queue")
-        self._tab_skip_btn   = QPushButton("Skipped  (0)")
-        self._tab_log_btn    = QPushButton("Log  (0)")
+        _pill_ss = (
+            "QPushButton { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5);"
+            " border:1px solid rgba(255,255,255,0.10); border-radius:4px; padding:0 10px; font-size:11px; }"
+            f"QPushButton:checked {{ background:rgba(255,255,255,0.15); color:{t['accent']};"
+            " border-color:rgba(255,255,255,0.25); }"
+            "QPushButton:hover:!checked { background:rgba(255,255,255,0.10); color:rgba(255,255,255,0.87); }"
+        )
+        self._tab_queue_btn = QPushButton("Conversion Queue")
+        self._tab_skip_btn  = QPushButton("Skipped  (0)")
+        self._tab_log_btn   = QPushButton("Log  (0)")
         for btn in (self._tab_queue_btn, self._tab_skip_btn, self._tab_log_btn):
-            btn.setCheckable(True); btn.setFlat(True)
-            btn.setFixedHeight(30)
-            btn.setStyleSheet("""
-                QPushButton {{
-                    background: transparent; border: none; border-bottom: 2px solid transparent;
-                    color: rgba(255,255,255,0.35); font-size: 12px; font-weight: 600;
-                    padding: 0 14px; border-radius: 0;
-                }}
-                QPushButton:checked {{
-                    color: {t['accent']}; border-bottom: 2px solid {t['accent']};
-                }}
-                QPushButton:hover:!checked {{ color: rgba(255,255,255,0.87); }}
-            """)
+            btn.setCheckable(True); btn.setFixedHeight(22)
+            btn.setStyleSheet(_pill_ss)
         self._tab_queue_btn.setChecked(True)
         tab_hdr_l.addWidget(self._tab_queue_btn)
         tab_hdr_l.addWidget(self._tab_skip_btn)
         tab_hdr_l.addWidget(self._tab_log_btn)
         tab_hdr_l.addStretch()
 
-        # Log filter buttons (only shown when Log tab is active)
-        self._log_filter_widget = QWidget()
-        _lfw = QHBoxLayout(self._log_filter_widget); _lfw.setContentsMargins(0,0,0,0); _lfw.setSpacing(4)
-        self._log_filter_btns_fc = {}
-        _btn_style = (
-            "QPushButton { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.45);"
+        # Filter buttons — always visible on the right
+        _filter_ss = (
+            "QPushButton { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5);"
             " border:1px solid rgba(255,255,255,0.10); border-radius:4px; padding:0 8px; font-size:11px; }"
             "QPushButton:checked { background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.9);"
             " border-color:rgba(255,255,255,0.25); }"
             "QPushButton:hover { background:rgba(255,255,255,0.10); }"
         )
+        self._log_filter_btns_fc = {}
         for fk, fl in [("all","All"), ("done","Done"), ("errors","Errors")]:
             b = QPushButton(fl); b.setCheckable(True); b.setChecked(fk=="all")
-            b.setFixedHeight(22); b.setStyleSheet(_btn_style)
+            b.setFixedHeight(22); b.setStyleSheet(_filter_ss)
             b.clicked.connect(lambda _, k=fk: self._apply_log_filter(k))
-            _lfw.addWidget(b); self._log_filter_btns_fc[fk] = b
-        self._log_filter_widget.setVisible(False)
-        # keep compat reference
+            tab_hdr_l.addWidget(b); self._log_filter_btns_fc[fk] = b
+
+        # keep compat references
+        self._log_filter_widget = None
         self._log_filter_combo = None
         self._log_filter_mode = "all"
-        tab_hdr_l.addWidget(self._log_filter_widget)
 
-        clrq = QPushButton("Clear Queue"); clrq.setObjectName("ghost"); clrq.setFixedHeight(24)
+        clrq = QPushButton("Clear Queue"); clrq.setObjectName("ghost"); clrq.setFixedHeight(22)
         clrq.clicked.connect(self._clear_queue)
         self._clrq_btn = clrq
-        clrs = QPushButton("Clear"); clrs.setObjectName("ghost"); clrs.setFixedHeight(24)
+        clrs = QPushButton("Clear"); clrs.setObjectName("ghost"); clrs.setFixedHeight(22)
         clrs.clicked.connect(self._clear_active_log)
         self._clrs_btn = clrs
-        clrs.hide()
         tab_hdr_l.addWidget(clrq); tab_hdr_l.addWidget(clrs)
         tabs_card_v.addWidget(tab_hdr)
 
@@ -16342,6 +17086,7 @@ class FileConverterPage(QWidget):
         self._queue_table.verticalHeader().setDefaultSectionSize(26)
         # Pagination nav bar for queue
         queue_page_widget = QWidget()
+        queue_page_widget.setStyleSheet("background: transparent;")
         queue_page_v = QVBoxLayout(queue_page_widget)
         queue_page_v.setContentsMargins(0, 0, 0, 0)
         queue_page_v.setSpacing(0)
@@ -16382,6 +17127,7 @@ class FileConverterPage(QWidget):
 
         # Page 1: skipped log — paginated table
         skip_page_widget = QWidget()
+        skip_page_widget.setStyleSheet("background: transparent;")
         skip_page_v = QVBoxLayout(skip_page_widget)
         skip_page_v.setContentsMargins(0, 0, 0, 0)
         skip_page_v.setSpacing(0)
@@ -16450,6 +17196,7 @@ class FileConverterPage(QWidget):
         self._log_table.verticalHeader().setDefaultSectionSize(24)
         # Pagination nav bar for log
         log_page_widget = QWidget()
+        log_page_widget.setStyleSheet("background: transparent;")
         log_page_v = QVBoxLayout(log_page_widget)
         log_page_v.setContentsMargins(0, 0, 0, 0)
         log_page_v.setSpacing(0)
@@ -16499,7 +17246,8 @@ class FileConverterPage(QWidget):
             self._tab_stack.setCurrentIndex(idx)
             self._clrq_btn.setVisible(idx == 0)
             self._clrs_btn.setVisible(idx != 0)
-            self._log_filter_widget.setVisible(idx == 2)
+            if self._log_filter_widget is not None:
+                self._log_filter_widget.setVisible(idx == 2)
         self._tab_queue_btn.clicked.connect(lambda: _switch_to(0))
         self._tab_skip_btn.clicked.connect(lambda: _switch_to(1))
         self._tab_log_btn.clicked.connect(lambda: _switch_to(2))
@@ -16510,8 +17258,28 @@ class FileConverterPage(QWidget):
 
         body.addLayout(right, stretch=1)
 
+        # ── Restore last-used settings & hook auto-save ────────
+        self._restore_last_conv_settings()
+        for _sig_widget in (self._opt_skip, self._opt_tags, self._opt_cover,
+                            self._opt_cover_resize, self._opt_struct, self._opt_del_src,
+                            self._opt_normalize, self._opt_resample):
+            _sig_widget.toggled.connect(lambda _v: self._save_last_conv_settings())
+        self._fmt_combo.currentTextChanged.connect(lambda _v: self._save_last_conv_settings())
+        self._bitrate_combo.currentTextChanged.connect(lambda _v: self._save_last_conv_settings())
+        self._threads_spin.valueChanged.connect(lambda _v: self._save_last_conv_settings())
+        self._resample_combo.currentTextChanged.connect(lambda _v: self._save_last_conv_settings())
+        self._cover_size_spin.valueChanged.connect(lambda _v: self._save_last_conv_settings())
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._bg.setGeometry(self.rect())
+
     def _w(self, layout) -> QWidget:
-        w = QWidget(); w.setLayout(layout); return w
+        w = QWidget()
+        w.setObjectName("fc_body_wrap")
+        w.setStyleSheet("QWidget#fc_body_wrap { background: transparent; }")
+        w.setLayout(layout)
+        return w
 
     # ── Format/bitrate helpers ─────────────────────────────────
 
@@ -17598,6 +18366,46 @@ class UpdateChecker(QThread):
             pass  # network down, timeout, etc — stay silent
 
 
+class FadeOverlay(QWidget):
+    """Transparent black overlay that fades out over the content stack to create crossfade transitions."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        self._opacity = 0.0
+        self.hide()
+
+    def fade_in_then_out(self, on_switch: callable):
+        """Flash briefly opaque, call on_switch mid-fade, then fade back out."""
+        self.raise_()
+        self.show()
+        self._opacity = 1.0
+        self.update()
+        # Switch page immediately (overlay is opaque so it's invisible)
+        on_switch()
+        # Now animate opacity from 1 → 0
+        self._anim = QPropertyAnimation(self, b"_opacity_prop", self)
+        self._anim.setDuration(180)
+        self._anim.setStartValue(1.0)
+        self._anim.setEndValue(0.0)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._anim.finished.connect(self.hide)
+        self._anim.start()
+
+    def get_opacity(self): return self._opacity
+    def set_opacity(self, v):
+        self._opacity = v
+        self.update()
+    _opacity_prop = pyqtProperty(float, get_opacity, set_opacity)
+
+    def paintEvent(self, e):
+        if self._opacity <= 0:
+            return
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor(13, 15, 19, int(self._opacity * 255)))
+        p.end()
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -17613,19 +18421,33 @@ class MainWindow(QMainWindow):
         _current_theme = DARK.copy()
 
         if "custom_accent" in conf:
-            c = conf["custom_accent"]; c2 = conf.get("custom_accent2", c)
-            _current_theme["accent"] = c; _current_theme["accent2"] = c2
+            c = conf["custom_accent"]
+            _current_theme["accent"] = c
             _current_theme["accentlo"] = c+"1a"; _current_theme["bordhi"] = c+"55"
 
-        self.setStyleSheet(build_stylesheet(_current_theme))
+        QApplication.instance().setStyleSheet(build_stylesheet(_current_theme))
         self._current_platform = conf.get("last_platform", P_LASTFM)
         self._build_ui()
         self._nav_to(0)
+
+        # Restore window geometry
+        if "window_geometry" in conf:
+            try:
+                from PyQt6.QtCore import QByteArray
+                self.restoreGeometry(QByteArray.fromHex(conf["window_geometry"].encode()))
+            except Exception:
+                pass
 
         # Check for updates in the background — non-blocking
         self._update_checker = UpdateChecker()
         self._update_checker.update_available.connect(self._on_update_available)
         self._update_checker.start()
+
+    def closeEvent(self, e):
+        c = self._conf[0]
+        c["window_geometry"] = bytes(self.saveGeometry().toHex()).decode()
+        save_conf(c)
+        super().closeEvent(e)
 
     def _build_ui(self):
         root = QWidget(); self.setCentralWidget(root)
@@ -17638,6 +18460,14 @@ class MainWindow(QMainWindow):
         sidebar_scroll.setStyleSheet("QScrollArea{background:transparent;border:none;}")
 
         sidebar = QWidget(); sidebar.setObjectName("sidebar")
+        sidebar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        _sb_bg = SidebarBackground(sidebar)
+        _sb_bg.setGeometry(sidebar.rect())
+        _orig_sidebar_resize = sidebar.resizeEvent
+        def _sidebar_resize(e, bg=_sb_bg):
+            bg.setGeometry(sidebar.rect())
+            _orig_sidebar_resize(e)
+        sidebar.resizeEvent = _sidebar_resize
         sv = QVBoxLayout(sidebar); sv.setContentsMargins(12,20,12,16); sv.setSpacing(1)
 
         logo = QLabel("SCROBBOX")
@@ -17688,8 +18518,8 @@ class MainWindow(QMainWindow):
         self._nav_btns = []
         for i, (name, icon) in enumerate(pages):
             if i in _SECTION_BEFORE:
-                sv.addSpacing(8)
-                sv.addWidget(SectionLabel(_SECTION_BEFORE[i]))
+                sv.addSpacing(6)
+                sv.addWidget(SidebarSectionLabel(_SECTION_BEFORE[i]))
                 sv.addSpacing(4)
             btn = NavButton(name, icon)
             btn.setToolTip(f"Ctrl+{i+1}" if i < 9 else "")
@@ -17732,7 +18562,25 @@ class MainWindow(QMainWindow):
                      self._page_settings]:
             self._stack.addWidget(page)
 
-        hbox.addWidget(self._stack, stretch=1)
+        # Wrap stack in a container so FadeOverlay can sit on top
+        from PyQt6.QtWidgets import QStackedLayout as _QSL
+        stack_wrap = QWidget()
+        stack_wrap.setObjectName("stack_wrap")
+        stack_wrap.setStyleSheet("QWidget#stack_wrap { background: transparent; }")
+        self._stack.setObjectName("main_stack")
+        self._stack.setStyleSheet("QStackedWidget#main_stack { background: transparent; }")
+        stack_wrap_layout = QVBoxLayout(stack_wrap)
+        stack_wrap_layout.setContentsMargins(0,0,0,0); stack_wrap_layout.setSpacing(0)
+        stack_wrap_layout.addWidget(self._stack)
+        self._fade_overlay = FadeOverlay(stack_wrap)
+        self._fade_overlay.setGeometry(stack_wrap.rect())
+        # Keep overlay sized to container
+        orig_resize = stack_wrap.resizeEvent
+        def _sw_resize(e, _orig=orig_resize, _ov=self._fade_overlay):
+            if callable(_orig): _orig(e)
+            _ov.setGeometry(0, 0, e.size().width(), e.size().height())
+        stack_wrap.resizeEvent = _sw_resize
+        hbox.addWidget(stack_wrap, stretch=1)
 
         # Keyboard shortcuts: Ctrl+1 through Ctrl+9
         for i in range(9):
@@ -17770,13 +18618,21 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _nav_to(self, idx: int):
-        self._stack.setCurrentIndex(idx)
-        for i, btn in enumerate(self._nav_btns):
-            btn.set_active(i == idx)
-        if idx == 1:
-            self._page_stats.refresh(self._get_tracks())
-        elif idx == 2 and not self._page_history._all_rows:
-            self._page_history.refresh()
+        # On startup currentIndex is 0 and we call _nav_to(0), so skip the
+        # guard only when nav buttons haven't been activated yet.
+        already_active = any(getattr(b, '_active', False) for b in self._nav_btns)
+        if already_active and self._stack.currentIndex() == idx:
+            return
+        def _do_switch():
+            self._stack.setCurrentIndex(idx)
+            for i, btn in enumerate(self._nav_btns):
+                btn.set_active(i == idx)
+                btn._active = (i == idx)
+            if idx == 1:
+                self._page_stats.refresh(self._get_tracks())
+            elif idx == 2 and not self._page_history._all_rows:
+                self._page_history.refresh()
+        self._fade_overlay.fade_in_then_out(_do_switch)
     def _get_platform(self) -> str:
         return self._plat_combo.currentText()
 
@@ -18130,6 +18986,8 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
     app = QApplication(sys.argv)
     app.setApplicationName("Scrobbox")
+    # Use Qt's own file dialog so it inherits our stylesheet instead of the system theme
+    app.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeDialogs, True)
     _base = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
     _icon_path = _base / 'scrobbox.png'
     if _icon_path.exists():
