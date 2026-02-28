@@ -1,6 +1,8 @@
 PyQt6>=6.4.0
 PyQt6-Qt6>=6.4.0
+PyQt6-sip>=13.0.0
 requests>=2.28.0
 mutagen>=1.46.0
 Pillow>=9.0.0
 numpy>=1.23.0
+python-mpv>=1.0.0

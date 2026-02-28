@@ -47,6 +47,8 @@ chmod +x Scrobbox-x86_64.AppImage
 ./Scrobbox-x86_64.AppImage
 ```
 
+Requires a Linux distro with glibc 2.35+ (Ubuntu 22.04+, Fedora 36+, Arch, CachyOS, Manjaro, etc.).
+
 ---
 
 ## What it does
@@ -100,9 +102,9 @@ python scrobbox.py
 
 **System packages needed:**
 - `ffmpeg` — file conversion, spectrogram, integrity check
+- `libmpv` — audio playback (e.g. `libmpv2` on Ubuntu/Debian, `mpv` on Arch)
 - `rsync` — only if you use the Rsync page
 - `git`, `gcc`, `make` — only if you use the Rockbox database rebuilder (compiles the tool from source on first run)
-- `numpy` — faster spectrogram rendering
 
 ---
 
@@ -114,6 +116,7 @@ Made by Roy.
 - **[Rockbox](https://www.rockbox.org)** — database tool compiled from source for tagcache rebuilding — GPL v2+
 - **[hifi-api](https://github.com/binimum/hifi-api)** by sachin senal — TIDAL download functionality — MIT License
 - **[rsync](https://github.com/rsyncproject/rsync)** — file sync engine used by the Rsync page — GPL v3
+- **[python-mpv](https://github.com/jaseg/python-mpv)** — Python binding for libmpv — LGPL v2.1+
 - **[mutagen](https://github.com/quodlibet/mutagen)** — audio tag reading and writing — GPL v2
 - **[ffmpeg](https://ffmpeg.org)** — audio conversion, spectrogram rendering, integrity checking — LGPL v2.1+
 - **[Pillow](https://python-pillow.org)** — image processing for cover art — HPND License
