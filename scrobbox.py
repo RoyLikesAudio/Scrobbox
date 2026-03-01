@@ -130,6 +130,15 @@ def _make_icon_pause(size: int = 20, color: QColor = None) -> QIcon:
     p.end()
     return QIcon(pix)
 
+# Dimmed versions of the icons — matches ghost button text color rgba(255,255,255,0.65)
+_ICON_COLOR_DIM = QColor(255, 255, 255, 166)
+
+def _make_icon_play_dim(size: int = 13) -> QIcon:
+    return _make_icon_play(size, _ICON_COLOR_DIM)
+
+def _make_icon_pause_dim(size: int = 13) -> QIcon:
+    return _make_icon_pause(size, _ICON_COLOR_DIM)
+
 def _make_icon_prev(size: int = 18, color: QColor = None) -> QIcon:
     """Skip to previous ⏮"""
     color = color or QColor(255, 255, 255, 160)
@@ -179,7 +188,7 @@ def _icon_btn(icon: QIcon, size: int, tooltip: str = "", parent=None) -> QPushBu
     return btn
 
 APP_NAME    = "Scrobbox"
-APP_VERSION = "0.8.0"   # bump this with each release
+APP_VERSION = "0.9.0"   # bump this with each release
 GITHUB_REPO = "RoyLikesAudio/Scrobbox"
 _sys = platform.system()
 
@@ -235,7 +244,7 @@ DARK = {
     "txt2":     "#8a857f",
     "border":   "#252830",
     "bordhi":   "rgba(200,134,26,0.55)",  # rgba — Qt ignores 8-digit hex
-    "shadow":   "#00000060",
+    "shadow":   "rgba(0,0,0,0.38)",
 }
 _current_theme = DARK.copy()
 
@@ -349,38 +358,38 @@ QListView::item {{ background: transparent; color: #e2ddd6; }}
 QPushButton {{ background: transparent; color: rgba(255,255,255,0.80); border: 1px solid rgba(255,255,255,0.18);
                border-radius: 5px; padding: 0 14px; font-weight: 500; font-size: 13px;
                min-height: 32px; max-height: 44px; }}
-QPushButton:hover    {{ background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.40); }}
-QPushButton:pressed  {{ background: rgba(255,255,255,0.04); }}
+QPushButton:hover    {{ background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.40); border-radius: 5px; min-height: 32px; max-height: 44px; padding: 0 14px; }}
+QPushButton:pressed  {{ background: rgba(255,255,255,0.04); border-radius: 5px; min-height: 32px; max-height: 44px; padding: 0 14px; }}
 QPushButton:disabled {{ color: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.08); }}
 QPushButton#primary {{ background: transparent; color: {_a}; border: 1px solid {_a}; font-weight: 600;
                         font-size: 13px; border-radius: 6px; padding: 0 18px;
                         min-height: 32px; max-height: 44px; }}
-QPushButton#primary:hover    {{ background: {_alo}; border-color: {_bhi}; }}
-QPushButton#primary:pressed  {{ background: rgba(255,255,255,0.04); }}
+QPushButton#primary:hover    {{ background: {_alo}; border-color: {_bhi}; border-radius: 6px; min-height: 32px; max-height: 44px; padding: 0 18px; }}
+QPushButton#primary:pressed  {{ background: rgba(255,255,255,0.04); border-radius: 6px; min-height: 32px; max-height: 44px; padding: 0 18px; }}
 QPushButton#primary:disabled {{ border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.20); }}
 QPushButton#run {{ background: transparent; color: {_suc}; border: 1px solid {_suc}; font-weight: 600;
                    font-size: 13px; border-radius: 5px; padding: 0 22px;
                    min-height: 34px; max-height: 44px; }}
-QPushButton#run:hover    {{ background: rgba(255,255,255,0.12); border-color: {_suc}; }}
+QPushButton#run:hover    {{ background: rgba(255,255,255,0.12); border-color: {_suc}; border-radius: 5px; min-height: 34px; max-height: 44px; padding: 0 22px; }}
 QPushButton#run:disabled {{ color: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.08); }}
 QPushButton#ghost {{ background: transparent; border: 1px solid rgba(255,255,255,0.16); color: rgba(255,255,255,0.65);
                      font-size: 12px; padding: 0 12px; border-radius: 5px; font-weight: 500;
-                     min-height: 28px; max-height: 44px; }}
-QPushButton#ghost:hover    {{ border-color: rgba(255,255,255,0.40); background: rgba(255,255,255,0.12); }}
-QPushButton#ghost:checked  {{ background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.30); color: #fff; }}
+                     min-height: 24px; max-height: 44px; }}
+QPushButton#ghost:hover    {{ border-color: rgba(255,255,255,0.40); background: rgba(255,255,255,0.12); border-radius: 5px; min-height: 24px; max-height: 44px; padding: 0 12px; }}
+QPushButton#ghost:checked  {{ background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.30); color: #fff; border-radius: 5px; }}
 QPushButton#ghost:disabled {{ color: rgba(255,255,255,0.20); border-color: rgba(255,255,255,0.07); }}
 QPushButton#danger {{ background: transparent; border: 1px solid rgba(192,64,64,0.45); color: rgba(220,120,120,0.90);
                        font-size: 12px; border-radius: 5px; padding: 0 12px; font-weight: 500;
-                       min-height: 28px; max-height: 44px; }}
-QPushButton#danger:hover {{ background: rgba(192,64,64,0.15); border-color: rgba(192,64,64,0.75); }}
+                       min-height: 24px; max-height: 44px; }}
+QPushButton#danger:hover {{ background: rgba(192,64,64,0.15); border-color: rgba(192,64,64,0.75); border-radius: 5px; min-height: 24px; max-height: 44px; padding: 0 12px; }}
 QPushButton#cancel {{ background: transparent; border: 1px solid rgba(192,64,64,0.45);
     color: rgba(220,120,120,0.90); border-radius: 5px; font-size: 12px; padding: 0 10px; font-weight: 500;
-    min-height: 28px; max-height: 44px; }}
-QPushButton#cancel:hover {{ background: rgba(192,64,64,0.15); border-color: rgba(192,64,64,0.75); }}
+    min-height: 24px; max-height: 44px; }}
+QPushButton#cancel:hover {{ background: rgba(192,64,64,0.15); border-color: rgba(192,64,64,0.75); border-radius: 5px; min-height: 24px; max-height: 44px; padding: 0 10px; }}
 QPushButton#navbtn {{ background: transparent; border: none; border-radius: 6px; color: rgba(255,255,255,0.50);
                        text-align: left; padding: 0 12px; font-size: 13px;
                        min-height: 34px; max-height: 44px; }}
-QPushButton#navbtn:hover {{ background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); color: rgba(255,255,255,0.90); }}
+QPushButton#navbtn:hover {{ background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); color: rgba(255,255,255,0.90); border-radius: 6px; }}
 QPushButton#navbtn_active {{ background: rgba(255,255,255,0.08);
     border: none;
     border-left: 2px solid {_a};
@@ -396,34 +405,34 @@ QPushButton#tabbtn:checked {{ border-bottom-color: {_a}; color: {_a}; font-weigh
 QPushButton#tabbtn:hover:!checked {{ color: #e2ddd6; background: rgba(255,255,255,0.05); }}
 QPushButton#toggle {{ background: transparent; border: 1px solid rgba(255,255,255,0.18);
     border-radius: 5px; color: rgba(255,255,255,0.80); font-size: 12px; padding: 0 12px; font-weight: 500;
-    min-height: 28px; max-height: 44px; }}
+    min-height: 24px; max-height: 44px; }}
 QPushButton#toggle:checked {{ border-color: {_a}; color: {_a}; font-weight: 600; }}
-QPushButton#toggle:hover:!checked {{ border-color: rgba(255,255,255,0.35); color: #fff; }}
+QPushButton#toggle:hover:!checked {{ border-color: rgba(255,255,255,0.35); color: #fff; border-radius: 5px; min-height: 24px; max-height: 44px; padding: 0 12px; }}
 QPushButton#icon_btn {{ background: transparent; border: 1px solid rgba(255,255,255,0.12);
     border-radius: 5px; color: #e2ddd6; font-size: 12px; padding: 0 10px; font-weight: 500;
-    min-height: 28px; max-height: 44px; }}
-QPushButton#icon_btn:hover {{ border-color: rgba(255,255,255,0.40); color: #fff; background: rgba(255,255,255,0.07); }}
+    min-height: 24px; max-height: 44px; }}
+QPushButton#icon_btn:hover {{ border-color: rgba(255,255,255,0.40); color: #fff; background: rgba(255,255,255,0.07); border-radius: 5px; min-height: 24px; max-height: 44px; padding: 0 10px; }}
 
 QLabel#sectiontitle {{ color: rgba(255,255,255,0.30); font-size: 9px; font-weight: 700; letter-spacing: 2px; background: transparent; }}
 
 QWidget#queue_hdr QPushButton {{ background: transparent; border: 1px solid rgba(255,255,255,0.12);
     color: #e2ddd6; border-radius: 4px; font-size: 11px; padding: 0 8px;
     min-height: 22px; max-height: 26px; font-weight: 500; }}
-QWidget#queue_hdr QPushButton:hover {{ border-color: rgba(255,255,255,0.40); background: rgba(255,255,255,0.07); }}
+QWidget#queue_hdr QPushButton:hover {{ border-color: rgba(255,255,255,0.40); background: rgba(255,255,255,0.07); border-radius: 4px; min-height: 22px; max-height: 26px; padding: 0 8px; }}
 QWidget#queue_hdr QPushButton#danger {{ background: rgba(192,64,64,0.15); border-color: rgba(192,64,64,0.35); color: rgba(210,110,110,0.90); }}
-QWidget#queue_hdr QPushButton#danger:hover {{ background: rgba(192,64,64,0.28); border-color: rgba(192,64,64,0.70); }}
+QWidget#queue_hdr QPushButton#danger:hover {{ background: rgba(192,64,64,0.28); border-color: rgba(192,64,64,0.70); border-radius: 4px; min-height: 22px; max-height: 26px; padding: 0 8px; }}
 
 QWidget#alb_row {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }}
 QWidget#alb_row QLabel {{ background: transparent; border: none; color: #e2ddd6; }}
 QWidget#alb_row QPushButton {{ background: transparent; border: 1px solid rgba(255,255,255,0.12);
     color: #e2ddd6; border-radius: 5px; font-size: 12px; padding: 0 12px;
     min-height: 30px; max-height: 34px; font-weight: 500; }}
-QWidget#alb_row QPushButton:hover {{ border-color: rgba(255,255,255,0.40); background: rgba(255,255,255,0.07); }}
+QWidget#alb_row QPushButton:hover {{ border-color: rgba(255,255,255,0.40); background: rgba(255,255,255,0.07); border-radius: 5px; min-height: 30px; max-height: 34px; padding: 0 12px; }}
 QWidget#alb_row QPushButton#dl_btn {{ background: transparent; color: {_a2}; border: 1px solid {_a2};
     font-weight: 600; border-radius: 5px; padding: 0 14px;
     min-height: 30px; max-height: 34px; }}
-QWidget#alb_row QPushButton#dl_btn:hover {{ background: rgba(255,255,255,0.10); border-color: #ffffff; color: #ffffff; }}
-QWidget#alb_row QPushButton#dl_btn:pressed {{ background: rgba(255,255,255,0.06); }}
+QWidget#alb_row QPushButton#dl_btn:hover {{ background: rgba(255,255,255,0.10); border-color: #ffffff; color: #ffffff; border-radius: 5px; }}
+QWidget#alb_row QPushButton#dl_btn:pressed {{ background: rgba(255,255,255,0.06); border-radius: 5px; }}
 
 QTableWidget {{ background: rgba(10,12,16,0.40); alternate-background-color: rgba(255,255,255,0.022);
                 gridline-color: transparent; border: none; outline: none; font-size: 13px; border-radius: 8px; }}
@@ -2884,17 +2893,18 @@ class Banner(QLabel):
 
     def set(self, text: str, severity: str = "info"):
         t = _current_theme
+        # (fg_hex_or_rgba, bg_rgba, border_rgba)
         colors = {
-            "success": (t["success"],             "rgba(58,153,85,0.08)"),
-            "danger":  (t["danger"],               "rgba(192,64,64,0.08)"),
-            "warning": (t["warning"],              "rgba(200,150,30,0.08)"),
-            "info":    ("rgba(255,255,255,0.35)",  "rgba(255,255,255,0.04)"),
-            "muted":   ("rgba(255,255,255,0.25)",  "rgba(255,255,255,0.03)"),
+            "success": (t["success"],  "rgba(58,153,85,0.08)",   _hex_to_rgba(t["success"],  0.33)),
+            "danger":  (t["danger"],   "rgba(192,64,64,0.08)",   _hex_to_rgba(t["danger"],   0.33)),
+            "warning": (t["warning"],  "rgba(200,150,30,0.08)",  _hex_to_rgba(t["warning"],  0.33)),
+            "info":    (None,          "rgba(255,255,255,0.04)",  "rgba(255,255,255,0.22)"),
+            "muted":   (None,          "rgba(255,255,255,0.03)",  "rgba(255,255,255,0.15)"),
         }
-        fg, bg = colors.get(severity, colors["muted"])
+        fg, bg, border = colors.get(severity, colors["muted"])
         self.setText(text)
         self.setStyleSheet(
-            f"border: 1px solid {fg}55; border-radius: 6px; padding: 8px 12px; "
+            f"border: 1px solid {border}; border-radius: 6px; padding: 8px 12px; "
             f"background: {bg}; color: rgba(255,255,255,0.60); font-size: 12px;"
         )
         self.setVisible(bool(text))
@@ -2905,8 +2915,10 @@ class PlatformBadge(QLabel):
     def __init__(self, platform: str):
         super().__init__(platform)
         c = self.COLORS.get(platform, "#888")
+        bg  = _hex_to_rgba(c, 0.08)
+        bdr = _hex_to_rgba(c, 0.27)
         self.setStyleSheet(
-            f"color: {c}; background: {c}15; border: 1px solid {c}44; "
+            f"color: {c}; background: {bg}; border: 1px solid {bdr}; "
             f"border-radius: 5px; padding: 3px 10px; font-size: 12px; font-weight: 700;"
         )
 
@@ -4928,7 +4940,9 @@ class RockboxToolsPage(QWidget):
         self._db_cancel_btn.clicked.connect(self._cancel_db_worker)
         self._db_cancel_btn.setVisible(False)
 
-        self._db_pause_btn = QPushButton("⏸  Pause"); self._db_pause_btn.setObjectName("ghost")
+        self._db_pause_btn = QPushButton(" Pause"); self._db_pause_btn.setObjectName("ghost")
+        self._db_pause_btn.setIcon(_make_icon_pause_dim())
+        self._db_pause_btn.setIconSize(QSize(13, 13))
         self._db_pause_btn.clicked.connect(self._toggle_db_pause)
         self._db_pause_btn.setVisible(False)
         self._db_paused = False
@@ -5095,7 +5109,8 @@ class RockboxToolsPage(QWidget):
         self._db_cancel_btn.setEnabled(True)
         self._db_pause_btn.setVisible(True)
         self._db_pause_btn.setEnabled(True)
-        self._db_pause_btn.setText("⏸  Pause")
+        self._db_pause_btn.setIcon(_make_icon_pause_dim())
+        self._db_pause_btn.setText(" Pause")
         self._db_paused = False
         self._db_dot.set_color(_current_theme["warning"])
         self._db_worker = RockboxDbWorker(root, RockboxDbWorker.MODE_INITIALIZE,
@@ -5228,7 +5243,8 @@ class RockboxToolsPage(QWidget):
             if self._db_paused:
                 self._db_worker._pause_event.set()
                 self._db_paused = False
-                self._db_pause_btn.setText("⏸  Pause")
+                self._db_pause_btn.setIcon(_make_icon_pause_dim())
+                self._db_pause_btn.setText(" Pause")
             self._db_worker.requestInterruption()
             # Also kill any running subprocess immediately
             if self._db_worker._proc:
@@ -5243,13 +5259,15 @@ class RockboxToolsPage(QWidget):
         if not self._db_paused:
             self._db_worker._pause_event.clear()
             self._db_paused = True
-            self._db_pause_btn.setText("▶  Resume")
-            self._db_log.append("⏸ Paused.")
+            self._db_pause_btn.setIcon(_make_icon_play_dim())
+            self._db_pause_btn.setText(" Resume")
+            self._db_log.append("Paused.")
         else:
             self._db_worker._pause_event.set()
             self._db_paused = False
-            self._db_pause_btn.setText("⏸  Pause")
-            self._db_log.append("▶ Resumed.")
+            self._db_pause_btn.setIcon(_make_icon_pause_dim())
+            self._db_pause_btn.setText(" Pause")
+            self._db_log.append("Resumed.")
 
 
     def _eject_device(self):
@@ -6455,9 +6473,18 @@ class RsyncPage(QWidget):
         self._profile_list.currentRowChanged.connect(self._on_profile_select)
         lv.addWidget(self._profile_list, stretch=1)
         prof_btns = QHBoxLayout(); prof_btns.setSpacing(6)
+        _ghost_h30 = ("QPushButton{min-height:30px;max-height:30px;padding:0 12px;}"
+                      "QPushButton:hover{min-height:30px;max-height:30px;padding:0 12px;"
+                      "background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.40);}")
+        _danger_h30 = ("QPushButton{min-height:30px;max-height:30px;padding:0 8px;}"
+                       "QPushButton:hover{min-height:30px;max-height:30px;padding:0 8px;"
+                       "background:rgba(192,64,64,0.20);border-color:rgba(192,64,64,0.80);}")
         new_btn = QPushButton("+ New"); new_btn.setObjectName("ghost"); new_btn.setFixedHeight(30)
+        new_btn.setStyleSheet(_ghost_h30)
         dup_btn = QPushButton("⧉ Dup"); dup_btn.setObjectName("ghost"); dup_btn.setFixedHeight(30)
+        dup_btn.setStyleSheet(_ghost_h30)
         del_btn = QPushButton("✕"); del_btn.setObjectName("danger"); del_btn.setFixedHeight(30); del_btn.setFixedWidth(32)
+        del_btn.setStyleSheet(_danger_h30)
         new_btn.clicked.connect(self._new_profile)
         dup_btn.clicked.connect(self._dup_profile)
         del_btn.clicked.connect(self._del_profile)
@@ -6596,7 +6623,9 @@ class RsyncPage(QWidget):
         self._run_btn = QPushButton("▶  Run Sync"); self._run_btn.setObjectName("run")
         self._run_btn.setMinimumWidth(130); self._run_btn.setFixedHeight(42)
         self._run_btn.clicked.connect(self._run)
-        self._pause_btn = QPushButton("⏸  Pause"); self._pause_btn.setObjectName("ghost")
+        self._pause_btn = QPushButton(" Pause"); self._pause_btn.setObjectName("ghost")
+        self._pause_btn.setIcon(_make_icon_pause_dim())
+        self._pause_btn.setIconSize(QSize(13, 13))
         self._pause_btn.setFixedHeight(42); self._pause_btn.setMinimumWidth(90)
         self._pause_btn.setEnabled(False); self._pause_btn.setCheckable(True)
         self._pause_btn.clicked.connect(self._toggle_pause_rsync)
@@ -6941,7 +6970,7 @@ class RsyncPage(QWidget):
 
         self._run_btn.setEnabled(False); self._stop_btn.setEnabled(True)
         self._pause_btn.setEnabled(True); self._pause_btn.setChecked(False)
-        self._pause_btn.setText("⏸  Pause")
+        self._pause_btn.setIcon(_make_icon_pause_dim()); self._pause_btn.setText(" Pause")
         self._status_dot.set_color(_current_theme["warning"]); self._status_lbl.setText("Running…")
 
         # ── Sanitize step (runs before main rsync if enabled) ────
@@ -7006,7 +7035,7 @@ class RsyncPage(QWidget):
             self._output.appendPlainText("\n[Stopped by user]")
             self._status_dot.set_color(_current_theme["txt2"]); self._status_lbl.setText("Stopped")
         self._pause_btn.setEnabled(False); self._pause_btn.setChecked(False)
-        self._pause_btn.setText("⏸  Pause")
+        self._pause_btn.setIcon(_make_icon_pause_dim()); self._pause_btn.setText(" Pause")
 
     def _toggle_pause_rsync(self):
         """Send SIGSTOP/SIGCONT to the rsync process to pause/resume it."""
@@ -7021,7 +7050,8 @@ class RsyncPage(QWidget):
             # Pause
             try:
                 os.kill(pid, _signal.SIGSTOP)
-                self._pause_btn.setText("▶  Resume")
+                self._pause_btn.setIcon(_make_icon_play_dim())
+                self._pause_btn.setText(" Resume")
                 self._status_dot.set_color(_current_theme["warning"])
                 self._status_lbl.setText("Paused")
                 self._output.appendPlainText("\n[Paused]")
@@ -7031,7 +7061,8 @@ class RsyncPage(QWidget):
             # Resume
             try:
                 os.kill(pid, _signal.SIGCONT)
-                self._pause_btn.setText("⏸  Pause")
+                self._pause_btn.setIcon(_make_icon_pause_dim())
+                self._pause_btn.setText(" Pause")
                 self._status_dot.set_color(_current_theme["warning"])
                 self._status_lbl.setText("Running…")
                 self._output.appendPlainText("[Resumed]")
@@ -7041,7 +7072,7 @@ class RsyncPage(QWidget):
     def _on_finished(self, exit_code: int, _exit_status):
         self._run_btn.setEnabled(True); self._stop_btn.setEnabled(False)
         self._pause_btn.setEnabled(False); self._pause_btn.setChecked(False)
-        self._pause_btn.setText("⏸  Pause")
+        self._pause_btn.setIcon(_make_icon_pause_dim()); self._pause_btn.setText(" Pause")
         t = _current_theme
         msg = {
             0:  ("✓  Completed successfully.",     t["success"]),
@@ -8478,15 +8509,34 @@ class _TidalDlWorker(QThread):
                 )
 
         # ── Post-processing ───────────────────────────────────
-        dim_str = p.get("metadata_cover_dimension", "Px1280")
-        dim     = int(dim_str.replace("Px", "")) if "Px" in dim_str else 1280
+        dim_str    = p.get("metadata_cover_dimension", "Px1280")
+        is_custom  = dim_str == "Custom…"
+        custom_px  = int(p.get("metadata_cover_custom_px", 800))
+        embed_full = bool(p.get("metadata_cover_embed_full", False))
+        # For custom sizes always fetch at 1280 (best quality) then resize
+        fetch_dim  = 1280 if is_custom else (int(dim_str.replace("Px", "")) if "Px" in dim_str else 1280)
 
         # 1. Fetch cover bytes once (used for both saving to disk and embedding)
         cover_bytes = None
+        cover_bytes_full = None  # kept if embed_full is requested with custom resize
         cover_id = (track.get("album") or {}).get("cover") or ""
         if cover_id and (p.get("cover_album_file", True) or p.get("dl_covers", False) or p.get("metadata_cover_embed", True)):
             try:
-                cover_bytes = _fetch_cover(cover_id, dim)
+                cover_bytes = _fetch_cover(cover_id, fetch_dim)
+                # Resize client-side if a custom resolution was requested
+                if cover_bytes and is_custom and custom_px < fetch_dim:
+                    cover_bytes_full = cover_bytes  # preserve full size for optional embed
+                    try:
+                        import io as _io
+                        from PIL import Image as _Img
+                        with _Img.open(_io.BytesIO(cover_bytes)) as img:
+                            img = img.convert("RGB")
+                            img = img.resize((custom_px, custom_px), _Img.LANCZOS)
+                            buf = _io.BytesIO()
+                            img.save(buf, format="JPEG", quality=92)
+                            cover_bytes = buf.getvalue()
+                    except Exception:
+                        cover_bytes_full = None  # PIL unavailable, fall back gracefully
             except Exception:
                 pass
 
@@ -8523,7 +8573,9 @@ class _TidalDlWorker(QThread):
 
         # 5. Write all metadata (tags + cover + lyrics) in one pass to avoid overwrites
         try:
-            embed_cover = cover_bytes if p.get("metadata_cover_embed", True) else None
+            # If custom resize + "Full 1280px" embed chosen, embed the original full-size bytes
+            cover_for_embed = (cover_bytes_full if (embed_full and cover_bytes_full) else cover_bytes)
+            embed_cover = cover_for_embed if p.get("metadata_cover_embed", True) else None
             embed_lyrics = plain_lyrics if (p.get("lyrics_embed", True) and plain_lyrics) else ""
             self._embed_tags(dest_path, track, p, cover_bytes=embed_cover, plain_lyrics=embed_lyrics)
         except Exception:
@@ -8762,7 +8814,7 @@ class _TidalSettingsPanel(QScrollArea):
 
         def _row_lbl(text):
             lbl = QLabel(text)
-            lbl.setFixedWidth(185)
+            lbl.setFixedWidth(80)
             lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:11px;background:transparent;")
             return lbl
 
@@ -8809,13 +8861,77 @@ class _TidalSettingsPanel(QScrollArea):
 
         # ── Cover Art Resolution ──────────────────────────────
         r.addWidget(self._heading("Cover Art"))
-        hb_cov = QHBoxLayout(); hb_cov.setSpacing(8)
-        hb_cov.addWidget(_row_lbl("Resolution"))
+
+        # Row 1: Resolution
+        res_row = QHBoxLayout(); res_row.setSpacing(6); res_row.setContentsMargins(0,0,0,0)
+        res_row.addWidget(_row_lbl("Resolution"))
         self._cb_metadata_cover_dimension = _combo(
-            ["Px1280", "Px640", "Px320", "Px160"], "metadata_cover_dimension"
+            ["Px1280", "Px640", "Px320", "Px160", "Custom…"], "metadata_cover_dimension"
         )
-        hb_cov.addWidget(self._cb_metadata_cover_dimension, stretch=1)
-        r.addLayout(hb_cov)
+        self._cb_metadata_cover_dimension.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        res_row.addWidget(self._cb_metadata_cover_dimension, stretch=1)
+
+        self._cover_custom_px = QSpinBox()
+        self._cover_custom_px.setRange(1, 1279)
+        self._cover_custom_px.blockSignals(True)
+        self._cover_custom_px.setValue(800)
+        self._cover_custom_px.blockSignals(False)
+        self._cover_custom_px.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._cover_custom_px.setVisible(False)
+        self._cover_custom_px.setToolTip("Fetch at 1280px then resize down to this size")
+        res_row.addWidget(self._cover_custom_px, stretch=1)
+        r.addLayout(res_row)
+
+        # Row 2: Embed size (only visible when Custom selected)
+        embed_row = QHBoxLayout(); embed_row.setSpacing(6); embed_row.setContentsMargins(0,0,0,0)
+        self._lbl_embed_sz = _row_lbl("Embed size:")
+        self._lbl_embed_sz.setVisible(False)
+        embed_row.addWidget(self._lbl_embed_sz)
+
+        self._btn_embed_resized = QPushButton("Resized")
+        self._btn_embed_resized.setFixedHeight(26)
+        self._btn_embed_resized.setCheckable(True)
+        self._btn_embed_resized.setObjectName("toggle")
+        self._btn_embed_resized.setToolTip("Embed the resized cover into tags")
+        self._btn_embed_resized.setVisible(False)
+        embed_row.addWidget(self._btn_embed_resized, stretch=1)
+
+        self._btn_embed_full = QPushButton("Full 1280px")
+        self._btn_embed_full.setFixedHeight(26)
+        self._btn_embed_full.setCheckable(True)
+        self._btn_embed_full.setObjectName("toggle")
+        self._btn_embed_full.setToolTip("Always embed the full 1280px cover into tags")
+        self._btn_embed_full.setVisible(False)
+        embed_row.addWidget(self._btn_embed_full, stretch=1)
+        r.addLayout(embed_row)
+
+        def _set_embed_size(full: bool):
+            self._btn_embed_resized.setChecked(not full)
+            self._btn_embed_full.setChecked(full)
+            self._p()["metadata_cover_embed_full"] = full
+            save_conf(self._conf)
+
+        self._btn_embed_resized.clicked.connect(lambda: _set_embed_size(False))
+        self._btn_embed_full.clicked.connect(lambda: _set_embed_size(True))
+
+        def _on_res_changed(text):
+            is_custom = text == "Custom…"
+            self._cover_custom_px.setVisible(is_custom)
+            self._lbl_embed_sz.setVisible(is_custom)
+            self._btn_embed_resized.setVisible(is_custom)
+            self._btn_embed_full.setVisible(is_custom)
+            p = self._p()
+            p["metadata_cover_dimension"] = text
+            p["metadata_cover_custom_px"] = self._cover_custom_px.value()
+            save_conf(self._conf)
+
+        self._cb_metadata_cover_dimension.currentTextChanged.connect(_on_res_changed)
+        self._cover_custom_px.valueChanged.connect(lambda v: (
+            self._p().__setitem__("metadata_cover_custom_px", v),
+            save_conf(self._conf)
+        ))
 
         r.addWidget(self._hr())
 
@@ -8917,8 +9033,17 @@ class _TidalSettingsPanel(QScrollArea):
         # Cover art resolution combo
         cb = getattr(self, "_cb_metadata_cover_dimension", None)
         if cb:
+            # Block spinbox signals while restoring to avoid overwriting saved value
+            self._cover_custom_px.blockSignals(True)
+            self._cover_custom_px.setValue(p.get("metadata_cover_custom_px", 800))
+            self._cover_custom_px.blockSignals(False)
             idx = cb.findText(p.get("metadata_cover_dimension", "Px1280"))
             if idx >= 0: cb.setCurrentIndex(idx)
+            # _on_res_changed fires from setCurrentIndex and handles visibility
+            # Restore embed size toggle state
+            embed_full = p.get("metadata_cover_embed_full", False)
+            self._btn_embed_resized.setChecked(not embed_full)
+            self._btn_embed_full.setChecked(embed_full)
 
         # Text fields
         for attr, conf_key, default_val in [
@@ -9716,8 +9841,10 @@ class _TidalTrackRow(QWidget):
             self._dl_btn.setEnabled(True)
             self._dl_btn.setText("✓  Done" if ok else "✗  Failed")
             c = t["success"] if ok else t["danger"]
+            cbg = _hex_to_rgba(c, 0.08)
+            cbdr = _hex_to_rgba(c, 0.33)
             self._dl_btn.setStyleSheet(
-                f"QPushButton{{background:{c}14;border:1px solid {c}55;"
+                f"QPushButton{{background:{cbg};border:1px solid {cbdr};"
                 f"border-radius:5px;font-size:12px;color:{c};padding:0 10px;"
                 f"min-height:26px;max-height:28px;font-weight:600;}}"
             )
@@ -9926,10 +10053,11 @@ class _TidalQueueSidebar(QWidget):
     """
     download_all_req = pyqtSignal()
     export_csv_req   = pyqtSignal()
-    cancel_one_req   = pyqtSignal(dict)   # cancel a single active download
-    cancel_all_req   = pyqtSignal()       # cancel all active downloads
-    pause_one_req    = pyqtSignal(dict)   # pause/resume a single download
+    cancel_one_req   = pyqtSignal(dict)
+    cancel_all_req   = pyqtSignal()
+    pause_one_req    = pyqtSignal(dict)
     pause_all_req    = pyqtSignal()
+    download_one_req = pyqtSignal(dict)   # start a single queued track immediately
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -9967,8 +10095,10 @@ class _TidalQueueSidebar(QWidget):
         self._cancel_all_btn.clicked.connect(self.cancel_all_req.emit)
         hb.addWidget(self._cancel_all_btn)
 
-        self._pause_all_btn = QPushButton("Pause")
+        self._pause_all_btn = QPushButton(" Pause")
         self._pause_all_btn.setObjectName("ghost")
+        self._pause_all_btn.setIcon(_make_icon_pause_dim())
+        self._pause_all_btn.setIconSize(QSize(12, 12))
         self._pause_all_btn.setCheckable(True)
         self._pause_all_btn.setFixedHeight(24)
         self._pause_all_btn.setVisible(False)
@@ -10121,10 +10251,10 @@ class _TidalQueueSidebar(QWidget):
             f" min-height:22px; max-height:22px; min-width:22px; max-width:22px; }}"
             f"QWidget#active_dl_row QPushButton:hover {{ border-color:rgba(255,255,255,0.40);"
             f" background:rgba(255,255,255,0.10); }}"
-            f"QWidget#active_dl_row QPushButton#cancel_btn {{ border-color:{t['danger']}66;"
-            f" color:{t['danger']}; background:{t['danger']}14; }}"
-            f"QWidget#active_dl_row QPushButton#cancel_btn:hover {{ border-color:{t['danger']}cc;"
-            f" background:{t['danger']}28; }}"
+            f"QWidget#active_dl_row QPushButton#cancel_btn {{ border-color:{_hex_to_rgba(t['danger'], 0.40)};"
+            f" color:{t['danger']}; background:{_hex_to_rgba(t['danger'], 0.08)}; }}"
+            f"QWidget#active_dl_row QPushButton#cancel_btn:hover {{ border-color:{_hex_to_rgba(t['danger'], 0.80)};"
+            f" background:{_hex_to_rgba(t['danger'], 0.16)}; }}"
         )
         vb = QVBoxLayout(row)
         vb.setContentsMargins(8, 6, 8, 6)
@@ -10140,8 +10270,10 @@ class _TidalQueueSidebar(QWidget):
         tl.setMaximumWidth(140)
         top.addWidget(tl, stretch=1)
 
-        pause_btn = QPushButton("⏸")
+        pause_btn = QPushButton()
         pause_btn.setObjectName("pause_btn")
+        pause_btn.setIcon(_make_icon_pause_dim())
+        pause_btn.setIconSize(QSize(12, 12))
         pause_btn.setFixedSize(22, 22)
         pause_btn.setCheckable(True)
         pause_btn.setToolTip("Pause / resume this download")
@@ -10182,13 +10314,14 @@ class _TidalQueueSidebar(QWidget):
 
     def _on_pause_one(self, track: dict, btn: QPushButton):
         paused = btn.isChecked()
-        btn.setText("▶" if paused else "⏸")
+        btn.setIcon(_make_icon_play_dim() if paused else _make_icon_pause_dim())
         btn.setToolTip("Resume download" if paused else "Pause download")
         self.pause_one_req.emit(track)
 
     def _on_pause_all(self):
         paused = self._pause_all_btn.isChecked()
-        self._pause_all_btn.setText("▶ Resume" if paused else "⏸ Pause")
+        self._pause_all_btn.setIcon(_make_icon_play_dim() if paused else _make_icon_pause_dim())
+        self._pause_all_btn.setText(" Resume" if paused else " Pause")
         # Sync individual pause buttons
         for info in self._active.values():
             row = info.get("row")
@@ -10196,7 +10329,7 @@ class _TidalQueueSidebar(QWidget):
                 try:
                     if not sip.isdeleted(row):
                         row._pause_btn.setChecked(paused)
-                        row._pause_btn.setText("▶" if paused else "⏸")
+                        row._pause_btn.setIcon(_make_icon_play_dim() if paused else _make_icon_pause_dim())
                 except Exception:
                     pass
         self.pause_all_req.emit()
@@ -10210,7 +10343,7 @@ class _TidalQueueSidebar(QWidget):
         self._append_queue_row(self._tracks[-1], len(self._tracks) - 1)
         self._refresh_visibility()
 
-    def _append_queue_row(self, track: dict, idx: int):
+    def _make_queue_row(self, track: dict, idx: int) -> QWidget:
         t = _current_theme
         row = QWidget()
         row.setObjectName("queue_row")
@@ -10219,26 +10352,33 @@ class _TidalQueueSidebar(QWidget):
             f"QWidget#queue_row {{ background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09);"
             f" border-radius:6px; }}"
             f"QWidget#queue_row QLabel {{ background:transparent; border:none; }}"
-            f"QWidget#queue_row QPushButton {{ background:{t['danger']}14;"
-            f" border:1px solid {t['danger']}55; color:{t['danger']}; border-radius:4px;"
-            f" font-size:12px; padding:0; min-height:20px; max-height:20px;"
-            f" min-width:20px; max-width:20px; font-weight:600; }}"
-            f"QWidget#queue_row QPushButton:hover {{ background:{t['danger']}28;"
-            f" border-color:{t['danger']}cc; }}"
+            f"QWidget#queue_row QPushButton#dl1_btn {{ background:rgba(255,255,255,0.07);"
+            f" border:1px solid rgba(255,255,255,0.20); border-radius:4px;"
+            f" padding:0; min-height:20px; max-height:20px; min-width:20px; max-width:20px; }}"
+            f"QWidget#queue_row QPushButton#dl1_btn:hover {{ background:rgba(255,255,255,0.16);"
+            f" border-color:rgba(255,255,255,0.50); border-radius:4px; }}"
+            f"QWidget#queue_row QPushButton#rm_btn {{ background:{_hex_to_rgba(t['danger'], 0.08)};"
+            f" border:1px solid {_hex_to_rgba(t['danger'], 0.33)}; color:{t['danger']}; border-radius:4px;"
+            f" font-size:12px; padding:0; min-height:20px; max-height:20px; min-width:20px; max-width:20px;"
+            f" font-weight:600; }}"
+            f"QWidget#queue_row QPushButton#rm_btn:hover {{ background:{_hex_to_rgba(t['danger'], 0.16)};"
+            f" border-color:{_hex_to_rgba(t['danger'], 0.80)}; border-radius:4px; }}"
         )
         hb = QHBoxLayout(row)
         hb.setContentsMargins(8, 4, 8, 4)
-        hb.setSpacing(6)
+        hb.setSpacing(5)
+
         n = QLabel(str(idx + 1))
-        n.setFixedWidth(16)
+        n.setFixedWidth(14)
         n.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         n.setStyleSheet("color:rgba(255,255,255,0.35); font-size:10px;")
         hb.addWidget(n)
+
         info = QVBoxLayout()
         info.setSpacing(1)
         tl = QLabel(track.get("title", "Unknown"))
         tl.setStyleSheet("font-weight:600; color:rgba(255,255,255,0.85); font-size:11px;")
-        tl.setMaximumWidth(150)
+        tl.setMaximumWidth(130)
         info.addWidget(tl)
         artists = ", ".join(a.get("name", "") for a in (track.get("artists") or []))
         if not artists:
@@ -10246,14 +10386,38 @@ class _TidalQueueSidebar(QWidget):
         if artists:
             al = QLabel(artists)
             al.setStyleSheet("color:rgba(255,255,255,0.35); font-size:10px;")
-            al.setMaximumWidth(150)
+            al.setMaximumWidth(130)
             info.addWidget(al)
         hb.addLayout(info, stretch=1)
+
+        # ▶ download this track now
+        dl1 = QPushButton()
+        dl1.setObjectName("dl1_btn")
+        dl1.setFixedSize(20, 20)
+        dl1.setToolTip("Download this track now")
+        dl1.setIcon(_make_icon_play_dim(10))
+        dl1.setIconSize(QSize(10, 10))
+        dl1.clicked.connect(lambda _, tr=track: self._download_one(tr))
+        hb.addWidget(dl1)
+
         rm = QPushButton("✕")
+        rm.setObjectName("rm_btn")
         rm.setFixedSize(20, 20)
         rm.setToolTip("Remove from queue")
         rm.clicked.connect(lambda _, i=idx: self._remove_queued(i))
         hb.addWidget(rm)
+        return row
+
+    def _download_one(self, track: dict):
+        """Remove track from queued list and emit download_one_req for it."""
+        tid = track.get("id")
+        self._tracks = [t for t in self._tracks if t.get("id") != tid]
+        self._rebuild_queue_list()
+        self._refresh_visibility()
+        self.download_one_req.emit(track)
+
+    def _append_queue_row(self, track: dict, idx: int):
+        row = self._make_queue_row(track, idx)
         self._queue_list_l.addWidget(row)
 
     def tracks(self) -> list[dict]:
@@ -10271,62 +10435,12 @@ class _TidalQueueSidebar(QWidget):
             self._refresh_visibility()
 
     def _rebuild_queue_list(self):
-        t = _current_theme
-        # Clear existing rows
         while self._queue_list_l.count():
             item = self._queue_list_l.takeAt(0)
             if w := item.widget():
                 w.deleteLater()
-
         for idx, track in enumerate(self._tracks):
-            row = QWidget()
-            row.setObjectName("queue_row")
-            row.setFixedHeight(48)
-            row.setStyleSheet(
-                f"QWidget#queue_row {{ background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09);"
-                f" border-radius:6px; }}"
-                f"QWidget#queue_row QLabel {{ background:transparent; border:none; }}"
-                f"QWidget#queue_row QPushButton {{ background:{t['danger']}14;"
-                f" border:1px solid {t['danger']}55; color:{t['danger']}; border-radius:4px;"
-                f" font-size:12px; padding:0; min-height:20px; max-height:20px;"
-                f" min-width:20px; max-width:20px; font-weight:600; }}"
-                f"QWidget#queue_row QPushButton:hover {{ background:{t['danger']}28;"
-                f" border-color:{t['danger']}cc; }}"
-            )
-            hb = QHBoxLayout(row)
-            hb.setContentsMargins(8, 4, 8, 4)
-            hb.setSpacing(6)
-
-            n = QLabel(str(idx + 1))
-            n.setFixedWidth(16)
-            n.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            n.setStyleSheet("color:rgba(255,255,255,0.35); font-size:10px;")
-            hb.addWidget(n)
-
-            info = QVBoxLayout()
-            info.setSpacing(1)
-            tl = QLabel(track.get("title", "Unknown"))
-            tl.setStyleSheet("font-weight:600; color:rgba(255,255,255,0.85); font-size:11px;")
-            tl.setMaximumWidth(150)
-            info.addWidget(tl)
-
-            artists = ", ".join(a.get("name", "") for a in (track.get("artists") or []))
-            if not artists:
-                artists = (track.get("artist") or {}).get("name", "")
-            if artists:
-                al = QLabel(artists)
-                al.setStyleSheet("color:rgba(255,255,255,0.35); font-size:10px;")
-                al.setMaximumWidth(150)
-                info.addWidget(al)
-            hb.addLayout(info, stretch=1)
-
-            rm = QPushButton("✕")
-            rm.setFixedSize(20, 20)
-            rm.setToolTip("Remove from queue")
-            rm.clicked.connect(lambda _, i=idx: self._remove_queued(i))
-            hb.addWidget(rm)
-
-            self._queue_list_l.addWidget(row)
+            self._queue_list_l.addWidget(self._make_queue_row(track, idx))
 
     def _refresh_visibility(self):
         has_active = bool(self._active)
@@ -10339,7 +10453,8 @@ class _TidalQueueSidebar(QWidget):
         if not has_active:
             # Reset pause all button state when no downloads
             self._pause_all_btn.setChecked(False)
-            self._pause_all_btn.setText("⏸ Pause")
+            self._pause_all_btn.setIcon(_make_icon_pause_dim())
+            self._pause_all_btn.setText(" Pause")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -12527,6 +12642,7 @@ class TidalDownloaderPage(QWidget):
         # Queue sidebar
         self._queue_side = _TidalQueueSidebar()
         self._queue_side.download_all_req.connect(self._download_queue)
+        self._queue_side.download_one_req.connect(self._on_dl_track)
         self._queue_side.export_csv_req.connect(self._export_csv)
         self._queue_side.cancel_one_req.connect(self._on_cancel_track)
         self._queue_side.cancel_all_req.connect(self._on_cancel_all)
@@ -15217,7 +15333,7 @@ class SpectrogramPage(QWidget):
             # Re-color labels when checked state changes
             def _sync_colors(checked, nl=n_lbl, sl=s_lbl):
                 ac = "#ffffff" if checked else tok('txt0')
-                sc = "#ffffffaa" if checked else tok('txt2')
+                sc = "rgba(255,255,255,0.67)" if checked else tok('txt2')
                 nl.setStyleSheet(f"background:transparent;color:{ac};")
                 sl.setStyleSheet(f"font-size:9px;background:transparent;color:{sc};")
             btn.toggled.connect(_sync_colors)
@@ -15330,8 +15446,9 @@ class SpectrogramPage(QWidget):
 
         # ── Audio file info panel ─────────────────────────────
         self._info_panel = QWidget()
+        self._info_panel.setObjectName("tags_info_panel")
         self._info_panel.hide()
-        self._info_panel.setStyleSheet("background:rgba(0,0,0,0.25); border-top:1px solid rgba(255,255,255,0.07);")
+        self._info_panel.setStyleSheet("QWidget#tags_info_panel { background:rgba(0,0,0,0.25); border-top:1px solid rgba(255,255,255,0.07); }")
         ip_lay = QVBoxLayout(self._info_panel)
         ip_lay.setContentsMargins(16, 10, 16, 10)
         ip_lay.setSpacing(4)
@@ -15485,11 +15602,11 @@ class SpectrogramPage(QWidget):
                          f"padding:2px 10px;font-size:10px;font-weight:700;")
         elif ceil_hz >= 16000:
             quality   = "Partial (≥16 kHz)"
-            badge_ss  = (f"background:{tok('warning')}18;color:{tok('warning')};border-radius:4px;"
+            badge_ss  = (f"background:{_hex_to_rgba(tok('warning'), 0.09)};color:{tok('warning')};border-radius:4px;"
                          f"padding:2px 10px;font-size:10px;font-weight:700;")
         else:
             quality   = f"Limited ({ceil_hz//1000} kHz ceiling)"
-            badge_ss  = (f"background:{tok('danger')}18;color:{tok('danger')};border-radius:4px;"
+            badge_ss  = (f"background:{_hex_to_rgba(tok('danger'), 0.09)};color:{tok('danger')};border-radius:4px;"
                          f"padding:2px 10px;font-size:10px;font-weight:700;")
 
         self._quality_badge.setText(quality)
@@ -15499,7 +15616,7 @@ class SpectrogramPage(QWidget):
         self._progress.hide()
         self._quality_badge.setText("Error")
         self._quality_badge.setStyleSheet(
-            f"background:{tok('danger')}18;color:{tok('danger')};border-radius:4px;"
+            f"background:{_hex_to_rgba(tok('danger'), 0.09)};color:{tok('danger')};border-radius:4px;"
             f"padding:2px 10px;font-size:10px;font-weight:700;"
         )
         QMessageBox.critical(self, "Spectrogram Error", msg)
@@ -15742,8 +15859,10 @@ class AlbumCoverExtractorPage(QWidget):
         self._run_btn.clicked.connect(self._start)
         btn_row.addWidget(self._run_btn)
 
-        self._pause_btn = QPushButton("⏸ Pause")
+        self._pause_btn = QPushButton(" Pause")
         self._pause_btn.setObjectName("ghost")
+        self._pause_btn.setIcon(_make_icon_pause_dim())
+        self._pause_btn.setIconSize(QSize(13, 13))
         self._pause_btn.setFixedHeight(34)
         self._pause_btn.setEnabled(False)
         self._pause_btn.setCheckable(True)
@@ -15976,11 +16095,13 @@ class AlbumCoverExtractorPage(QWidget):
         if not self._worker:
             return
         if self._pause_btn.isChecked():
-            self._pause_btn.setText("▶ Resume")
+            self._pause_btn.setIcon(_make_icon_play_dim())
+            self._pause_btn.setText(" Resume")
             if hasattr(self._worker, 'pause'):
                 self._worker.pause()
         else:
-            self._pause_btn.setText("⏸ Pause")
+            self._pause_btn.setIcon(_make_icon_pause_dim())
+            self._pause_btn.setText(" Pause")
             if hasattr(self._worker, 'resume'):
                 self._worker.resume()
 
@@ -16034,7 +16155,8 @@ class AlbumCoverExtractorPage(QWidget):
         self._cancel_btn.setEnabled(running)
         if not running:
             self._pause_btn.setChecked(False)
-            self._pause_btn.setText("⏸ Pause")
+            self._pause_btn.setIcon(_make_icon_pause_dim())
+            self._pause_btn.setText(" Pause")
 
     def _on_progress(self, pct: int, status: str):
         self._prog_bar.setValue(pct)
@@ -16830,7 +16952,8 @@ class MusicTagEditorPage(QWidget):
 
         # ── LEFT: file list / cluster tree ────────────────────
         file_panel = QWidget()
-        file_panel.setStyleSheet("background:rgba(0,0,0,0.25); border-right:1px solid rgba(255,255,255,0.07);")
+        file_panel.setObjectName("tags_file_panel")
+        file_panel.setStyleSheet("QWidget#tags_file_panel { background:rgba(0,0,0,0.25); border-right:1px solid rgba(255,255,255,0.07); }")
         fv = QVBoxLayout(file_panel)
         fv.setContentsMargins(0, 0, 0, 0)
         fv.setSpacing(0)
@@ -17248,8 +17371,9 @@ class MusicTagEditorPage(QWidget):
 
         # ── RIGHT: cover / resize / verify / rg / file details ─
         right_outer = QWidget()
+        right_outer.setObjectName("tags_right_panel")
         right_outer.setMinimumWidth(180)
-        right_outer.setStyleSheet("background:rgba(0,0,0,0.25); border-left:1px solid rgba(255,255,255,0.07);")
+        right_outer.setStyleSheet("QWidget#tags_right_panel { background:rgba(0,0,0,0.25); border-left:1px solid rgba(255,255,255,0.07); }")
         right_outer_v = QVBoxLayout(right_outer)
         right_outer_v.setContentsMargins(0, 0, 0, 0)
         right_outer_v.setSpacing(0)
@@ -18356,7 +18480,8 @@ class MusicTagEditorPage(QWidget):
         dlg = QDialog(self)
         dlg.setWindowTitle(f"Batch Tag Operations  ({len(targets)} files)")
         dlg.setMinimumWidth(400)
-        dlg.setStyleSheet("background:rgba(0,0,0,0.35);color:rgba(255,255,255,0.85);")
+        dlg.setObjectName("batch_tag_dlg")
+        dlg.setStyleSheet("QDialog#batch_tag_dlg { background:rgba(0,0,0,0.35); color:rgba(255,255,255,0.85); }")
         v = QVBoxLayout(dlg)
         v.setContentsMargins(20, 16, 20, 16)
         v.setSpacing(8)
@@ -18526,7 +18651,8 @@ class MusicTagEditorPage(QWidget):
         dlg = QDialog(self)
         dlg.setWindowTitle(f"Rename Files  ({len(targets)} files)")
         dlg.setMinimumWidth(500)
-        dlg.setStyleSheet("background:rgba(0,0,0,0.35);color:rgba(255,255,255,0.85);")
+        dlg.setObjectName("rename_files_dlg")
+        dlg.setStyleSheet("QDialog#rename_files_dlg { background:rgba(0,0,0,0.35); color:rgba(255,255,255,0.85); }")
         v = QVBoxLayout(dlg)
         v.setContentsMargins(20, 16, 20, 16)
         v.setSpacing(10)
@@ -19412,7 +19538,6 @@ class _IntegrityCheckWorker(QThread):
 #  FILE CONVERTER PAGE
 # ─────────────────────────────────────────────────────────────
 
-_CONV_DB_TABLE   = "converted_files"
 _CONV_SNAP_TABLE = "conv_snapshot"
 _CONV_PRESET_KEY = "conv_presets"   # key in config.json
 
@@ -19450,8 +19575,15 @@ def _build_ffmpeg_cmd(src: str, dst: str, opts: dict) -> list:
     Build a correct ffmpeg command from opts dict.
     Handles the cover/filter flag ordering that previously caused silent failures.
     """
-    codec    = opts["codec"]
-    lossless = opts.get("lossless", False)
+    codec     = opts["codec"]
+    lossless  = opts.get("lossless", False)
+    bit_depth = opts.get("bit_depth")   # "16", "24", or "32" (lossless only)
+
+    # For PCM codecs (WAV / AIFF) the bit depth is baked into the codec name
+    if bit_depth and codec.startswith("pcm_"):
+        endian = "be" if codec.endswith("be") else "le"
+        codec = f"pcm_s{bit_depth}{endian}"
+
     cmd = ["ffmpeg", "-y", "-i", src]
 
     # Audio codec + quality
@@ -19459,6 +19591,15 @@ def _build_ffmpeg_cmd(src: str, dst: str, opts: dict) -> list:
     q = opts.get("quality_args", [])
     if q:
         cmd += q
+
+    # For FLAC, bit depth is set via -sample_fmt / -bits_per_raw_sample
+    if bit_depth and opts["codec"] == "flac":
+        if bit_depth == "16":
+            cmd += ["-sample_fmt", "s16"]
+        elif bit_depth == "24":
+            cmd += ["-sample_fmt", "s32", "-bits_per_raw_sample", "24"]
+        elif bit_depth == "32":
+            cmd += ["-sample_fmt", "s32"]
 
     # Audio filters
     filters = []
@@ -19522,33 +19663,18 @@ class FileConverterPage(QWidget):
         self._scan_batch_buf: list = []
         self._queue_files: list[Path]   = []
         self._presets: list[dict]       = []
-        self._ensure_db()
         self._load_presets()
         self._build()
 
     # ── DB / persistence ──────────────────────────────────────
 
-    def _ensure_db(self):
+    def _ensure_snapshot_db(self):
+        """Create the snapshot table used by the Sync feature."""
         try:
             con = sqlite3.connect(DB_FILE)
-            # Legacy migration: add preset_name column if missing
-            existing_conv = {r[1] for r in con.execute("PRAGMA table_info(converted_files)")}
-            if existing_conv and "preset_name" not in existing_conv:
-                con.execute("ALTER TABLE converted_files ADD COLUMN preset_name TEXT NOT NULL DEFAULT ''")
             existing_snap = {r[1] for r in con.execute("PRAGMA table_info(conv_snapshot)")}
             if existing_snap and "preset_name" not in existing_snap:
                 con.execute("ALTER TABLE conv_snapshot ADD COLUMN preset_name TEXT NOT NULL DEFAULT ''")
-            con.execute(f"""CREATE TABLE IF NOT EXISTS {_CONV_DB_TABLE} (
-                src_path TEXT NOT NULL, src_mtime REAL,
-                dst_path TEXT, converted_at TEXT, format TEXT,
-                preset_name TEXT NOT NULL DEFAULT '',
-                PRIMARY KEY (src_path, preset_name))""")
-            # Snapshot table: tracks every file seen in a source folder
-            # src_folder  = the root folder being converted (key for this library)
-            # preset_name = name of the active preset (isolates memories per preset)
-            # src_path    = absolute path to individual file
-            # src_mtime   = mtime at last scan (change detection)
-            # src_size    = size at last scan (extra change detection)
             con.execute(f"""CREATE TABLE IF NOT EXISTS {_CONV_SNAP_TABLE} (
                 src_folder  TEXT NOT NULL,
                 preset_name TEXT NOT NULL DEFAULT '',
@@ -19586,7 +19712,7 @@ class FileConverterPage(QWidget):
         self._bg = StaticPageBackground(self)
         self._bg.setGeometry(self.rect())
 
-        root.addWidget(PageHeader("File Converter", "FFmpeg-powered · remembers converted files"))
+        root.addWidget(PageHeader("File Converter", "FFmpeg-powered audio converter"))
 
         # Body: left config + right queue
         body = QHBoxLayout(); body.setContentsMargins(20,20,20,20); body.setSpacing(20)
@@ -19714,6 +19840,30 @@ class FileConverterPage(QWidget):
         rs_row.addWidget(self._opt_resample); rs_row.addWidget(self._resample_combo)
         cv.addLayout(rs_row)
 
+        # Bit depth (lossless only)
+        bd_row = QHBoxLayout(); bd_row.setSpacing(6)
+        self._opt_bitdepth = QCheckBox("Bit depth:")
+        self._bitdepth_combo = QComboBox()
+        self._bitdepth_combo.addItems(["16-bit", "24-bit", "32-bit"])
+        self._bitdepth_combo.setToolTip("Only applies to lossless formats: FLAC, WAV, AIFF")
+        bd_row.addWidget(self._opt_bitdepth); bd_row.addWidget(self._bitdepth_combo)
+        cv.addLayout(bd_row)
+
+        def _update_bitdepth_visibility():
+            lossless = _CONV_FORMATS.get(self._fmt_combo.currentText(), {}).get("lossless", False)
+            self._opt_bitdepth.setEnabled(lossless)
+            self._bitdepth_combo.setEnabled(lossless and self._opt_bitdepth.isChecked())
+            if not lossless:
+                self._opt_bitdepth.setChecked(False)
+
+        self._fmt_combo.currentTextChanged.connect(lambda _: _update_bitdepth_visibility())
+        self._opt_bitdepth.toggled.connect(lambda checked: (
+            self._bitdepth_combo.setEnabled(checked and _CONV_FORMATS.get(
+                self._fmt_combo.currentText(), {}).get("lossless", False)),
+            self._save_last_conv_settings()
+        ))
+        _update_bitdepth_visibility()
+
         # Workers
         cv.addWidget(sec("PARALLEL JOBS"))
         wr = QHBoxLayout(); wr.setSpacing(6)
@@ -19743,27 +19893,16 @@ class FileConverterPage(QWidget):
         btn_row.addWidget(self._scan_btn); btn_row.addWidget(self._conv_btn)
         cv.addLayout(btn_row)
 
-        self._sync_btn = QPushButton("⟳  Sync (find new & convert)")
-        self._sync_btn.setObjectName("ghost")
-        self._sync_btn.setFixedHeight(34)
-        self._sync_btn.setToolTip(
-            "Uses a snapshot of your library to instantly find only new or changed files.\n"
-            "On first run it walks the full folder. After that it's near-instant.")
-        self._sync_btn.clicked.connect(self._sync)
-        cv.addWidget(self._sync_btn)
-
         ctrl_row = QHBoxLayout(); ctrl_row.setSpacing(8)
-        self._pause_btn = QPushButton("⏸ Pause"); self._pause_btn.setObjectName("ghost")
+        self._pause_btn = QPushButton(" Pause"); self._pause_btn.setObjectName("ghost")
+        self._pause_btn.setIcon(_make_icon_pause_dim())
+        self._pause_btn.setIconSize(QSize(13, 13))
         self._pause_btn.setFixedHeight(34); self._pause_btn.setCheckable(True); self._pause_btn.setEnabled(False)
         self._pause_btn.clicked.connect(self._toggle_pause)
         self._cancel_btn = QPushButton("Cancel"); self._cancel_btn.setObjectName("danger")
         self._cancel_btn.setFixedHeight(34); self._cancel_btn.setEnabled(False)
         self._cancel_btn.clicked.connect(self._cancel)
-        clr_btn = QPushButton("Clear Memory"); clr_btn.setObjectName("ghost"); clr_btn.setFixedHeight(34)
-        clr_btn.setToolTip("Forget all previously converted files")
-        clr_btn.clicked.connect(self._clear_history)
-        ctrl_row.addWidget(self._pause_btn); ctrl_row.addWidget(self._cancel_btn)
-        ctrl_row.addStretch(); ctrl_row.addWidget(clr_btn)
+        ctrl_row.addWidget(self._pause_btn, 1); ctrl_row.addWidget(self._cancel_btn, 1)
         cv.addLayout(ctrl_row)
 
         cfg_scroll = QScrollArea()
@@ -20067,6 +20206,7 @@ class FileConverterPage(QWidget):
         self._bitrate_combo.currentTextChanged.connect(lambda _v: self._save_last_conv_settings())
         self._threads_spin.valueChanged.connect(lambda _v: self._save_last_conv_settings())
         self._resample_combo.currentTextChanged.connect(lambda _v: self._save_last_conv_settings())
+        self._bitdepth_combo.currentTextChanged.connect(lambda _v: self._save_last_conv_settings())
         self._cover_size_spin.valueChanged.connect(lambda _v: self._save_last_conv_settings())
 
     def resizeEvent(self, e):
@@ -20133,6 +20273,8 @@ class FileConverterPage(QWidget):
             "normalize": self._opt_normalize.isChecked(),
             "resample":  self._opt_resample.isChecked(),
             "resample_rate": self._resample_combo.currentText(),
+            "bit_depth": self._opt_bitdepth.isChecked(),
+            "bit_depth_val": self._bitdepth_combo.currentText(),
             "workers":   self._threads_spin.value(),
             "extra":     self._extra_args.text().strip(),
             "src":       self._src_edit.text().strip(),
@@ -20156,6 +20298,9 @@ class FileConverterPage(QWidget):
         self._opt_resample.setChecked(s.get("resample", False))
         ri = self._resample_combo.findText(s.get("resample_rate","44100 Hz"))
         if ri >= 0: self._resample_combo.setCurrentIndex(ri)
+        self._opt_bitdepth.setChecked(s.get("bit_depth", False))
+        bi2 = self._bitdepth_combo.findText(s.get("bit_depth_val", "16-bit"))
+        if bi2 >= 0: self._bitdepth_combo.setCurrentIndex(bi2)
         self._threads_spin.setValue(s.get("workers", 4))
         self._extra_args.setText(s.get("extra",""))
         if s.get("src"): self._src_edit.setText(s["src"])
@@ -20220,60 +20365,12 @@ class FileConverterPage(QWidget):
         d = QFileDialog.getExistingDirectory(self, "Output Folder", str(Path.home()))
         if d: self._dst_edit.setText(d)
 
-    # ── Conversion memory ──────────────────────────────────────
-
-    def _is_converted(self, path: Path, dst_root: str, dst_ext: str) -> bool:
-        """
-        Returns True if this file should be skipped.
-        Checks BOTH the conversion memory DB and whether the output file
-        already exists on disk — so clearing memory doesn't re-queue files
-        that are already sitting in the output folder.
-        """
-        if not self._opt_skip.isChecked():
-            return False
-        # 1. Check if output file already exists in the destination folder
-        dst_root_p = Path(dst_root)
-        src_p      = Path(self._src_edit.text().strip())
-        if src_p.is_dir():
-            try:    rel = path.relative_to(src_p)
-            except Exception: rel = Path(path.name)
-        else:
-            rel = Path(path.name)
-        if self._opt_struct.isChecked():
-            dst_candidate = dst_root_p / rel.with_suffix(f".{dst_ext}")
-        else:
-            dst_candidate = dst_root_p / path.with_suffix(f".{dst_ext}").name
-        if dst_candidate.exists():
-            return True
-        # 2. Fall back to DB memory check (scoped to active preset)
-        preset = self._preset_combo.currentText() if self._preset_combo.currentIndex() >= 0 else ""
-        try:
-            con = sqlite3.connect(DB_FILE)
-            row = con.execute(
-                f"SELECT src_mtime FROM {_CONV_DB_TABLE} WHERE src_path=? AND preset_name=?",
-                (str(path), preset)
-            ).fetchone(); con.close()
-            return bool(row and abs(row[0] - path.stat().st_mtime) < 1.0)
-        except Exception:
-            return False
-
     def _active_preset_name(self) -> str:
         """Return the currently selected preset name, or '' if none."""
         idx = self._preset_combo.currentIndex()
         if idx >= 0 and idx < len(self._presets):
             return self._presets[idx].get("name", "")
         return ""
-
-    def _mark_converted(self, src: Path, dst: Path, fmt: str, preset_name: str = ""):
-        try:
-            con = sqlite3.connect(DB_FILE)
-            con.execute(
-                f"INSERT OR REPLACE INTO {_CONV_DB_TABLE} VALUES (?,?,?,?,?,?)",
-                (str(src), src.stat().st_mtime, str(dst),
-                 datetime.now().isoformat(timespec="seconds"), fmt, preset_name))
-            con.commit(); con.close()
-        except Exception:
-            pass
 
     # ── Queue / scan ───────────────────────────────────────────
 
@@ -20308,7 +20405,6 @@ class FileConverterPage(QWidget):
         self._prog_bar.setRange(0, 0)  # indeterminate spinner
         self._scan_btn.setEnabled(False)
         self._conv_btn.setEnabled(False)
-        self._sync_btn.setEnabled(False)
 
         fmt_name = self._fmt_combo.currentText()
         dst_ext  = _CONV_FORMATS[fmt_name]["ext"]
@@ -20321,6 +20417,7 @@ class FileConverterPage(QWidget):
             self._opt_struct.isChecked(),
             samefmt=self._opt_samefmt.currentIndex(),
             preset_name=self._active_preset_name(),
+            resample=self._resample_combo.currentText().split()[0] if self._opt_resample.isChecked() else None,
         )
         self._scan_worker.batch.connect(self._on_scan_batch)
         self._scan_worker.skipped_batch.connect(self._on_skipped_batch)
@@ -20377,7 +20474,7 @@ class FileConverterPage(QWidget):
             name_item.setToolTip(path_str)
             tbl.setItem(row, 0, name_item)
             reason_item = QTableWidgetItem(reason)
-            reason_item.setForeground(QColor("rgba(255,255,255,0.5)"))
+            reason_item.setForeground(QColor(255, 255, 255, 127))
             reason_item.setToolTip(path_str)
             tbl.setItem(row, 1, reason_item)
         tbl.setUpdatesEnabled(True)
@@ -20512,7 +20609,6 @@ class FileConverterPage(QWidget):
         self._queue_table_title()
         self._scan_btn.setEnabled(True)
         self._conv_btn.setEnabled(True)
-        self._sync_btn.setEnabled(True)
         if getattr(self, "_pending_convert_after_scan", False):
             self._pending_convert_after_scan = False
             if not self._queue_files:
@@ -20526,62 +20622,6 @@ class FileConverterPage(QWidget):
         self._queue_table.setRowCount(0)
         self._cs_queued.setText("0")
         self._queue_table_title()
-
-    def _sync(self):
-        """One-click: find new/changed files using snapshot, then auto-convert."""
-        src = self._src_edit.text().strip()
-        if not src or not Path(src).exists():
-            QMessageBox.warning(self, "No Source", "Select a source folder first.")
-            return
-        dst = self._dst_edit.text().strip()
-        if not dst:
-            QMessageBox.warning(self, "No Output", "Select an output folder first.")
-            return
-        if self._worker and self._worker.isRunning():
-            return
-
-        self._queue_files = []
-        self._queue_table.setRowCount(0)
-        self._skip_table.setRowCount(0)
-        self._log_table.setRowCount(0)
-        self._queue_current_page = 0
-        self._queue_prev_btn.setEnabled(False)
-        self._queue_next_btn.setEnabled(False)
-        self._queue_page_lbl.setText("Page 1 / 1")
-        self._log_all_entries.clear()
-        self._log_current_page = 0
-        self._log_prev_btn.setEnabled(False)
-        self._log_next_btn.setEnabled(False)
-        self._log_page_lbl.setText("Page 1 / 1")
-        self._row_statuses = []
-        self._tab_skip_btn.setText("Skipped  (0)")
-        self._tab_log_btn.setText("Log  (0)")
-        self._cs_queued.setText("0"); self._cs_skipped.setText("0")
-        self._cs_done.setText("0"); self._cs_errors.setText("0")
-        self._prog_lbl.setText("Syncing…")
-        self._prog_bar.setRange(0, 0)
-        self._scan_btn.setEnabled(False)
-        self._conv_btn.setEnabled(False)
-        self._sync_btn.setEnabled(False)
-
-        fmt_name = self._fmt_combo.currentText()
-        dst_ext  = _CONV_FORMATS[fmt_name]["ext"]
-        self._scan_batch_buf = []
-        self._pending_convert_after_scan = True  # auto-start convert when done
-
-        self._scan_worker = _FileScanWorker(
-            src, dst_ext, dst,
-            self._opt_skip.isChecked(),
-            self._opt_struct.isChecked(),
-            sync_mode=True,
-            samefmt=self._opt_samefmt.currentIndex(),
-            preset_name=self._active_preset_name(),
-        )
-        self._scan_worker.batch.connect(self._on_scan_batch)
-        self._scan_worker.skipped_batch.connect(self._on_skipped_batch)
-        self._scan_worker.done.connect(self._on_scan_done)
-        self._scan_worker.status.connect(self._prog_lbl.setText)
-        self._scan_worker.start()
 
     def _update_snapshot(self):
         """
@@ -20622,27 +20662,6 @@ class FileConverterPage(QWidget):
         except Exception:
             pass
 
-    def _clear_history(self):
-        preset = self._active_preset_name()
-        label  = f"preset '{preset}'" if preset else "unsaved settings (no preset)"
-        ans = QMessageBox.question(self, "Clear Memory",
-            f"Forget all previously converted files for {label}?\n"
-            f"Next scan will re-queue everything for this preset.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if ans == QMessageBox.StandardButton.Yes:
-            try:
-                con = sqlite3.connect(DB_FILE)
-                con.execute(f"DELETE FROM {_CONV_DB_TABLE} WHERE preset_name=?", (preset,))
-                src = self._src_edit.text().strip()
-                if src:
-                    con.execute(
-                        f"DELETE FROM {_CONV_SNAP_TABLE} WHERE src_folder=? AND preset_name=?",
-                        (src, preset))
-                con.commit(); con.close()
-            except Exception:
-                pass
-            self._prog_lbl.setText(f"Memory cleared for {label}.")
-
     # ── Convert ────────────────────────────────────────────────
 
     def _start_convert(self):
@@ -20679,6 +20698,8 @@ class FileConverterPage(QWidget):
             "normalize":   self._opt_normalize.isChecked(),
             "resample":    self._resample_combo.currentText().split()[0]
                            if self._opt_resample.isChecked() else None,
+            "bit_depth":   self._bitdepth_combo.currentText().split("-")[0]
+                           if self._opt_bitdepth.isChecked() else None,
             "extra_args":  self._extra_args.text().strip().split()
                            if self._extra_args.text().strip() else [],
             # 0=Skip, 1=Copy as-is, 2=Re-encode
@@ -20696,19 +20717,19 @@ class FileConverterPage(QWidget):
     def _set_running(self, running: bool):
         self._conv_btn.setEnabled(not running)
         self._scan_btn.setEnabled(not running)
-        self._sync_btn.setEnabled(not running)
         self._pause_btn.setEnabled(running)
         self._cancel_btn.setEnabled(running)
         if not running:
             self._pause_btn.setChecked(False)
-            self._pause_btn.setText("⏸ Pause")
+            self._pause_btn.setIcon(_make_icon_pause_dim())
+            self._pause_btn.setText(" Pause")
 
     def _toggle_pause(self):
         if not self._worker: return
         if self._pause_btn.isChecked():
-            self._pause_btn.setText("▶ Resume"); self._worker.pause()
+            self._pause_btn.setIcon(_make_icon_play_dim()); self._pause_btn.setText(" Resume"); self._worker.pause()
         else:
-            self._pause_btn.setText("⏸ Pause"); self._worker.resume()
+            self._pause_btn.setIcon(_make_icon_pause_dim()); self._pause_btn.setText(" Pause"); self._worker.resume()
 
     def _cancel(self):
         if self._worker: self._worker.cancel()
@@ -20747,8 +20768,6 @@ class FileConverterPage(QWidget):
             if pb: pb.setValue(100 if ok else 0)
         if ok:
             self._cs_done.setText(str(int(self._cs_done.text())+1))
-            preset = self._active_preset_name()
-            self._mark_converted(Path(src), Path(dst), fmt, preset)
         else:
             self._cs_errors.setText(str(int(self._cs_errors.text())+1))
         # Always add to log tab
@@ -20833,7 +20852,6 @@ class FileConverterPage(QWidget):
     def _on_conv_done(self):
         self._set_running(False)
         self._prog_lbl.setText("✓ Conversion complete")
-        self._update_snapshot()
 
 
 class _FileScanWorker(QThread):
@@ -20855,7 +20873,7 @@ class _FileScanWorker(QThread):
 
     def __init__(self, src: str, dst_ext: str, dst_root: str,
                  skip: bool, same_struct: bool, sync_mode: bool = False,
-                 samefmt: int = 0, preset_name: str = ""):
+                 samefmt: int = 0, preset_name: str = "", resample: str = None):
         super().__init__()
         self._src        = src
         self._dst_ext    = dst_ext
@@ -20864,6 +20882,7 @@ class _FileScanWorker(QThread):
         self._same_struct = same_struct
         self._sync_mode  = sync_mode
         self._samefmt    = samefmt  # 0=skip, 1=copy, 2=re-encode
+        self._resample   = resample  # target sample rate string or None
         self._preset_name = preset_name
         # Populated during run() for snapshot update after conversion
         self.all_seen: dict[str, tuple] = {}  # path -> (mtime, size)
@@ -20909,7 +20928,8 @@ class _FileScanWorker(QThread):
                 if suf not in _CONV_SRC_EXTS:
                     continue
                 is_same_fmt = (suf == f".{dst_ext}")
-                if is_same_fmt and self._samefmt == 0:
+                # Skip same-format files only when samefmt==0 AND no processing (e.g. resample) is requested
+                if is_same_fmt and self._samefmt == 0 and not self._resample:
                     continue  # skip
                 try:
                     st = f.stat()
@@ -20941,21 +20961,6 @@ class _FileScanWorker(QThread):
 
         else:
             # ── Normal scan mode ──────────────────────────────────
-            # Load entire conversion history into memory once
-            db_mtimes: dict[str, float] = {}
-            if self._skip:
-                self.status.emit("Loading conversion history…")
-                try:
-                    con = sqlite3.connect(DB_FILE)
-                    for row in con.execute(
-                        f"SELECT src_path, src_mtime FROM {_CONV_DB_TABLE} WHERE preset_name=?",
-                        (self._preset_name,)
-                    ):
-                        db_mtimes[row[0]] = row[1]
-                    con.close()
-                except Exception:
-                    pass
-
             dst_root_p = Path(self._dst_root) if self._dst_root else None
 
             # Build a set of all existing output-format stems in the destination
@@ -20982,7 +20987,8 @@ class _FileScanWorker(QThread):
                 if suf not in _CONV_SRC_EXTS:
                     continue
                 is_same_fmt = (suf == f".{dst_ext}")
-                if is_same_fmt and self._samefmt == 0:
+                # Skip same-format files only when samefmt==0 AND no processing (e.g. resample) is requested
+                if is_same_fmt and self._samefmt == 0 and not self._resample:
                     continue  # skip
 
                 if self._skip:
@@ -21008,15 +21014,6 @@ class _FileScanWorker(QThread):
                             if f.stem.lower() in dst_existing_stems:
                                 skip_this = True
                                 skip_reason = "Output exists (filename match)"
-                    if not skip_this:
-                        rec = db_mtimes.get(str(f))
-                        if rec is not None:
-                            try:
-                                if abs(rec - f.stat().st_mtime) < 1.0:
-                                    skip_this = True
-                                    skip_reason = "Previously converted (DB)"
-                            except OSError:
-                                pass
                     if skip_this:
                         skipped += 1
                         skipped_log.append((str(f), skip_reason))
