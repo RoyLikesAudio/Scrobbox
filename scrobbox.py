@@ -188,7 +188,7 @@ def _icon_btn(icon: QIcon, size: int, tooltip: str = "", parent=None) -> QPushBu
     return btn
 
 APP_NAME    = "Scrobbox"
-APP_VERSION = "0.9.0"   # bump this with each release
+APP_VERSION = "1.0.0"   # bump this with each release
 GITHUB_REPO = "RoyLikesAudio/Scrobbox"
 _sys = platform.system()
 
@@ -1418,9 +1418,11 @@ def _find_bundled_dbtool() -> Optional[Path]:
     Returns the path if found, else None.
     """
     # PyInstaller / cx_Freeze bundle
-    _base = Path(getattr(sys, "_MEIPASS", ""))
-    if _base and (_base / "rockbox_dbtool").exists():
-        return _base / "rockbox_dbtool"
+    _meipass = getattr(sys, "_MEIPASS", "")
+    if _meipass:
+        _base = Path(_meipass)
+        if (_base / "rockbox_dbtool").exists():
+            return _base / "rockbox_dbtool"
     # AppImage: binary next to the squashfs root
     _appdir = os.environ.get("APPDIR", "")
     if _appdir and (Path(_appdir) / "usr" / "bin" / "rockbox_dbtool").exists():
@@ -1461,12 +1463,14 @@ class RockboxDbWorker(QThread):
     def __init__(self, device_root: Path, mode: str = MODE_UPDATE,
                  library_root: Optional[Path] = None,
                  music_rel_override: str = "",
+                 device_music_root: Optional[Path] = None,
                  use_cache: bool = True, force_rebuild: bool = False):
         super().__init__()
-        self.device_root        = device_root
+        self.device_root        = device_root        # always the device mount root
         self.mode               = mode
-        self.library_root       = library_root
+        self.library_root       = library_root       # set only in local library mode
         self.music_rel_override = music_rel_override.strip()
+        self.device_music_root  = device_music_root  # set only in device mode when subfolder selected
         self.use_cache          = use_cache
         self.force_rebuild      = force_rebuild
         self._pause_event    = _threading.Event()
@@ -1744,11 +1748,72 @@ class RockboxDbWorker(QThread):
             finally:
                 shutil.rmtree(str(fake_root), ignore_errors=True)
         else:
-            # Device mode: run tool directly against device root
-            self._emit(f"Mode: device  {scan_root}")
-            self._emit("Running database tool directly on device…")
-            self._run_cmd([str(tool)], cwd=str(scan_root))
-            self._fix_tcd_paths(rbdir)
+            # Device mode: device_root is the device mount root (e.g. /media/user/IPOD)
+            # device_music_root is the music subfolder if the user selected one
+            # (e.g. /media/user/IPOD/Music), otherwise scan from device root.
+            actual_root = self.device_root
+            if self.device_music_root:
+                music_rel = self.device_music_root.name
+            else:
+                music_rel = ""
+
+            self._emit(f"Mode: device  (root: {actual_root})")
+            if music_rel:
+                self._emit(f"  Music folder: /{music_rel}")
+            self._emit("Running database tool against device…")
+
+            if music_rel:
+                # Use a fake root with only the music folder symlinked in.
+                # This makes the tool scan ONLY the music folder (fast) while
+                # still recording paths like /Music Ipod/Artist/song.mp3.
+                # .rockbox is also symlinked so the tool writes .tcd files there.
+                fake_root = Path(_tf.mkdtemp(prefix="scrobbox_fakedev_"))
+                try:
+                    # Symlink .rockbox and the music folder into fake root
+                    os.symlink(os.fsencode(str(rbdir)),
+                               os.fsencode(str(fake_root / ".rockbox")))
+                    os.symlink(os.fsencode(str(self.device_music_root)),
+                               os.fsencode(str(fake_root / music_rel)))
+
+                    self._run_cmd([str(tool)], cwd=str(fake_root))
+
+                    tcd_files = list(rbdir.glob("database*.tcd"))
+                    if not tcd_files:
+                        raise RuntimeError(
+                            "Database tool ran but produced no .tcd files.\n"
+                            "Ensure the device contains supported audio files."
+                        )
+
+                    # Fix hardcoded /iPod_Control prefix → actual music folder name
+                    self._fix_ipod_control_prefix(rbdir, music_rel)
+                    # Fix any remaining path mismatches
+                    self._fix_tcd_paths(rbdir, real_device_root=actual_root)
+                finally:
+                    # Remove the fake root (symlinks only — does NOT delete device files)
+                    shutil.rmtree(str(fake_root), ignore_errors=True)
+            else:
+                # No music subfolder selected — scan entire device root
+                self._run_cmd([str(tool)], cwd=str(actual_root))
+
+                tcd_files = list(rbdir.glob("database*.tcd"))
+                if not tcd_files:
+                    raise RuntimeError(
+                        "Database tool ran but produced no .tcd files.\n"
+                        "Ensure the device contains supported audio files."
+                    )
+                self._fix_tcd_paths(rbdir, real_device_root=actual_root)
+
+            # Verify
+            _tcd4 = rbdir / "database_4.tcd"
+            if _tcd4.exists():
+                _raw = _tcd4.read_bytes()
+                if b"Start Here." in _raw:
+                    self._emit("  WARNING: trailing dot still present after fix!")
+                else:
+                    self._emit("  Verified: paths look correct")
+
+            for tcd in tcd_files:
+                self._emit(f"  Wrote /.rockbox/{tcd.name}")
 
     def _sanitize_library_for_fat32(self, library_root: Path):
         """
@@ -4761,7 +4826,6 @@ class RockboxToolsPage(QWidget):
         how = QLabel(
             "Builds a real Rockbox tagcache database on your PC using the official "
             "Rockbox database tool compiled from source — no on-device scan needed.\n\n"
-            "Requires:  git  gcc  make  (standard on Linux)"
         )
         how.setObjectName("secondary"); how.setWordWrap(True)
         vb.addWidget(how)
@@ -4808,6 +4872,14 @@ class RockboxToolsPage(QWidget):
         dev_sub_row.addWidget(dev_sub_browse)
         self._db_dev_sub_widget.setVisible(True)
         vb.addWidget(self._db_dev_sub_widget)
+
+        # ── Device mode warning ───────────────────────────────────
+        self._db_device_warn = QLabel(
+            "⚠️  Scanning from device is slow — the tool reads every file's tags over USB. "
+            "Use 'From local folder' instead if you have a copy of your music on this PC.")
+        self._db_device_warn.setObjectName("secondary")
+        self._db_device_warn.setWordWrap(True)
+        vb.addWidget(self._db_device_warn)
 
         # ── Local library path ────────────────────────────────────
         self._db_lib_widget = QWidget()
@@ -4926,7 +4998,7 @@ class RockboxToolsPage(QWidget):
             " font-weight:700; font-size:14px; padding:0 22px; }"
             f"QPushButton:hover {{ background:{tok('accent')}; border: 2px solid rgba(255,255,255,0.45); padding:0 20px; }}"
             f"QPushButton:pressed {{ background:{tok('accent')}; border: none; padding:0 22px; }}"
-            f"QPushButton:disabled {{ background:rgba(180,130,0,0.25); color:rgba(10,10,10,0.4); }}")
+            f"QPushButton:disabled {{ background:{tok('accentlo')}; color:rgba(10,10,10,0.4); }}")
         self._db_build_btn.setToolTip(
             "Build the Rockbox tagcache database from your music library.\n"
             "Existing .tcd files are replaced with a fresh build.")
@@ -4936,7 +5008,7 @@ class RockboxToolsPage(QWidget):
         self._db_eject_btn.setToolTip("Safely unmount the device")
         self._db_eject_btn.clicked.connect(self._eject_device)
 
-        self._db_cancel_btn = QPushButton("⏹  Cancel"); self._db_cancel_btn.setObjectName("ghost")
+        self._db_cancel_btn = QPushButton("Cancel"); self._db_cancel_btn.setObjectName("ghost")
         self._db_cancel_btn.clicked.connect(self._cancel_db_worker)
         self._db_cancel_btn.setVisible(False)
 
@@ -4960,6 +5032,7 @@ class RockboxToolsPage(QWidget):
         self._db_src_device.setChecked(not is_local)
         self._db_src_local.setChecked(is_local)
         self._db_dev_sub_widget.setVisible(not is_local)
+        self._db_device_warn.setVisible(not is_local)
         self._db_lib_widget.setVisible(is_local)
         self._db_music_rel_widget.setVisible(is_local)
         accent = _current_theme["accent"]
@@ -5069,6 +5142,7 @@ class RockboxToolsPage(QWidget):
             QMessageBox.warning(self, "Not found", f"Path does not exist:\n{root}"); return
 
         library_root: Optional[Path] = None
+        device_music_root: Optional[Path] = None
         if self._db_src_local.isChecked():
             lib_str = self._db_lib_path.text().strip()
             if not lib_str:
@@ -5080,13 +5154,13 @@ class RockboxToolsPage(QWidget):
                     f"Library folder does not exist:\n{library_root}"); return
             c = self.conf(); c["db_library_root"] = str(library_root); save_conf(c)
         else:
-            # Device mode: optional subfolder — if set, scan only that folder
+            # Device mode: optional subfolder
             dev_sub_str = self._db_dev_sub_path.text().strip()
             if dev_sub_str:
-                library_root = Path(dev_sub_str)
-                if not library_root.exists():
+                device_music_root = Path(dev_sub_str)
+                if not device_music_root.exists():
                     QMessageBox.warning(self, "Not found",
-                        f"Music folder does not exist:\n{library_root}"); return
+                        f"Music folder does not exist:\n{device_music_root}"); return
                 c = self.conf(); c["db_device_sub"] = dev_sub_str; save_conf(c)
 
         # Validate music folder name BEFORE touching UI state
@@ -5116,6 +5190,7 @@ class RockboxToolsPage(QWidget):
         self._db_worker = RockboxDbWorker(root, RockboxDbWorker.MODE_INITIALIZE,
                                           library_root=library_root,
                                           music_rel_override=music_rel_override,
+                                          device_music_root=device_music_root,
                                           use_cache=self._db_use_cache_chk.isChecked(),
                                           force_rebuild=self._db_force_rebuild_chk.isChecked())
         self._db_worker.progress.connect(lambda msg: self._db_log.append(msg))
