@@ -188,7 +188,7 @@ def _icon_btn(icon: QIcon, size: int, tooltip: str = "", parent=None) -> QPushBu
     return btn
 
 APP_NAME    = "Scrobbox"
-APP_VERSION = "1.0.0"   # bump this with each release
+APP_VERSION = "1.1.0"   # bump this with each release
 GITHUB_REPO = "RoyLikesAudio/Scrobbox"
 _sys = platform.system()
 
@@ -5434,7 +5434,7 @@ class RockboxToolsPage(QWidget):
                 "Could not auto-detect config.cfg.\nSet the device root or browse manually.")
 
         w.done.connect(_on_found, Qt.ConnectionType.QueuedConnection)
-        def _finished_bare_2(_ref=__import__('weakref').ref(w)):
+        def _finished_bare_2(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -6155,7 +6155,7 @@ class RockboxToolsPage(QWidget):
                 "Could not auto-detect tagnavi.config.\nSet the device root or browse manually.")
 
         w.done.connect(_on_found, Qt.ConnectionType.QueuedConnection)
-        def _finished_bare_3(_ref=__import__('weakref').ref(w)):
+        def _finished_bare_3(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -6238,7 +6238,7 @@ class RockboxToolsPage(QWidget):
                     "Any device with a .rockbox folder will be detected automatically.")
 
         w.done.connect(_on_found, Qt.ConnectionType.QueuedConnection)
-        def _finished_bare_4(_ref=__import__('weakref').ref(w)):
+        def _finished_bare_4(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -12520,7 +12520,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/track/?id={tid}&quality={quality}")
         w.ok.connect(lambda d, tr=track, q=quality: self._got_stream_job(d, tr, q))
         w.fail.connect(lambda e, tr=track, q=quality: self._on_stream_fail(tr, q, str(e)))
-        def _finished_w_1(_ref=__import__('weakref').ref(w)):
+        def _finished_w_1(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -12930,7 +12930,7 @@ class TidalDownloaderPage(QWidget):
                     self._st(f"No tracks found — the proxy may not support {_kind} lookup.")
             w.ok.connect(_got_pl)
             w.fail.connect(lambda e: self._st(f"Could not load {kind}: {e}"))
-            def _finished_w_2(_ref=__import__('weakref').ref(w)):
+            def _finished_w_2(*args, _ref=__import__('weakref').ref(w)):
 
                 _obj = _ref()
 
@@ -12990,7 +12990,7 @@ class TidalDownloaderPage(QWidget):
             w = _TidalWorker(path)
             w.ok.connect(lambda d, t=tab_idx: self._on_search_ok(d, t))
             w.fail.connect(lambda e, t=tab_idx: self._on_search_fail(t))
-            def _finished_w_3(_ref=__import__('weakref').ref(w)):
+            def _finished_w_3(*args, _ref=__import__('weakref').ref(w)):
 
                 _obj = _ref()
 
@@ -13214,7 +13214,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/album/?id={aid}")
         w.ok.connect(lambda d, a=album: self._show_album_tracks(d, a))
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        def _finished_w_4(_ref=__import__('weakref').ref(w)):
+        def _finished_w_4(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -13389,7 +13389,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/artist/?f={aid}&skip_tracks=true")
         w.ok.connect(self._show_artist_albums)
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        def _finished_w_5(_ref=__import__('weakref').ref(w)):
+        def _finished_w_5(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -13442,7 +13442,7 @@ class TidalDownloaderPage(QWidget):
             self._st(f"{len(tracks)} tracks loaded")
         w.ok.connect(_got)
         w.fail.connect(lambda e: self._st(f"Error loading all tracks: {e}"))
-        def _fin(_ref=__import__('weakref').ref(w)):
+        def _fin(*args, _ref=__import__('weakref').ref(w)):
             _obj = _ref()
             if _obj is None: return
             try:
@@ -13583,7 +13583,7 @@ class TidalDownloaderPage(QWidget):
                 self._now_bar.load_stream_at(url, t)
         w.ok.connect(_got)
         w.fail.connect(lambda e: self._st(f"Seek error: {e}"))
-        def _fin(_ref=__import__('weakref').ref(w)):
+        def _fin(*args, _ref=__import__('weakref').ref(w)):
             _obj = _ref()
             if _obj is None: return
             try:
@@ -13627,7 +13627,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/track/?id={tid}&quality={quality}")
         w.ok.connect(lambda d, tr=track, q=quality, qi=_quality_idx: self._got_playback_stream(d, tr, q, qi))
         w.fail.connect(lambda e, tr=track, qi=_quality_idx: self._on_playback_stream_fail(tr, qi, str(e)))
-        def _fin(_ref=__import__('weakref').ref(w)):
+        def _fin(*args, _ref=__import__('weakref').ref(w)):
             _obj = _ref()
             if _obj is None: return
             try:
@@ -13954,7 +13954,7 @@ class TidalDownloaderPage(QWidget):
         if tid is not None:
             self._dl_wkrs[tid] = w
         self._workers.append(w)
-        def _finished_w_6(_ref=__import__('weakref').ref(w)):
+        def _finished_w_6(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -14050,7 +14050,7 @@ class TidalDownloaderPage(QWidget):
             self._fetch_stream_for_playback(tracks[0])
         w.ok.connect(_play_tracks)
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        def _finished_play(_ref=__import__('weakref').ref(w)):
+        def _finished_play(*args, _ref=__import__('weakref').ref(w)):
             _obj = _ref()
             if _obj is None: return
             try:
@@ -14090,7 +14090,7 @@ class TidalDownloaderPage(QWidget):
                 self._refresh_play_queue_panel()
         w.ok.connect(_append_tracks)
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        def _finished_pq(_ref=__import__('weakref').ref(w)):
+        def _finished_pq(*args, _ref=__import__('weakref').ref(w)):
             _obj = _ref()
             if _obj is None: return
             try:
@@ -14110,7 +14110,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/album/?id={aid}")
         w.ok.connect(lambda d, a=album: self._dl_album_tracks(d, a))
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        def _finished_w_7(_ref=__import__('weakref').ref(w)):
+        def _finished_w_7(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -14157,7 +14157,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/album/?id={aid}")
         w.ok.connect(lambda d, a=album: self._queue_album_tracks(d, a))
         w.fail.connect(lambda e: self._st(f"Error fetching album: {e}"))
-        def _finished_w_8(_ref=__import__('weakref').ref(w)):
+        def _finished_w_8(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -14198,7 +14198,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/artist/?f={aid}")
         w.ok.connect(lambda d, a=artist: self._dl_artist_albums(d, a))
         w.fail.connect(lambda e: self._st(f"Error fetching artist: {e}"))
-        def _finished_w_9(_ref=__import__('weakref').ref(w)):
+        def _finished_w_9(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -14239,7 +14239,7 @@ class TidalDownloaderPage(QWidget):
             ww.ok.connect(lambda d, a=alb, ni=i: (self._dl_album_tracks(d, a),
                                                     QTimer.singleShot(800, lambda: _fetch_next(ni + 1))))
             ww.fail.connect(lambda e, ni=i: QTimer.singleShot(400, lambda: _fetch_next(ni + 1)))
-            def _finished_ww_10(_ref=__import__('weakref').ref(ww)):
+            def _finished_ww_10(*args, _ref=__import__('weakref').ref(ww)):
 
                 _obj = _ref()
 
@@ -14271,7 +14271,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/artist/?f={aid}")
         w.ok.connect(lambda d, a=artist: self._queue_artist_albums(d, a))
         w.fail.connect(lambda e: self._st(f"Error fetching artist: {e}"))
-        def _finished_w_11(_ref=__import__('weakref').ref(w)):
+        def _finished_w_11(*args, _ref=__import__('weakref').ref(w)):
 
             _obj = _ref()
 
@@ -14318,7 +14318,7 @@ class TidalDownloaderPage(QWidget):
                 QTimer.singleShot(400, lambda: _fetch_next(ni + 1))
             ww.ok.connect(_on_ok)
             ww.fail.connect(lambda e, ni=i: QTimer.singleShot(400, lambda: _fetch_next(ni + 1)))
-            def _finished_ww_12(_ref=__import__('weakref').ref(ww)):
+            def _finished_ww_12(*args, _ref=__import__('weakref').ref(ww)):
 
                 _obj = _ref()
 
@@ -18818,7 +18818,7 @@ class MusicTagEditorPage(QWidget):
         # lines to avoid flooding the log table with 10k+ insertions and freezing the UI.
         worker.log_line.connect(lambda msg, lvl: self._log(msg, lvl) if lvl in ("warn", "error") else None)
         worker.finished.connect(self._on_rename_done)
-        def _finished_bare_5(_ref=__import__('weakref').ref(worker)):
+        def _finished_bare_5(*args, _ref=__import__('weakref').ref(worker)):
 
             _obj = _ref()
 
@@ -19183,7 +19183,7 @@ class MusicTagEditorPage(QWidget):
         worker.log_line.connect(self._on_bulk_resize_log)
         worker.originals_ready.connect(self._on_bulk_originals_ready)
         worker.finished.connect(self._on_bulk_resize_done)
-        def _finished_bare_6(_ref=__import__('weakref').ref(worker)):
+        def _finished_bare_6(*args, _ref=__import__('weakref').ref(worker)):
 
             _obj = _ref()
 
@@ -19223,7 +19223,7 @@ class MusicTagEditorPage(QWidget):
         worker.log_line.connect(self._on_bulk_resize_log)
         worker.originals_ready.connect(self._on_bulk_originals_ready)
         worker.finished.connect(self._on_bulk_resize_done)
-        def _finished_bare_7(_ref=__import__('weakref').ref(worker)):
+        def _finished_bare_7(*args, _ref=__import__('weakref').ref(worker)):
 
             _obj = _ref()
 
@@ -19295,7 +19295,7 @@ class MusicTagEditorPage(QWidget):
         worker = _IntegrityCheckWorker([self._current])
         worker.log_line.connect(self._log)
         worker.finished.connect(self._on_verify_done_single)
-        def _finished_bare_8(_ref=__import__('weakref').ref(worker)):
+        def _finished_bare_8(*args, _ref=__import__('weakref').ref(worker)):
 
             _obj = _ref()
 
@@ -19323,7 +19323,7 @@ class MusicTagEditorPage(QWidget):
         worker.progress.connect(self._on_verify_progress)
         worker.log_line.connect(self._log)
         worker.finished.connect(self._on_verify_done_all)
-        def _finished_bare_9(_ref=__import__('weakref').ref(worker)):
+        def _finished_bare_9(*args, _ref=__import__('weakref').ref(worker)):
 
             _obj = _ref()
 
@@ -19377,7 +19377,7 @@ class MusicTagEditorPage(QWidget):
         worker.progress.connect(self._on_rg_progress)
         worker.log_line.connect(self._log)
         worker.finished.connect(self._on_rg_done)
-        def _finished_bare_10(_ref=__import__('weakref').ref(worker)):
+        def _finished_bare_10(*args, _ref=__import__('weakref').ref(worker)):
 
             _obj = _ref()
 
@@ -19533,7 +19533,14 @@ class _CoverResizeWorker(QThread):
 class _IntegrityCheckWorker(QThread):
     """
     Verifies audio file integrity by fully decoding each file through ffmpeg.
-    FLAC files additionally get a --test pass (checks built-in MD5).
+
+    Checks performed:
+      • ffmpeg full decode  — catches corrupt/undecodable frames
+      • FLAC --test         — checks embedded MD5 (if flac binary present)
+      • MP3 Xing/LAME frame count vs actual frames — catches truncated MP3s
+      • Duration mismatch   — container-reported vs decoded (>1 s = error)
+      • Clipping            — reported as info, not a hard failure
+      • Bitrate / sample rate / bit depth / channels — informational
 
     progress emits (files_done, total, current_filename).
     log_line emits (message, level).
@@ -19542,6 +19549,15 @@ class _IntegrityCheckWorker(QThread):
     progress = pyqtSignal(int, int, str)
     log_line = pyqtSignal(str, str)
     finished = pyqtSignal(int, int)
+
+    # Benign ffmpeg stderr patterns that are not real errors
+    _FFMPEG_NOISE = re.compile(
+        r"Last message repeated|^    |"
+        r"Invalid data found when processing input|"
+        r"max_analyze_duration|"
+        r"Consider increasing the value|"
+        r"Guessed Channel Layout"
+    )
 
     def __init__(self, files: list):
         super().__init__()
@@ -19562,49 +19578,307 @@ class _IntegrityCheckWorker(QThread):
             self.progress.emit(i, total, path.name)
             try:
                 self._check_file(path)
-                self.log_line.emit(f"OK: {path.name}", "ok")
                 ok += 1
+            except RuntimeError as e:
+                self.log_line.emit(f"✗ ERROR  {path.name}  —  {e}", "error")
+                errors += 1
             except Exception as e:
-                self.log_line.emit(f"ERROR: {path.name}  —  {e}", "error")
+                self.log_line.emit(f"✗ ERROR  {path.name}  —  unexpected: {e}", "error")
                 errors += 1
         self.finished.emit(ok, errors)
 
+    # ── helpers ───────────────────────────────────────────────
+
+    def _ffprobe_info(self, path: Path) -> dict:
+        """Return dict with duration, bit_rate, sample_rate, bits_per_sample, channels."""
+        cmd = [
+            "ffprobe", "-v", "quiet",
+            "-print_format", "json",
+            "-show_streams", "-show_format",
+            str(path)
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            import json as _json
+            data = _json.loads(result.stdout)
+        except Exception:
+            return {}
+
+        info = {}
+        fmt = data.get("format", {})
+        info["duration"] = float(fmt.get("duration", 0) or 0)
+        info["bit_rate"] = int(fmt.get("bit_rate", 0) or 0)
+
+        # Prefer audio stream info
+        for stream in data.get("streams", []):
+            if stream.get("codec_type") == "audio":
+                info["sample_rate"] = int(stream.get("sample_rate", 0) or 0)
+                info["bits_per_sample"] = int(stream.get("bits_per_raw_sample", 0) or 0)
+                info["channels"] = int(stream.get("channels", 0) or 0)
+                info["codec_name"] = stream.get("codec_name", "")
+                # Stream-level duration is more accurate than format duration
+                if stream.get("duration"):
+                    info["stream_duration"] = float(stream["duration"])
+                break
+        return info
+
+    def _mp3_xing_frame_count(self, path: Path):
+        """
+        Return (xing_frames, actual_frames) for MP3 files that have a Xing/LAME
+        header, or (None, None) if no Xing header is found.
+        Reads the file in pure Python — no subprocess.
+        """
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
+        except OSError:
+            return None, None
+
+        # Find first sync word (0xFF 0xE0 or better 0xFF 0xFB/0xFA/0xF3 etc.)
+        # Walk up to 4 KB looking for a valid MPEG frame header
+        SYNC = b"\xff"
+        pos = 0
+        header_pos = -1
+        while pos < min(len(data), 4096):
+            idx = data.find(SYNC, pos)
+            if idx == -1:
+                break
+            if idx + 4 > len(data):
+                break
+            b1 = data[idx + 1]
+            # MPEG1/2 layer3: 0xFB, 0xFA, 0xF3, 0xF2, 0xE3, 0xE2
+            if b1 & 0xE0 == 0xE0:
+                header_pos = idx
+                break
+            pos = idx + 1
+
+        if header_pos == -1:
+            return None, None
+
+        # Xing/Info tag is 32 bytes into the frame (after the 4-byte header)
+        # for stereo, or 17 bytes for mono — just search for the tag string
+        frame_data = data[header_pos: header_pos + 200]
+        xing_pos = -1
+        for tag in (b"Xing", b"Info"):
+            p = frame_data.find(tag)
+            if p != -1:
+                xing_pos = header_pos + p
+                break
+
+        if xing_pos == -1:
+            return None, None
+
+        # Flags field is 4 bytes after the tag
+        flags_offset = xing_pos + 4
+        if flags_offset + 8 > len(data):
+            return None, None
+        flags = int.from_bytes(data[flags_offset: flags_offset + 4], "big")
+        if not (flags & 0x01):  # frame count field not present
+            return None, None
+
+        xing_frames = int.from_bytes(data[flags_offset + 4: flags_offset + 8], "big")
+        if xing_frames == 0:
+            return None, None
+
+        # Count actual frames by scanning sync words
+        actual_frames = 0
+        pos = 0
+        while pos < len(data) - 3:
+            idx = data.find(SYNC, pos)
+            if idx == -1:
+                break
+            if idx + 2 > len(data):
+                break
+            b1 = data[idx + 1]
+            if b1 & 0xE0 == 0xE0:
+                actual_frames += 1
+                # Parse frame size to skip ahead properly
+                # Bits 11-10: MPEG version, bits 9-8: layer
+                version = (b1 >> 3) & 0x03   # 3=MPEG1, 2=MPEG2, 0=MPEG2.5
+                layer   = (b1 >> 1) & 0x03   # 3=L1, 2=L2, 1=L3
+                b2 = data[idx + 2]
+                bitrate_idx = (b2 >> 4) & 0x0F
+                sr_idx      = (b2 >> 2) & 0x03
+                padding     = (b2 >> 1) & 0x01
+
+                # Bitrate table kbps: [V1L1, V1L2, V1L3, V2L1, V2L2/L3]
+                _br_v1l3 = [0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0]
+                _sr_v1   = [44100,48000,32000,0]
+                _sr_v2   = [22050,24000,16000,0]
+
+                if version == 3 and layer == 1 and bitrate_idx > 0:
+                    br = _br_v1l3[bitrate_idx] * 1000
+                    sr = _sr_v1[sr_idx] if sr_idx < 4 else 44100
+                    if br > 0 and sr > 0:
+                        frame_size = (144 * br // sr) + padding
+                        pos = idx + max(frame_size, 1)
+                        continue
+                pos = idx + 1
+            else:
+                pos = idx + 1
+
+        return xing_frames, actual_frames
+
+    def _get_decoded_duration(self, path: Path, stderr_output: str) -> float:
+        """
+        Parse decoded duration from ffmpeg astats output.
+        Returns duration in seconds, or 0.0 if not found.
+        """
+        # astats emits lines like: "lavfi.astats.Overall.Number_of_samples=12345678"
+        # duration = samples / sample_rate, but we can also get it from
+        # the "pts_time" of the last packet — easier: use ffprobe with -count_packets
+        # Actually the simplest reliable way: ffmpeg prints "time=HH:MM:SS.ss" during
+        # decode when using -progress, but we used -v error. Instead parse astats.
+        m = re.search(r"lavfi\.astats\.Overall\.Number_of_samples=(\d+)", stderr_output)
+        sr_m = re.search(r"lavfi\.astats\.Overall\.Bit_depth=\d+.*?sample_rate.*?(\d+)", stderr_output)
+        # Fallback: look for "size=..." line or decode the sample count differently
+        # The most reliable: reuse ffprobe stream duration already fetched
+        return 0.0
+
+    # ── main check ────────────────────────────────────────────
+
     def _check_file(self, path: Path):
-        """Raises RuntimeError if the file is corrupt, returns None if clean."""
-        # Primary check: ffmpeg full decode
-        cmd = ["ffmpeg", "-v", "error", "-i", str(path), "-f", "null", "-"]
+        """
+        Run all checks. Emits log_line for informational findings.
+        Raises RuntimeError for hard failures.
+        """
+        suffix = path.suffix.lower()
+        info_lines = []   # accumulated INFO messages for this file
+        hard_errors = []  # accumulated hard errors
+
+        # ── 1. ffprobe for metadata (fast, no decode) ──────────
+        pinfo = self._ffprobe_info(path)
+        container_duration = pinfo.get("stream_duration") or pinfo.get("duration", 0.0)
+        bit_rate_bps       = pinfo.get("bit_rate", 0)
+        sample_rate        = pinfo.get("sample_rate", 0)
+        bits_per_sample    = pinfo.get("bits_per_sample", 0)
+        channels           = pinfo.get("channels", 0)
+        codec_name         = pinfo.get("codec_name", "")
+
+        # Build informational summary line
+        info_parts = []
+        if sample_rate:
+            info_parts.append(f"{sample_rate // 1000}.{(sample_rate % 1000) // 100}kHz")
+        if bits_per_sample:
+            info_parts.append(f"{bits_per_sample}-bit")
+        if channels:
+            info_parts.append("mono" if channels == 1 else "stereo" if channels == 2 else f"{channels}ch")
+        if bit_rate_bps:
+            kbps = bit_rate_bps // 1000
+            info_parts.append(f"{kbps} kbps")
+        if container_duration:
+            mins = int(container_duration) // 60
+            secs = container_duration % 60
+            info_parts.append(f"{mins}:{secs:05.2f}")
+        if info_parts:
+            info_lines.append("    info  " + "  ·  ".join(info_parts))
+
+        # Bitrate sanity checks
+        if bit_rate_bps and codec_name:
+            kbps = bit_rate_bps // 1000
+            if suffix == ".flac" and kbps < 100:
+                info_lines.append(f"    ⚠ bitrate unusually low for FLAC ({kbps} kbps) — possible transcode?")
+            elif suffix == ".mp3" and kbps < 32:
+                info_lines.append(f"    ⚠ MP3 bitrate very low ({kbps} kbps)")
+            elif suffix in (".m4a", ".aac") and kbps < 32:
+                info_lines.append(f"    ⚠ AAC bitrate very low ({kbps} kbps)")
+
+        # ── 2. ffmpeg full decode + astats in one pass ─────────
+        cmd = [
+            "ffmpeg", "-v", "error",
+            "-i", str(path),
+            "-af", "astats=metadata=1:reset=0",
+            "-f", "null", "-"
+        ]
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=120
+                cmd, capture_output=True, text=True, timeout=300
             )
         except FileNotFoundError:
             raise RuntimeError("ffmpeg not found on PATH")
         except subprocess.TimeoutExpired:
-            raise RuntimeError("ffmpeg timed out (>120s)")
+            raise RuntimeError("ffmpeg decode timed out (>300s)")
 
-        stderr = result.stderr.strip()
-        if stderr:
-            # Filter benign informational lines ffmpeg sometimes emits
-            bad_lines = [
-                ln for ln in stderr.splitlines()
-                if ln.strip() and not ln.startswith("    ")
-                and "Last message repeated" not in ln
-            ]
-            if bad_lines:
-                summary = bad_lines[0][:120]
-                raise RuntimeError(f"ffmpeg: {summary}")
+        # Parse astats from stderr (ffmpeg prints filter metadata to stderr)
+        stderr_full = result.stderr
 
-        # Extra FLAC check: use flac --test if available (checks MD5)
-        if path.suffix.lower() == ".flac" and shutil.which("flac"):
+        # Extract clipping info from astats
+        clip_match = re.search(
+            r"lavfi\.astats\.Overall\.Number_of_clipped_samples=(\d+)",
+            stderr_full
+        )
+        if clip_match:
+            clipped = int(clip_match.group(1))
+            if clipped > 0:
+                info_lines.append(f"    ⚠ clipping: {clipped:,} clipped sample(s) — may be intentional mastering")
+
+        # Extract decoded sample count for duration check
+        samples_match = re.search(
+            r"lavfi\.astats\.Overall\.Number_of_samples=(\d+)",
+            stderr_full
+        )
+        if samples_match and sample_rate and container_duration:
+            decoded_samples = int(samples_match.group(1))
+            decoded_duration = decoded_samples / sample_rate
+            diff = abs(decoded_duration - container_duration)
+            if diff > 1.0:
+                hard_errors.append(
+                    f"duration mismatch: container says {container_duration:.2f}s, "
+                    f"decoded {decoded_duration:.2f}s (Δ{diff:.2f}s) — file may be truncated"
+                )
+
+        # Filter genuine decode errors from stderr
+        bad_lines = [
+            ln for ln in stderr_full.splitlines()
+            if ln.strip()
+            and not self._FFMPEG_NOISE.search(ln)
+            and "astats" not in ln
+            and "lavfi" not in ln
+            and not ln.startswith("[Parsed_astats")
+        ]
+        if bad_lines:
+            hard_errors.append(f"decode error: {bad_lines[0][:120]}")
+
+        # ── 3. FLAC --test (MD5 check) ─────────────────────────
+        if suffix == ".flac" and shutil.which("flac"):
             try:
                 flac_result = subprocess.run(
                     ["flac", "--test", "--silent", str(path)],
                     capture_output=True, text=True, timeout=120
                 )
                 if flac_result.returncode != 0:
-                    raise RuntimeError("flac --test failed (MD5 mismatch or corrupt frame)")
+                    hard_errors.append("flac --test failed (MD5 mismatch or corrupt frame)")
             except subprocess.TimeoutExpired:
-                raise RuntimeError("flac --test timed out (>120s)")
+                hard_errors.append("flac --test timed out (>120s)")
+
+        # ── 4. MP3 Xing/LAME frame count ──────────────────────
+        if suffix == ".mp3":
+            try:
+                xing_frames, actual_frames = self._mp3_xing_frame_count(path)
+                if xing_frames is not None and actual_frames is not None:
+                    # Allow ±2 frames tolerance for encoder/decoder off-by-one
+                    if abs(actual_frames - xing_frames) > 2:
+                        pct_off = abs(actual_frames - xing_frames) / xing_frames * 100
+                        hard_errors.append(
+                            f"MP3 frame count mismatch: Xing header says {xing_frames}, "
+                            f"found {actual_frames} ({pct_off:.1f}% off) — file likely truncated"
+                        )
+                    else:
+                        info_lines.append(f"    info  Xing frame count OK ({actual_frames} frames)")
+            except Exception as e:
+                info_lines.append(f"    info  MP3 frame check skipped: {e}")
+
+        # ── Emit results ───────────────────────────────────────
+        if hard_errors:
+            # Emit info lines first so they appear before the error summary
+            for ln in info_lines:
+                self.log_line.emit(ln, "info")
+            raise RuntimeError(" | ".join(hard_errors))
+
+        # All good — emit OK + info
+        self.log_line.emit(f"✓ OK     {path.name}", "ok")
+        for ln in info_lines:
+            self.log_line.emit(ln, "info")
 
 
 

@@ -104,7 +104,6 @@ python scrobbox.py
 - `ffmpeg` — file conversion, spectrogram, integrity check
 - `libmpv` — audio playback (e.g. `libmpv2` on Ubuntu/Debian, `mpv` on Arch)
 - `rsync` — only if you use the Rsync page
-- `git`, `gcc`, `make` — only if you use the Rockbox database rebuilder (compiles the tool from source on first run)
 
 ---
 
