@@ -22952,7 +22952,7 @@ class FileConverterPage(QWidget):
             self._log_next_btn.setEnabled(False)
             self._log_page_lbl.setText("Page 1 / 1")
             self._tab_log_btn.setText("Log  (0)")
-            if hasattr(self, "_log_filter_combo"):
+            if getattr(self, "_log_filter_combo", None) is not None:
                 self._log_filter_combo.setCurrentIndex(0)
 
     def _on_overall_progress(self, pct: int, status: str):
