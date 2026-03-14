@@ -14,11 +14,18 @@ Supports: Rockbox .scrobbler.log (all TZ modes), etc.
 """
 
 import sys, json, hashlib, sqlite3, os, csv, platform, struct, time as _time
-import io
+import io, re, math, cmath, base64, html as _html_mod, zipfile, tempfile, weakref, array as _arr
 import locale as _locale
 _locale.setlocale(_locale.LC_NUMERIC, 'C')   # required by libmpv before it is loaded
-import subprocess as _subprocess
-subprocess = _subprocess  # alias for legacy usages throughout the file
+import subprocess
+_subprocess = subprocess   # alias used throughout the file
+import shutil, copy
+import threading as _threading
+from pathlib import Path
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from collections import Counter
+from typing import Optional
 
 try:
     import mpv as _mpv_lib
@@ -26,15 +33,6 @@ try:
 except ImportError:
     _mpv_lib = None
     _HAS_MPV = False
-
-import shutil, copy
-import threading as _threading
-import re
-from pathlib import Path
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from collections import Counter
-from typing import Optional
 
 import requests
 
@@ -51,7 +49,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import (
     Qt, QUrl, QThread, pyqtSignal, pyqtProperty, QTimer, QPropertyAnimation,
-    QEasingCurve, QSize, QRectF, QProcess,
+    QEasingCurve, QSize, QRectF, QProcess, QEvent,
 )
 from PyQt6.QtGui import (
     QColor, QFont, QPainter, QBrush, QPen,
@@ -60,12 +58,6 @@ from PyQt6.QtGui import (
 )
 
 from PyQt6 import sip
-
-try:
-    from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-    _HAS_MULTIMEDIA = True
-except ImportError:
-    _HAS_MULTIMEDIA = False
 
 try:
     from PIL import Image as _PILImage
@@ -188,7 +180,7 @@ def _icon_btn(icon: QIcon, size: int, tooltip: str = "", parent=None) -> QPushBu
     return btn
 
 APP_NAME    = "Scrobbox"
-APP_VERSION = "1.1.0"   # bump this with each release
+APP_VERSION = "1.2.0"   # bump this with each release
 GITHUB_REPO = "RoyLikesAudio/Scrobbox"
 _sys = platform.system()
 
@@ -347,11 +339,6 @@ QComboBox QAbstractItemView {{ background: {t["bg1"]}; border: 1px solid rgba(25
 QComboBox QAbstractItemView::item {{ padding: 6px 12px; background: transparent; border-radius: 4px; color: #e2ddd6; }}
 QComboBox QAbstractItemView::item:hover {{ background: rgba(255,255,255,0.10); color: #fff; }}
 QComboBox QAbstractItemView::item:selected {{ background: rgba(255,255,255,0.10); color: #fff; }}
-QComboBox QListView {{ background: {t["bg1"]}; border: 1px solid rgba(255,255,255,0.30);
-    outline: none; color: #e2ddd6; border-radius: 6px; }}
-QComboBox QListView::item {{ padding: 6px 12px; background: transparent; border-radius: 4px; color: #e2ddd6; }}
-QComboBox QListView::item:hover {{ background: rgba(255,255,255,0.10); color: #fff; }}
-QComboBox QListView::item:selected {{ background: rgba(255,255,255,0.10); color: #fff; }}
 QListView {{ background: {t["bg1"]}; }}
 QListView::item {{ background: transparent; color: #e2ddd6; }}
 
@@ -860,8 +847,7 @@ def _iter_dir(p: Path):
 def _mount_roots() -> list[Path]:
     """Return all candidate mounted volume roots for the current OS."""
     roots: list[Path] = []
-    _s = platform.system()
-    if _s == "Linux":
+    if _sys == "Linux":
         user = Path.home().name
         uid  = os.getuid()
         for base in [
@@ -879,7 +865,7 @@ def _mount_roots() -> list[Path]:
                         for sub in _iter_dir(entry):
                             if sub.is_dir():
                                 roots.append(sub)
-    elif _s == "Darwin":
+    elif _sys == "Darwin":
         for entry in _iter_dir(Path("/Volumes")):
             if entry.is_dir():
                 roots.append(entry)
@@ -922,7 +908,9 @@ def find_logs() -> list[Path]:
     return [p for p in cands if _safe_exists(p)]
 
 
+
 def detect_sessions(tracks: list[Track], gap_min: int = 20) -> list[list[Track]]:
+    """Group listened tracks into listening sessions separated by gaps >= gap_min minutes."""
     sessions, cur = [], []
     for t in tracks:
         if not t.listened:
@@ -1062,9 +1050,12 @@ ROCKBOX_CONFIG_SCHEMA = {
 ROCKBOX_CONFIG_GROUPS = {
     "🔊 Sound":     ["volume","bass","treble","balance","channels","stereo width","volume limit",
                      "replaygain","replaygain type","replaygain noclip","replaygain preamp",
-                     "crossfeed","dithering enabled","eq enabled","bass cutoff","treble cutoff"],
+                     "crossfeed","crossfeed direct gain","crossfeed cross gain","crossfeed hf attenuation",
+                     "dithering enabled","eq enabled","bass cutoff","treble cutoff"],
     "▶ Playback":  ["shuffle","repeat","play selected first","fade on stop","fade duration",
-                    "crossfade","skip length","prevent skipping","rewind before resume",
+                    "crossfade","crossfade fade in delay","crossfade fade out delay",
+                    "crossfade fade in duration","crossfade fade out duration","crossfade fade out mixmode",
+                    "skip length","prevent skipping","rewind before resume",
                     "party mode","autobind next folder"],
     "🖥 Display":  ["backlight","brightness","scroll speed","scroll delay","scroll step size",
                     "bidir limit","statusbar","scrollbar","scrollbar width","show icons",
@@ -1076,8 +1067,9 @@ ROCKBOX_CONFIG_GROUPS = {
     "📖 Bookmarks":["bookmark on stop","load last bookmark","show bookmarks"],
     "🗄 Database": ["auto update","gather runtime data","runtimedb","database directory"],
     "🎙 Recording":["rec frequency","rec channels","rec source","rec quality","rec mono mode"],
-    "🎨 Theme":    ["wps","sbs","fms","backdrop","ui viewport","line selector type",
-                    "line selector color","fg color","bg color","font"],
+    "🎨 Theme":    ["wps","rwps","sbs","rsbs","fms","backdrop","ui viewport","line selector type",
+                    "line selector color","line selector gradient start","line selector gradient end",
+                    "fg color","bg color","font"],
 }
 
 
@@ -1606,7 +1598,7 @@ class RockboxDbWorker(QThread):
 
     def _compile_tool(self, src: Path) -> Path:
         """Configure and compile the database tool. Returns path to binary."""
-        import tempfile as _tf
+
         tool_out = _RBX_TOOL_PATH
 
         self._emit("Compiling Rockbox database tool…")
@@ -1616,7 +1608,7 @@ class RockboxDbWorker(QThread):
         # Patch the source for UTF-8 support before compiling
         self._patch_source_for_utf8(src)
 
-        build_dir = Path(_tf.mkdtemp(prefix="scrobbox_rbxbuild_"))
+        build_dir = Path(tempfile.mkdtemp(prefix="scrobbox_rbxbuild_"))
         try:
             # Configure for database tool (--type=D), host-native binary
             self._run_cmd([
@@ -1667,7 +1659,7 @@ class RockboxDbWorker(QThread):
           This makes the tool record paths like /Music/Artist/song.mp3 which
           is exactly what Rockbox expects on the device.
         """
-        import tempfile as _tf
+
 
         if self.library_root:
             self._emit(f"Mode: local library  {self.library_root}")
@@ -1691,7 +1683,7 @@ class RockboxDbWorker(QThread):
 
 
 
-            fake_root = Path(_tf.mkdtemp(prefix="scrobbox_fakedev_"))
+            fake_root = Path(tempfile.mkdtemp(prefix="scrobbox_fakedev_"))
             try:
                 (fake_root / ".rockbox").mkdir()
 
@@ -1767,7 +1759,7 @@ class RockboxDbWorker(QThread):
                 # This makes the tool scan ONLY the music folder (fast) while
                 # still recording paths like /Music Ipod/Artist/song.mp3.
                 # .rockbox is also symlinked so the tool writes .tcd files there.
-                fake_root = Path(_tf.mkdtemp(prefix="scrobbox_fakedev_"))
+                fake_root = Path(tempfile.mkdtemp(prefix="scrobbox_fakedev_"))
                 try:
                     # Symlink .rockbox and the music folder into fake root
                     os.symlink(os.fsencode(str(rbdir)),
@@ -2360,11 +2352,6 @@ class PageBackground(QWidget):
         painter.end()
 
 
-# Keep name alias so any leftover references don't crash
-HeroBanner = PageBackground
-
-
-
 def _id3_art_bytes(data: bytes) -> Optional[bytes]:
     try:
         if data[:3] != b"ID3":
@@ -2450,7 +2437,6 @@ def _m4a_art_bytes(data: bytes) -> Optional[bytes]:
 
 def _ogg_opus_art_bytes(data: bytes) -> Optional[bytes]:
     """Extract embedded cover from Ogg Vorbis / Opus streams (METADATA_BLOCK_PICTURE in Vorbis comments)."""
-    import base64
     try:
         # Search for the METADATA_BLOCK_PICTURE key (case-insensitive) in the raw page data
         marker = b"METADATA_BLOCK_PICTURE="
@@ -2468,8 +2454,7 @@ def _ogg_opus_art_bytes(data: bytes) -> Optional[bytes]:
         raw = base64.b64decode(b64 + b"==")  # pad to avoid padding errors
         # METADATA_BLOCK_PICTURE structure: 4 bytes type, then lengths + data
         pos = 0
-        _type = int.from_bytes(raw[pos:pos+4], "big"); pos += 4
-        mime_len = int.from_bytes(raw[pos:pos+4], "big"); pos += 4 + mime_len
+        mime_len = int.from_bytes(raw[pos+4:pos+8], "big"); pos += 8 + mime_len
         desc_len = int.from_bytes(raw[pos:pos+4], "big"); pos += 4 + desc_len
         pos += 16  # width, height, color_depth, color_count
         data_len = int.from_bytes(raw[pos:pos+4], "big"); pos += 4
@@ -2490,7 +2475,6 @@ def _apev2_art_bytes(data: bytes) -> Optional[bytes]:
         if idx == -1:
             return None
         # Header: 8 preamble + 4 version + 4 tag_size + 4 item_count + 4 flags + 8 reserved
-        version  = int.from_bytes(data[idx+8:idx+12],  "little")
         tag_size = int.from_bytes(data[idx+12:idx+16], "little")
         n_items  = int.from_bytes(data[idx+16:idx+20], "little")
         # Items start right after the 32-byte header
@@ -2962,7 +2946,7 @@ class Banner(QLabel):
         colors = {
             "success": (t["success"],  "rgba(58,153,85,0.08)",   _hex_to_rgba(t["success"],  0.33)),
             "danger":  (t["danger"],   "rgba(192,64,64,0.08)",   _hex_to_rgba(t["danger"],   0.33)),
-            "warning": (t["warning"],  "rgba(200,150,30,0.08)",  _hex_to_rgba(t["warning"],  0.33)),
+            "warning": (t["warning"],  _hex_to_rgba(t["warning"], 0.08),  _hex_to_rgba(t["warning"],  0.33)),
             "info":    (None,          "rgba(255,255,255,0.04)",  "rgba(255,255,255,0.22)"),
             "muted":   (None,          "rgba(255,255,255,0.03)",  "rgba(255,255,255,0.15)"),
         }
@@ -3967,8 +3951,6 @@ class StatsPage(QWidget):
         w._lst = lst
         return w
 
-    def _make_list(self, title: str) -> QWidget:
-        return self._make_ranked_list(title)
 
     def _clear_albums(self):
         while self._albums_layout.count():
@@ -4064,14 +4046,6 @@ class StatsPage(QWidget):
                 return n, cw
         return 1, panel_w - padding
 
-    def _card_w_for(self, panel: QWidget, n: int = 5) -> int:
-        """Compute card width so n cards fit inside panel with padding and spacing."""
-        pw = panel.width()
-        if pw < 50:
-            pw = 600
-        padding = 28
-        spacing = 8 * (n - 1)
-        return max(80, (pw - padding - spacing) // n)
 
     def _add_album_card(self, artist: str, album: str, count: int, index: int = 0, card_w: int = 0):
         key = (artist.lower(), album.lower())
@@ -5434,7 +5408,7 @@ class RockboxToolsPage(QWidget):
                 "Could not auto-detect config.cfg.\nSet the device root or browse manually.")
 
         w.done.connect(_on_found, Qt.ConnectionType.QueuedConnection)
-        def _finished_bare_2(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_bare_2(*args, _ref=weakref.ref(w)):
 
             _obj = _ref()
 
@@ -5989,15 +5963,10 @@ class RockboxToolsPage(QWidget):
         label    = data["label"]
         target   = data["target"]
         fmt_name = data.get("fmt_name", "fmt_title")
-        sort_tag = data.get("sort", "title")
-        sort_dir = data.get("sort_dir", "ascending")
         limit    = data.get("limit", 0)
         children = data.get("children", [])
 
-        # Build the chained navigation expression
-        # e.g.: "Artists" -> canonicalartist -> album -> title = "fmt_title"
         chain = self._build_chain(target, fmt_name)
-        limit_str = f" ? playcount > \"-1\"" if limit > 0 else ""
 
         if children:
             # Has children: render as a sub-menu container
@@ -6155,7 +6124,7 @@ class RockboxToolsPage(QWidget):
                 "Could not auto-detect tagnavi.config.\nSet the device root or browse manually.")
 
         w.done.connect(_on_found, Qt.ConnectionType.QueuedConnection)
-        def _finished_bare_3(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_bare_3(*args, _ref=weakref.ref(w)):
 
             _obj = _ref()
 
@@ -6238,7 +6207,7 @@ class RockboxToolsPage(QWidget):
                     "Any device with a .rockbox folder will be detected automatically.")
 
         w.done.connect(_on_found, Qt.ConnectionType.QueuedConnection)
-        def _finished_bare_4(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_bare_4(*args, _ref=weakref.ref(w)):
 
             _obj = _ref()
 
@@ -7752,13 +7721,7 @@ class SettingsPage(QWidget):
 
     # ── Appearance tab ────────────────────────────────────────
 
-    ACCENTS = {
-        "Amber":    "#c8861a", "Teal":    "#1a9a8a",
-        "Crimson":  "#c02040", "Violet":  "#7c3fc0",
-        "Cobalt":   "#1a66c8", "Sage":    "#4a8c5c",
-        "Rose":     "#c04080", "Slate":   "#607090",
-        "Sunset":   "#d4601a", "Forest":  "#2d7a3a",
-    }
+    ACCENTS = AppearancePage.ACCENTS   # single source of truth
 
     def _build_appearance_tab(self) -> QWidget:
         w = QWidget(); w.setStyleSheet("background:transparent;")
@@ -8082,9 +8045,8 @@ def _tidal_resolve_stream_url(data: dict) -> str:
 
     if manifest_b64 and isinstance(manifest_b64, str):
         try:
-            import base64 as _b64
             padded  = manifest_b64 + "=" * (-len(manifest_b64) % 4)
-            decoded = _b64.b64decode(padded).decode("utf-8", "ignore")
+            decoded = base64.b64decode(padded).decode("utf-8", "ignore")
 
             # 4a. JSON BTS manifest (AAC streams — application/vnd.tidal.bts)
             if "vnd.tidal.bts" in mime or decoded.lstrip().startswith("{"):
@@ -8174,7 +8136,7 @@ def _tidal_req(path: str, timeout: int = 14) -> Optional[dict]:
     for base in bases_to_try:
         try:
             r = requests.get(base + path, timeout=(_CONNECT_TO, _READ_TO),
-                             headers={"X-Client": "Scrobbox/4.0",
+                             headers={"X-Client": f"{APP_NAME}/{APP_VERSION}",
                                       "Accept": "application/json"})
             if r.status_code == 200:
                 try:
@@ -8187,14 +8149,18 @@ def _tidal_req(path: str, timeout: int = 14) -> Optional[dict]:
                 except Exception:
                     continue
             if r.status_code in (400, 404):
-                # Track/resource genuinely not found — no point trying other bases
-                return None
+                # 404 = genuinely not found on this proxy, try next
+                # 400 = some proxies return this for unsupported endpoints,
+                #       so keep trying other bases rather than giving up
+                if r.status_code == 404:
+                    return None
+                continue
             if r.status_code == 429:
                 # Rate limited — wait briefly and retry this same base once before moving on
                 _time.sleep(2)
                 try:
                     r2 = requests.get(base + path, timeout=(_CONNECT_TO, _READ_TO),
-                                      headers={"X-Client": "Scrobbox/4.0",
+                                      headers={"X-Client": f"{APP_NAME}/{APP_VERSION}",
                                                "Accept": "application/json"})
                     if r2.status_code == 200:
                         try:
@@ -8235,19 +8201,22 @@ def _tidal_extract_tracks(data) -> list:
         result = _tidal_extract_tracks(inner)
         if result:
             # Try to inject the album cover/title into each track if missing
-            album_cover = inner.get("cover") or ""
-            album_title = inner.get("title") or ""
-            album_id    = inner.get("id")
-            if album_cover:
+            album_cover    = inner.get("cover") or ""
+            album_title    = inner.get("title") or ""
+            album_id       = inner.get("id")
+            album_release  = inner.get("releaseDate") or ""
+            if album_cover or album_title or album_id or album_release:
                 for tr in result:
                     if isinstance(tr, dict):
                         alb = tr.setdefault("album", {})
-                        if not alb.get("cover"):
+                        if not alb.get("cover") and album_cover:
                             alb["cover"] = album_cover
                         if not alb.get("title") and album_title:
                             alb["title"] = album_title
                         if not alb.get("id") and album_id:
                             alb["id"] = album_id
+                        if not alb.get("releaseDate") and album_release:
+                            alb["releaseDate"] = album_release
             return result
 
     # hifi-api /artist/?f= returns tracks directly
@@ -8264,26 +8233,35 @@ def _tidal_extract_tracks(data) -> list:
         items = data["items"]
         if not items:
             return []
-        parent_cover = data.get("cover") or ""
-        parent_title = data.get("title") or ""
-        parent_id    = data.get("id")
+        parent_cover   = data.get("cover") or ""
+        parent_title   = data.get("title") or ""
+        parent_id      = data.get("id")
+        parent_release = data.get("releaseDate") or ""
         if isinstance(items[0], dict):
             if "title" in items[0]:
+                if parent_release:
+                    for tr in items:
+                        if isinstance(tr, dict):
+                            alb = tr.setdefault("album", {})
+                            if not alb.get("releaseDate"):
+                                alb["releaseDate"] = parent_release
                 return items
             if "item" in items[0]:
                 tracks = [i["item"] for i in items
                           if isinstance(i.get("item"), dict) and "title" in i.get("item", {})]
                 # Inject album cover from parent album data
-                if parent_cover:
+                if parent_cover or parent_title or parent_id or parent_release:
                     for tr in tracks:
                         if isinstance(tr, dict):
                             alb = tr.setdefault("album", {})
-                            if not alb.get("cover"):
+                            if not alb.get("cover") and parent_cover:
                                 alb["cover"] = parent_cover
                             if not alb.get("title") and parent_title:
                                 alb["title"] = parent_title
                             if not alb.get("id") and parent_id:
                                 alb["id"] = parent_id
+                            if not alb.get("releaseDate") and parent_release:
+                                alb["releaseDate"] = parent_release
                 return tracks
 
     return []
@@ -8378,6 +8356,58 @@ def _sanitize_path(s: str) -> str:
 #  TIDAL – async workers
 # ─────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────
+#  LAST.FM SEARCH CORRECTION WORKER
+#  Runs artist.search + track.search in parallel against Last.fm
+#  to suggest a corrected query when the user's input looks like
+#  a typo or partial word.  Falls back to a hardcoded public key
+#  so it works even if the user hasn't set up Last.fm in settings.
+# ─────────────────────────────────────────────────────────────
+
+# Registered Scrobbox app key — used for search corrections when the user
+# hasn't configured their own Last.fm key.  Read-only, only calls
+# artist.search and track.search — no write access.
+_LFM_FALLBACK_KEY = "d24895dba5d3edffddb617973ccef55b"
+
+class _LfmCorrectionWorker(QThread):
+    """
+    Queries Last.fm artist.search for the raw query and returns the top
+    artist name.  Last.fm's ranking handles typos/partials natively.
+    The result is used to fire a parallel Tidal search so results from
+    both the raw query AND the corrected name get merged.
+    """
+    result = pyqtSignal(str)   # top Last.fm artist name (may equal query)
+
+    def __init__(self, query: str, api_key: str = "", parent=None):
+        super().__init__(parent)
+        self._query   = query
+        self._api_key = api_key or _LFM_FALLBACK_KEY
+        self.setObjectName("LfmCorrectionWorker")
+
+    def run(self):
+        q   = self._query.strip()
+        key = self._api_key
+        try:
+            r = requests.get(LASTFM_API, params={
+                "method": "artist.search", "artist": q,
+                "api_key": key, "format": "json", "limit": "1",
+            }, timeout=6)
+            if r.status_code == 200:
+                artists = (r.json()
+                           .get("results", {})
+                           .get("artistmatches", {})
+                           .get("artist", []))
+                if artists:
+                    top = artists[0].get("name", "").strip()
+                    if top:
+                        self.result.emit(top)
+                        return
+        except Exception:
+            pass
+        self.result.emit(q)   # emit original query so caller always gets something
+
+
+
 class _TidalWorker(QThread):
     ok   = pyqtSignal(object)
     fail = pyqtSignal(str)
@@ -8466,9 +8496,8 @@ class _TidalDlWorker(QThread):
         mime = (self._stream.get("manifestMimeType") or self._stream.get("manifest_mime_type") or "").lower()
         manifest_b64 = self._stream.get("manifest") or self._stream.get("encodedManifest") or ""
         if manifest_b64 and "dash+xml" in mime:
-            import base64 as _b64
             padded = manifest_b64 + "=" * (-len(manifest_b64) % 4)
-            decoded = _b64.b64decode(padded).decode("utf-8", "ignore")
+            decoded = base64.b64decode(padded).decode("utf-8", "ignore")
             if "<MPD" not in decoded:
                 raise RuntimeError("DASH manifest was not valid MPD XML.")
             tmp_mpd = str(Path(self._dest).with_suffix(".mpd"))
@@ -8538,7 +8567,7 @@ class _TidalDlWorker(QThread):
         else:
             # ── Plain HTTP download (AAC / non-DASH streams) ─────────────────
             headers = {
-                "User-Agent": "Scrobbox/4.0",
+                "User-Agent": f"{APP_NAME}/{APP_VERSION}",
                 "Accept": "audio/flac, audio/mp4, audio/*, */*",
             }
             try:
@@ -8713,8 +8742,7 @@ class _TidalDlWorker(QThread):
             title   = track.get("title") or ""
             artists = ", ".join(a.get("name","") for a in (track.get("artists") or []))
             album   = (track.get("album") or {}).get("title") or ""
-            year    = (str(track.get("streamStartDate") or "")[:4]
-                     or str((track.get("album") or {}).get("releaseDate") or "")[:4]
+            year    = (str((track.get("album") or {}).get("releaseDate") or "")[:4]
                      or str(track.get("releaseDate") or "")[:4])
             track_n = str(track.get("trackNumber") or "")
             disc_n  = str(track.get("volumeNumber") or "")
@@ -9138,6 +9166,275 @@ class _TidalSettingsPanel(QScrollArea):
 
 
 
+class _ArtistFlowWidget(QWidget):
+    """
+    Responsive artist grid — same reflow engine as _AlbumFlowWidget but with
+    smaller square cards (circular photo, name, Browse / Download / Queue).
+    """
+    CARD_MIN_W = 150
+    COVER_H    = 130   # square art area; rendered as circle
+    GAP_MIN    = 12
+    MARGIN     = 16
+    MIN_COLS   = 3
+    MAX_COLS   = 8
+
+    _GRAD_PAIRS = [
+        ("#1a1a2e", "#e94560"), ("#0f3460", "#533483"),
+        ("#16213e", "#0f3460"), ("#1b262c", "#0a3d62"),
+        ("#2c003e", "#8e24aa"), ("#1a237e", "#283593"),
+        ("#880e4f", "#4a0072"), ("#004d40", "#00695c"),
+        ("#bf360c", "#e64a19"), ("#37474f", "#546e7a"),
+    ]
+
+    def __init__(self, artists: list, on_browse, on_dl, on_queue, parent=None):
+        super().__init__(parent)
+        self._cards     = []
+        self._on_browse = on_browse
+        self._on_dl     = on_dl
+        self._on_queue  = on_queue
+        self._reflow_timer = QTimer(self)
+        self._reflow_timer.setSingleShot(True)
+        self._reflow_timer.setInterval(16)
+        self._reflow_timer.timeout.connect(self._reflow)
+        self.setStyleSheet("background:transparent;")
+        self._build_cards(artists)
+
+    def _build_cards(self, artists):
+        CW = self.CARD_MIN_W
+        CH = self.COVER_H
+        _deferred_covers: list = []
+
+        _ss = (
+            "QPushButton{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);"
+            "color:rgba(255,255,255,0.82);border-radius:6px;font-size:10px;font-weight:600;}"
+            "QPushButton:hover{background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.38);color:#fff;}"
+            "QPushButton:pressed{background:rgba(255,255,255,0.22);}"
+        )
+
+        for art in artists[:200]:
+            name = (art.get("name") or art.get("title") or "Unknown Artist").strip()
+
+            card = QFrame(self)
+            card.setFixedWidth(CW)
+            card.setStyleSheet(
+                "QFrame#art_card{background:rgba(255,255,255,0.05);"
+                "border:none;border-radius:10px;}"
+                "QFrame#art_card:hover{background:rgba(255,255,255,0.10);}"
+                "QFrame#art_card QLabel{background:transparent;border:none;}"
+                "QFrame#art_card QPushButton{font-size:10px;padding:2px 6px;}"
+            )
+            card.setObjectName("art_card")
+            card.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            vb = QVBoxLayout(card)
+            vb.setContentsMargins(0, 10, 0, 10)
+            vb.setSpacing(0)
+            vb.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+            # ── Circular photo ──────────────────────────────────
+            photo_container = QWidget()
+            photo_container.setFixedSize(CW, CH)
+            photo_container.setStyleSheet("background:transparent;")
+
+            # Circle diameter — leave a small margin on each side
+            circ = min(CH, CW - 16)
+            cx   = (CW - circ) // 2
+
+            cover_lbl = QLabel(photo_container)
+            cover_lbl.setFixedSize(circ, circ)
+            cover_lbl.move(cx, 0)
+            cover_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            cover_lbl.setStyleSheet("background:transparent;border:none;")
+
+            # Gradient placeholder circle
+            c1, c2 = self._GRAD_PAIRS[abs(hash(name)) % len(self._GRAD_PAIRS)]
+            first  = (name[:1] or "♪").upper()
+            pix    = QPixmap(circ, circ)
+            pix.fill(Qt.GlobalColor.transparent)
+            pp = QPainter(pix)
+            pp.setRenderHint(QPainter.RenderHint.Antialiasing)
+            grad = QLinearGradient(0, 0, circ, circ)
+            grad.setColorAt(0.0, QColor(c1)); grad.setColorAt(1.0, QColor(c2))
+            path = QPainterPath()
+            path.addEllipse(QRectF(0, 0, circ, circ))
+            pp.setClipPath(path)
+            pp.fillRect(0, 0, circ, circ, QBrush(grad))
+            pp.setPen(QColor(255, 255, 255, 55))
+            ff = QFont(); ff.setPointSize(max(10, circ // 3)); ff.setWeight(QFont.Weight.Black)
+            pp.setFont(ff)
+            pp.drawText(pix.rect(), Qt.AlignmentFlag.AlignCenter, first)
+            pp.end()
+            cover_lbl.setPixmap(pix)
+
+            pid = art.get("picture") or art.get("image") or ""
+            if pid:
+                _deferred_covers.append((str(pid), cover_lbl, circ))
+
+            vb.addWidget(photo_container)
+
+            # ── Name ────────────────────────────────────────────
+            name_lbl = QLabel()
+            name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            name_lbl.setWordWrap(False)
+            fm = QFontMetrics(name_lbl.font())
+            name_lbl.setText(fm.elidedText(name, Qt.TextElideMode.ElideRight, CW - 12))
+            name_lbl.setStyleSheet(
+                "color:rgba(255,255,255,0.87);font-weight:700;font-size:11px;"
+                "background:transparent;border:none;padding:6px 6px 2px 6px;"
+            )
+            vb.addWidget(name_lbl)
+
+            # ── Actions ─────────────────────────────────────────
+            acts = QWidget(); acts.setStyleSheet("background:transparent;")
+            av = QVBoxLayout(acts)
+            av.setContentsMargins(8, 6, 8, 0)
+            av.setSpacing(5)
+
+            brw = QPushButton("Browse"); brw.setFixedHeight(26)
+            brw.setToolTip("Browse artist albums"); brw.setStyleSheet(_ss)
+            brw.clicked.connect(lambda _=False, a=art: self._on_browse(a))
+            av.addWidget(brw)
+
+            r2 = QHBoxLayout(); r2.setSpacing(5)
+            dlb = QPushButton("Download"); dlb.setFixedHeight(26)
+            dlb.setToolTip("Download all tracks by this artist"); dlb.setStyleSheet(_ss)
+            dlb.clicked.connect(lambda _=False, a=art: self._on_dl(a))
+            r2.addWidget(dlb, stretch=1)
+            qpb = QPushButton("Queue"); qpb.setFixedHeight(26)
+            qpb.setToolTip("Add all tracks to download queue"); qpb.setStyleSheet(_ss)
+            qpb.clicked.connect(lambda _=False, a=art: self._on_queue(a))
+            r2.addWidget(qpb, stretch=1)
+            av.addLayout(r2)
+
+            vb.addWidget(acts)
+
+            card.mousePressEvent = (lambda e, a=art:
+                self._on_browse(a) if e.button() == Qt.MouseButton.LeftButton else None)
+
+            card.hide()
+            self._cards.append(card)
+
+        self._reflow_cols = 0
+
+        def _enqueue_covers():
+            for cid, lbl, sz in _deferred_covers:
+                _load_cover_into_label(cid, lbl, sz, circle=True)
+        if _deferred_covers:
+            QTimer.singleShot(0, _enqueue_covers)
+
+    def _cols_for_width(self, w: int) -> int:
+        if w <= 0:
+            return self.MIN_COLS
+        usable = w - 2 * self.MARGIN
+        cols   = max(self.MIN_COLS, (usable + self.GAP_MIN) // (self.CARD_MIN_W + self.GAP_MIN))
+        return min(cols, self.MAX_COLS)
+
+    def _card_geometry(self, w: int):
+        cols   = self._cols_for_width(w)
+        usable = w - 2 * self.MARGIN
+        gap    = max(self.GAP_MIN, (usable - cols * self.CARD_MIN_W) // max(cols - 1, 1)) if cols > 1 else self.GAP_MIN
+        card_w = max(self.CARD_MIN_W, (usable - (cols - 1) * gap) // cols)
+        if cols > 1:
+            gap = max(self.GAP_MIN, (usable - cols * card_w) // (cols - 1))
+        return cols, card_w, gap
+
+    def _reflow(self):
+        w = self.width()
+        if w <= 0:
+            return
+        if self.parent() and hasattr(self.parent().parent(), 'verticalScrollBar'):
+            sb = self.parent().parent().verticalScrollBar()
+            if sb and sb.isVisible():
+                w -= sb.width()
+        cols, card_w, gap = self._card_geometry(w)
+
+        state = (cols, card_w, gap)
+        if getattr(self, '_reflow_state', None) == state and self._cards and self._cards[0].isVisible():
+            return
+        self._reflow_state = state
+        self._reflow_cols  = cols
+
+        for card in self._cards:
+            card.setFixedWidth(card_w)
+
+        card_h = max(card.sizeHint().height() for card in self._cards) if self._cards else 220
+        row_h  = card_h + gap
+        y0     = self.MARGIN
+
+        for i, card in enumerate(self._cards):
+            col = i % cols
+            row = i // cols
+            card.move(self.MARGIN + col * (card_w + gap), y0 + row * row_h)
+            card.show()
+
+        rows    = (len(self._cards) + cols - 1) // cols if self._cards else 0
+        total_h = y0 + rows * row_h + self.MARGIN
+        self.setMinimumHeight(total_h)
+        self.updateGeometry()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._reflow_timer.start()   # debounced — fires once after resize settles
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self._reflow()
+
+
+class _CirclePlayBtn(QWidget):
+    """A properly circular play button painted with QPainter.
+    QPushButton border-radius doesn't clip its background reliably in Qt,
+    so we paint the circle and triangle ourselves."""
+    clicked = pyqtSignal()
+
+    def __init__(self, size: int = 56, color: QColor = None, parent=None):
+        super().__init__(parent)
+        self._size  = size
+        self._color = color or QColor(tok("accent"))
+        self._hover = False
+        self.setFixedSize(size, size)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        s = self._size
+        # Circle background
+        alpha = 230 if self._hover else 210
+        c = QColor(self._color)
+        c.setAlpha(alpha)
+        p.setBrush(QBrush(c))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawEllipse(0, 0, s, s)
+        # Play triangle — slightly right of center for optical balance
+        p.setBrush(QBrush(QColor(255, 255, 255, 240)))
+        tri = QPainterPath()
+        m  = s * 0.28
+        ox = s * 0.06   # nudge right
+        tri.moveTo(m + ox,       m)
+        tri.lineTo(s - m + ox,   s / 2)
+        tri.lineTo(m + ox,       s - m)
+        tri.closeSubpath()
+        p.drawPath(tri)
+        p.end()
+
+    def enterEvent(self, e):
+        self._hover = True
+        self.update()
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        self._hover = False
+        self.update()
+        super().leaveEvent(e)
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(e)
+
+
 class _AlbumFlowWidget(QWidget):
     """
     Responsive album grid that reflows into as many columns as fit.
@@ -9167,8 +9464,15 @@ class _AlbumFlowWidget(QWidget):
         self._on_queue = on_queue
         self._on_play  = on_play
         self._on_play_queue = on_play_queue
+        self._reflow_timer = QTimer(self)
+        self._reflow_timer.setSingleShot(True)
+        self._reflow_timer.setInterval(16)
+        self._reflow_timer.timeout.connect(self._reflow)
         self.setStyleSheet("background:transparent;")
         self._build_cards(albums)
+
+    def apply_filter_sort(self, display: list):
+        pass   # kept as stub — not used
 
     def _build_cards(self, albums):
         t = _current_theme
@@ -9196,7 +9500,7 @@ class _AlbumFlowWidget(QWidget):
             card.setStyleSheet(
                 "QFrame#alb_card{background:rgba(255,255,255,0.05);"
                 "border:none;border-radius:10px;}"
-                "QFrame#alb_card:hover{background:rgba(255,255,255,0.10);}"
+                "QFrame#alb_card:hover{background:rgba(255,255,255,0.09);}"
                 "QFrame#alb_card QLabel{background:transparent;border:none;}"
                 "QFrame#alb_card QPushButton{font-size:11px;padding:3px 8px;}"
             )
@@ -9243,6 +9547,21 @@ class _AlbumFlowWidget(QWidget):
                 # Schedule cover load after widget construction completes
                 _deferred_covers.append((str(alb_cover_id), cover_lbl, CW))
 
+            # ── Hover overlay ▶ on art ────────────────────────────
+            _ov = QWidget(art_container)
+            _ov.setGeometry(0, 0, CW, CH)
+            _ov.setStyleSheet("QWidget{background:rgba(0,0,0,0.38);border-radius:9px;}")
+            _ov.setVisible(False)
+            _ov.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+            _BTN_SZ = 56
+            _pov = _CirclePlayBtn(_BTN_SZ, QColor(tok("accent")), _ov)
+            _pov.move((CW - _BTN_SZ) // 2, (CH - _BTN_SZ) // 2)
+            _pov.clicked.connect(lambda a=alb: self._on_play(a) if self._on_play else None)
+            def _card_enter(e, ov=_ov): ov.setVisible(True)
+            def _card_leave(e, ov=_ov): ov.setVisible(False)
+            card.enterEvent = _card_enter
+            card.leaveEvent = _card_leave
+
             vb.addWidget(art_container)
 
             # Text
@@ -9265,10 +9584,10 @@ class _AlbumFlowWidget(QWidget):
             av = QVBoxLayout(acts); av.setContentsMargins(10, 6, 10, 10); av.setSpacing(6)
 
             _ss = (
-                "QPushButton{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);"
-                "color:rgba(255,255,255,0.82);border-radius:6px;font-size:11px;font-weight:600;}"
-                "QPushButton:hover{background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.38);color:#fff;}"
-                "QPushButton:pressed{background:rgba(255,255,255,0.22);}"
+                "QPushButton{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);"
+                "color:rgba(255,255,255,0.78);border-radius:6px;font-size:11px;font-weight:600;}"
+                "QPushButton:hover{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.32);color:#fff;}"
+                "QPushButton:pressed{background:rgba(255,255,255,0.20);}"
             )
 
             # Row 1: Play  Queue
@@ -9390,7 +9709,7 @@ class _AlbumFlowWidget(QWidget):
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
-        self._reflow()
+        self._reflow_timer.start()   # debounced — fires once after resize settles
 
     def showEvent(self, e):
         super().showEvent(e)
@@ -9446,11 +9765,11 @@ def _cover_drain():
     """Start queued workers up to the cap. Call from main thread only."""
     while _cover_pending and len(_active_cover_workers) < _COVER_MAX_WORKERS:
         cid, size, corner_radius, circle, label = _cover_pending.pop(0)
-        # Cache hit — no thread needed
+        # Cache hit — no thread needed; deliver pre-decoded QImage directly
         if (cid, size) in _cover_cache:
-            raw = _cover_cache[(cid, size)]
-            QTimer.singleShot(0, lambda r=raw, lbl=label, sz=size, cr=corner_radius, ci=circle:
-                _set_cover_on_label(lbl, r, sz, cr, ci))
+            img = _cover_cache[(cid, size)]
+            QTimer.singleShot(0, lambda i=img, lbl=label, cr=corner_radius, ci=circle:
+                _set_cover_on_label(lbl, i, cr, ci))
             continue
         # In-flight dedup — if a worker for this (cid, size) is already running,
         # just register this label to receive the result when it finishes.
@@ -9467,17 +9786,17 @@ def _load_cover_worker(cid, size, corner_radius, circle, label):
     worker = _CoverFetchWorker(cid, size)
     key = (cid, size)
 
-    def _on_done(raw: bytes):
-        if raw:
+    def _on_done(img: QImage):
+        if img and not img.isNull():
             if len(_cover_cache) >= _COVER_CACHE_MAX:
                 _cover_cache.pop(next(iter(_cover_cache)))
-            _cover_cache[key] = raw
+            _cover_cache[key] = img
         # Deliver result to ALL labels that were waiting for this (cid, size)
         waiters = _cover_inflight.pop(key, [(label, corner_radius, circle)])
         for lbl, cr, ci in waiters:
             try:
                 if not sip.isdeleted(lbl):
-                    _set_cover_on_label(lbl, raw, size, cr, ci)
+                    _set_cover_on_label(lbl, img, cr, ci)
             except Exception:
                 pass
 
@@ -9489,7 +9808,7 @@ class _CoverFetchWorker(QThread):
     """Fetches one TIDAL cover image on a background thread.
     Adds itself to _active_cover_workers on construction;
     removes itself and calls _cover_drain on finish."""
-    done = pyqtSignal(bytes)
+    done = pyqtSignal(QImage)
 
     def __init__(self, cid: str, size: int):
         super().__init__(None)
@@ -9524,7 +9843,22 @@ class _CoverFetchWorker(QThread):
                 if (r.status_code == 200 and len(r.content) > 500
                         and ("image" in ct
                              or r.content[:3] in (b"\xff\xd8\xff", b"\x89PN"))):
-                    self.done.emit(r.content)
+                    # Decode and scale on this thread — keeps main thread free
+                    img = _qimage_from_bytes_plugin_free(r.content)
+                    if img and not img.isNull():
+                        w = self._size
+                        img = img.scaled(
+                            w, w,
+                            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                            Qt.TransformationMode.SmoothTransformation,
+                        )
+                        if img.width() > w or img.height() > w:
+                            img = img.copy(
+                                (img.width() - w) // 2,
+                                (img.height() - w) // 2,
+                                w, w,
+                            )
+                        self.done.emit(img)
                     return
             except Exception:
                 continue
@@ -9542,28 +9876,18 @@ def _load_cover_into_label(cover_id: str, label: QLabel, size: int,
     _cover_drain()
 
 
-def _set_cover_on_label(label: QLabel, raw: bytes, size: int,
+def _set_cover_on_label(label: QLabel, img: QImage,
                         corner_radius: int = 4, circle: bool = False):
-    """Paint cover bytes onto a QLabel — must be called on the main thread."""
+    """Apply a pre-decoded, pre-scaled QImage to a QLabel — main thread only.
+    The heavy decode+scale work was already done in the worker thread; here we
+    just do the round-clip (fast QPainter pass) and a QPixmap conversion."""
     try:
-        # Guard: widget may have been destroyed between the thread finishing and
-        # this QTimer callback firing (common when cards are rebuilt rapidly).
         if sip.isdeleted(label):
             return
-        # Use the plugin-free decoder so covers work in AppImage/PyInstaller
-        # where Qt imageformat plugins are often absent.
-        img = _qimage_from_bytes_plugin_free(raw)
         if img is None or img.isNull():
             return
-        w = size
-        h = size
-        src = QPixmap.fromImage(img).scaled(
-            w, h,
-            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        if src.width() > w or src.height() > h:
-            src = src.copy((src.width() - w) // 2, (src.height() - h) // 2, w, h)
+        w = img.width()
+        h = img.height()
         radius = w // 2 if circle else corner_radius
         result = QPixmap(w, h)
         result.fill(Qt.GlobalColor.transparent)
@@ -9572,9 +9896,8 @@ def _set_cover_on_label(label: QLabel, raw: bytes, size: int,
         path = QPainterPath()
         path.addRoundedRect(QRectF(0, 0, w, h), radius, radius)
         painter.setClipPath(path)
-        painter.drawPixmap(0, 0, src)
+        painter.drawImage(0, 0, img)
         painter.end()
-        # Final guard before touching the widget
         if not sip.isdeleted(label):
             label.setPixmap(result)
             label.setText("")
@@ -9685,52 +10008,66 @@ def _apply_cover_raw(lbl: QLabel, size: int, corner_radius: int = 4, circle: boo
 class _TidalTrackRow(QWidget):
     download_req  = pyqtSignal(dict)
     queue_req     = pyqtSignal(dict)
-    album_open    = pyqtSignal(dict)   # emitted when cover thumbnail or artist is clicked
-    play_req      = pyqtSignal(dict)   # emitted when play button clicked
-    play_queue_req = pyqtSignal(dict)  # add to play queue
+    album_open    = pyqtSignal(dict)
+    play_req      = pyqtSignal(dict)
+    play_queue_req = pyqtSignal(dict)
 
-    # ── Class-level stylesheet constants — parsed ONCE per process ──────────
-    # Putting these here means Qt parses the QSS exactly once no matter how
-    # many rows are created, instead of re-parsing on every _build() call.
     _ROW_SS = (
-        "_TidalTrackRow{background:transparent;}"
-        "_TidalTrackRow:hover{background:rgba(255,255,255,0.08);}"
+        "_TidalTrackRow{background:transparent;border-radius:6px;}"
+        "_TidalTrackRow:hover{background:rgba(255,255,255,0.06);}"
         "_TidalTrackRow QLabel{background:transparent;border:none;}"
-        "_TidalTrackRow QPushButton{background:transparent;"
-        "border:1px solid rgba(255,255,255,0.09);"
-        "color:rgba(255,255,255,0.87);border-radius:5px;font-size:12px;"
-        "padding:0 10px;min-height:26px;max-height:28px;font-weight:500;}"
-        "_TidalTrackRow QPushButton:hover{border-color:rgba(255,255,255,0.40);"
-        "background:rgba(255,255,255,0.08);}"
-        "_TidalTrackRow QPushButton:disabled{color:rgba(255,255,255,0.35);"
-        "background:transparent;border-color:rgba(255,255,255,0.09);}"
+        "_TidalTrackRow QPushButton{background:rgba(255,255,255,0.05);"
+        "border:1px solid rgba(255,255,255,0.10);"
+        "color:rgba(255,255,255,0.80);border-radius:5px;font-size:11px;"
+        "padding:0 10px;min-height:26px;max-height:26px;font-weight:500;}"
+        "_TidalTrackRow QPushButton:hover{border-color:rgba(255,255,255,0.35);"
+        "background:rgba(255,255,255,0.10);color:#fff;}"
+        "_TidalTrackRow QPushButton:disabled{color:rgba(255,255,255,0.28);"
+        "background:transparent;border-color:rgba(255,255,255,0.07);}"
     )
     _PLAY_BTN_SS = (
-        "QPushButton{background:transparent;border:1px solid rgba(255,255,255,0.13);"
-        "color:rgba(255,255,255,0.75);border-radius:5px;font-size:11px;font-weight:600;"
-        "padding:0 8px;min-height:26px;max-height:26px;letter-spacing:0.2px;}"
-        "QPushButton:hover{background:rgba(255,255,255,0.10);"
-        "border-color:rgba(255,255,255,0.35);color:#fff;}"
+        "QPushButton{background:rgba(255,255,255,0.07);"
+        "border:1px solid rgba(255,255,255,0.16);"
+        "color:rgba(255,255,255,0.85);border-radius:5px;font-size:11px;font-weight:700;"
+        "padding:0 10px;min-height:26px;max-height:26px;}"
+        "QPushButton:hover{background:rgba(255,255,255,0.14);"
+        "border-color:rgba(255,255,255,0.40);color:#fff;}"
     )
     _PLAIN_BTN_SS = (
-        "QPushButton{background:transparent;border:1px solid rgba(255,255,255,0.13);"
+        "QPushButton{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);"
         "color:rgba(255,255,255,0.60);border-radius:5px;font-size:11px;font-weight:500;"
         "padding:0 10px;min-height:26px;max-height:26px;}"
-        "QPushButton:hover{background:rgba(255,255,255,0.07);"
-        "border-color:rgba(255,255,255,0.30);color:rgba(255,255,255,0.90);}"
+        "QPushButton:hover{background:rgba(255,255,255,0.09);"
+        "border-color:rgba(255,255,255,0.28);color:rgba(255,255,255,0.90);}"
         "QPushButton:disabled{color:rgba(255,255,255,0.20);"
         "border-color:rgba(255,255,255,0.06);}"
     )
-    _ARTIST_SS      = "color:rgba(255,255,255,0.65);font-size:12px;font-weight:500;background:transparent;border-bottom:1px solid transparent;"
-    _ARTIST_HOVER   = "color:rgba(255,255,255,0.90);font-size:12px;font-weight:500;background:transparent;border-bottom:1px solid rgba(255,255,255,0.40);"
-    _BADGE_SS       = "color:rgba(255,255,255,0.60);font-size:9px;font-weight:700;letter-spacing:0.8px;background:transparent;border:1px solid rgba(255,255,255,0.25);border-radius:3px;padding:0 5px;"
+    _ARTIST_SS    = "color:rgba(255,255,255,0.55);font-size:12px;font-weight:500;background:transparent;border-bottom:1px solid transparent;"
+    _ARTIST_HOVER = "color:rgba(255,255,255,0.90);font-size:12px;font-weight:500;background:transparent;border-bottom:1px solid rgba(255,255,255,0.40);"
+    _BADGE_SS     = "color:rgba(255,255,255,0.55);font-size:9px;font-weight:700;letter-spacing:0.9px;background:transparent;border:1px solid rgba(255,255,255,0.20);border-radius:3px;padding:0 5px;"
 
     def __init__(self, track: dict, parent=None):
         super().__init__(parent)
-        self._track = track
+        self._track      = track
+        self._hovered    = False
         self.setFixedHeight(64)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._build()
+
+    def enterEvent(self, e):
+        super().enterEvent(e)
+        self._hovered = True
+        # Swap track number for ▶ play circle
+        if hasattr(self, "_num_lbl") and hasattr(self, "_play_circle"):
+            self._num_lbl.setVisible(False)
+            self._play_circle.setVisible(True)
+
+    def leaveEvent(self, e):
+        super().leaveEvent(e)
+        self._hovered = False
+        if hasattr(self, "_num_lbl") and hasattr(self, "_play_circle"):
+            self._play_circle.setVisible(False)
+            self._num_lbl.setVisible(True)
 
     def _build(self):
         hb = QHBoxLayout(self)
@@ -9738,20 +10075,34 @@ class _TidalTrackRow(QWidget):
         hb.setSpacing(8)
         self.setStyleSheet(self._ROW_SS)
 
-        # Track number or placeholder
+        # Track number / play-circle (swap on hover)
         tnum = self._track.get("trackNumber") or 0
-        num_lbl = QLabel(str(tnum) if tnum else "·")
-        num_lbl.setFixedWidth(18)
-        num_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        num_lbl.setStyleSheet("color:rgba(255,255,255,0.35);font-size:12px;background:transparent;")
-        hb.addWidget(num_lbl)
+        _num_stack = QWidget(); _num_stack.setFixedSize(26, 26)
+        _num_stack.setStyleSheet("background:transparent;")
+        self._num_lbl = QLabel(str(tnum) if tnum else "·", _num_stack)
+        self._num_lbl.setGeometry(0, 0, 26, 26)
+        self._num_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._num_lbl.setStyleSheet(
+            "color:rgba(255,255,255,0.30);font-size:11px;background:transparent;"
+        )
+        self._play_circle = QPushButton("▶", _num_stack)
+        self._play_circle.setGeometry(0, 0, 26, 26)
+        self._play_circle.setStyleSheet(
+            f"QPushButton{{background:{tok('accent')};color:#fff;border:none;"
+            f"border-radius:13px;font-size:8px;font-weight:900;padding:0;}}"
+            f"QPushButton:hover{{background:{tok('accent')};opacity:0.82;}}"
+        )
+        self._play_circle.setVisible(False)
+        self._play_circle.clicked.connect(lambda: self.play_req.emit(self._track))
+        hb.addWidget(_num_stack)
 
         # Cover — clickable to open the parent album
         self._cover = QLabel("♪")
-        self._cover.setFixedSize(46, 46)
+        self._cover.setFixedSize(44, 44)
         self._cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._cover.setStyleSheet(
-            f"background:rgba(255,255,255,0.08);border-radius:7px;color:rgba(255,255,255,0.35);font-size:18px;"
+            "background:rgba(255,255,255,0.07);border-radius:6px;"
+            "color:rgba(255,255,255,0.28);font-size:16px;"
         )
         self._cover.setCursor(Qt.CursorShape.PointingHandCursor)
         self._cover.setToolTip("Open album")
@@ -9778,7 +10129,7 @@ class _TidalTrackRow(QWidget):
         if self._track.get("version"):
             title += f"  ({self._track['version']})"
         tl = QLabel(title)
-        tl.setStyleSheet("font-weight:600;color:rgba(255,255,255,0.88);font-size:13px;background:transparent;")
+        tl.setStyleSheet("font-weight:600;color:rgba(255,255,255,0.92);font-size:13px;background:transparent;")
         tl.setMaximumWidth(500)
         info.addWidget(tl)
 
@@ -9892,7 +10243,7 @@ class _TidalTrackRow(QWidget):
         hb.addWidget(self._dl_btn)
 
         # DL Queue button
-        q_btn = QPushButton("DL Queue")
+        q_btn = QPushButton("+ DL Queue")
         q_btn.setFixedHeight(26)
         q_btn.setMinimumWidth(68)
         q_btn.setStyleSheet(self._PLAIN_BTN_SS)
@@ -9975,9 +10326,9 @@ class _TidalAlbumCard(QFrame):
         vb.setContentsMargins(0, 0, 0, 0)
         vb.setSpacing(0)
         self.setStyleSheet(
-            f"_TidalAlbumCard{{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"
-            f"border-radius:10px;}}"
-            f"_TidalAlbumCard:hover{{border-color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);}}"
+            "QFrame{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"
+            "border-radius:10px;}"
+            "QFrame:hover{border-color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);}"
         )
 
         # Art container — absolute positioning
@@ -10060,12 +10411,7 @@ class _TidalAlbumCard(QFrame):
             info_l.addWidget(ml)
         vb.addWidget(info_w)
 
-        # Async art load — replaces gradient if successful
-        if self._album.get("cover"):
-            self._fetch_art(self._album["cover"], ART_W, ART_H)
-
     def _fetch_art(self, cover_id: str, w: int, h: int):
-        import threading as _th
         _HEADERS = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
             "Accept": "image/webp,image/jpeg,image/*,*/*;q=0.8",
@@ -10085,7 +10431,7 @@ class _TidalAlbumCard(QFrame):
                         return
                 except Exception:
                     continue
-        _th.Thread(target=_run, daemon=True).start()
+        _threading.Thread(target=_run, daemon=True).start()
 
     def _set_art(self, raw: bytes, w: int, h: int):
         try:
@@ -10331,9 +10677,20 @@ class _TidalQueueSidebar(QWidget):
             f"QWidget#active_dl_row QPushButton#cancel_btn:hover {{ border-color:{_hex_to_rgba(t['danger'], 0.80)};"
             f" background:{_hex_to_rgba(t['danger'], 0.16)}; }}"
         )
-        vb = QVBoxLayout(row)
-        vb.setContentsMargins(8, 6, 8, 6)
-        vb.setSpacing(4)
+        hb2 = QHBoxLayout(row)
+        hb2.setContentsMargins(8,8,8,8); hb2.setSpacing(8)
+
+        # Cover thumb
+        _cov = QLabel("♪"); _cov.setFixedSize(36,36)
+        _cov.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        _cov.setStyleSheet("background:rgba(255,255,255,0.07);border-radius:4px;"
+                           "color:rgba(255,255,255,0.28);font-size:12px;")
+        _alb2 = track.get("album") or {}
+        _cid2 = _alb2.get("cover") or _alb2.get("coverId") or ""
+        if _cid2: _load_cover_into_label(_cid2, _cov, 36, corner_radius=4)
+        hb2.addWidget(_cov)
+
+        vb = QVBoxLayout(); vb.setContentsMargins(0,0,0,0); vb.setSpacing(4)
 
         # Top row: title + pause + cancel
         top = QHBoxLayout()
@@ -10342,7 +10699,7 @@ class _TidalQueueSidebar(QWidget):
         title = track.get("title", "Unknown")
         tl = QLabel(title)
         tl.setStyleSheet("font-weight:600; color:rgba(255,255,255,0.85); font-size:11px;")
-        tl.setMaximumWidth(140)
+        tl.setMaximumWidth(120)
         top.addWidget(tl, stretch=1)
 
         pause_btn = QPushButton()
@@ -10381,6 +10738,7 @@ class _TidalQueueSidebar(QWidget):
         bot.addWidget(pct_lbl)
 
         vb.addLayout(bot)
+        hb2.addLayout(vb, stretch=1)
 
         row._prog      = prog
         row._pct_lbl   = pct_lbl
@@ -11015,22 +11373,17 @@ class _TidalPlayQueuePanel(QWidget):
     # ── Refresh ───────────────────────────────────────────────
 
     def refresh(self, play_queue: list, current_idx: int):
-        """Update the displayed rows incrementally to avoid full rebuild lag."""
+        """Rebuild the queue display showing ALL tracks, current one highlighted."""
         self._current_idx_ref = current_idx
-        upcoming = play_queue[current_idx + 1:] if current_idx >= 0 else list(play_queue)
-        n = len(upcoming)
 
-        # Count existing rows (exclude stretch/empty items)
-        existing_rows = self._get_all_rows()
-        existing_n = len(existing_rows)
+        # Full rebuild every time — correctness over micro-optimisation
+        while self._inner_l.count():
+            item = self._inner_l.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
 
-        if n == 0:
-            # Clear everything and show empty label
-            while self._inner_l.count():
-                item = self._inner_l.takeAt(0)
-                w = item.widget()
-                if w:
-                    w.deleteLater()
+        if not play_queue:
             empty = QLabel("Queue is empty")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty.setStyleSheet(
@@ -11041,52 +11394,22 @@ class _TidalPlayQueuePanel(QWidget):
             self._inner_l.addStretch()
             return
 
-        self._count_lbl.setText(f"{n} track{'s' if n != 1 else ''}")
+        upcoming = len(play_queue) - current_idx - 1 if current_idx >= 0 else len(play_queue)
+        self._count_lbl.setText(f"{upcoming} track{'s' if upcoming != 1 else ''} up next")
 
-        # Strategy: if same count, update existing rows in-place (fastest).
-        # If count changed, do a targeted add/remove rather than full rebuild.
-        if existing_n == n:
-            # Best case: just update abs_idx and text labels on each row
-            for slot, (row, track) in enumerate(zip(existing_rows, upcoming)):
-                abs_idx = current_idx + 1 + slot
-                row._abs_idx = abs_idx
-                # Update drag handle lambda refs via stored attrs
-                self._update_row_data(row, track, abs_idx)
-            return
+        for abs_idx, track in enumerate(play_queue):
+            is_current = (abs_idx == current_idx)
+            row = self._make_row(track, abs_idx, abs_idx, is_current=is_current)
+            self._inner_l.addWidget(row)
+        self._inner_l.addStretch()
 
-        # Count changed — do a minimal rebuild: remove surplus rows from end,
-        # or append new ones, rather than destroying everything.
-        if existing_n > n:
-            # Remove extra rows from the bottom
-            rows_to_remove = existing_n - n
-            all_rows = self._get_all_rows()
-            for row in all_rows[-rows_to_remove:]:
-                self._inner_l.removeWidget(row)
-                row.deleteLater()
-            # Update remaining rows
-            remaining = self._get_all_rows()
-            for slot, (row, track) in enumerate(zip(remaining, upcoming)):
-                abs_idx = current_idx + 1 + slot
-                row._abs_idx = abs_idx
-                self._update_row_data(row, track, abs_idx)
-        else:
-            # Need more rows — update existing + append new ones
-            for slot, (row, track) in enumerate(zip(existing_rows, upcoming[:existing_n])):
-                abs_idx = current_idx + 1 + slot
-                row._abs_idx = abs_idx
-                self._update_row_data(row, track, abs_idx)
-            # Remove stretch to insert before it
-            stretch_item = None
-            for i in range(self._inner_l.count() - 1, -1, -1):
-                item = self._inner_l.itemAt(i)
-                if item and item.spacerItem():
-                    stretch_item = self._inner_l.takeAt(i)
-                    break
-            for slot in range(existing_n, n):
-                track = upcoming[slot]
-                abs_idx = current_idx + 1 + slot
-                self._inner_l.addWidget(self._make_row(track, slot + 1, abs_idx))
-            self._inner_l.addStretch()
+        # Scroll so the currently playing track is visible
+        if 0 <= current_idx < self._inner_l.count():
+            QTimer.singleShot(50, lambda: (
+                self._scroll.ensureWidgetVisible(self._inner_l.itemAt(current_idx).widget())
+                if self._inner_l.itemAt(current_idx) and self._inner_l.itemAt(current_idx).widget()
+                else None
+            ))
 
     def _update_row_data(self, row: QWidget, track: dict, abs_idx: int):
         """Update a reused row widget with new track data and abs_idx."""
@@ -11160,7 +11483,7 @@ class _TidalPlayQueuePanel(QWidget):
             self.play_req.emit(i) if e.button() == Qt.MouseButton.LeftButton else None
         )
 
-    def _make_row(self, track: dict, display_pos: int, abs_idx: int) -> QWidget:
+    def _make_row(self, track: dict, display_pos: int, abs_idx: int, is_current: bool = False) -> QWidget:
         t = _current_theme
         is_queued = track.get("_queued")
         title  = track.get("title", "Unknown")
@@ -11177,7 +11500,13 @@ class _TidalPlayQueuePanel(QWidget):
         row.setObjectName("pq_row")
         row.setFixedHeight(56)
         row.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        row.setStyleSheet("QWidget#pq_row{background:transparent;border-radius:7px;}")
+        if is_current:
+            row.setStyleSheet(
+                f"QWidget#pq_row{{background:rgba(255,255,255,0.08);"
+                f"border-left:3px solid {t['accent']};border-radius:7px;}}"
+            )
+        else:
+            row.setStyleSheet("QWidget#pq_row{background:transparent;border-radius:7px;}")
         row.setCursor(Qt.CursorShape.PointingHandCursor)
         row._abs_idx = abs_idx
         row.mouseDoubleClickEvent = lambda e, i=abs_idx: (
@@ -11418,6 +11747,9 @@ class _TidalNowPlayingBar(QWidget):
     artist_open  = pyqtSignal(dict)   # artist label clicked → browse artist
     seek_req     = pyqtSignal(int)    # seek to position ms — handled by page to re-fetch stream
     queue_toggle = pyqtSignal()       # user clicked the Queue button — page shows/hides play queue panel
+    track_started      = pyqtSignal(dict, str)  # (track, quality) — new track began playing
+    play_state_changed = pyqtSignal(bool)        # True=playing, False=paused
+    position_changed   = pyqtSignal(int, int)    # (pos_ms, dur_ms)
     _track_ended = pyqtSignal(object) # internal: emitted from bg thread when mpv exits
     _dur_ready   = pyqtSignal(int)    # internal: emitted from bg thread when duration known
     _pos_update  = pyqtSignal(float)  # internal: position poll from bg thread (seconds)
@@ -11427,16 +11759,11 @@ class _TidalNowPlayingBar(QWidget):
         self.setFixedHeight(124)
         self._track       = {}
         self._quality     = ""
-        self._stream_url  = ""
         self._external_lyrics_toggle  = None
         self._external_lyrics_refresh = None
-        self._pending_seek_ms = 0
         self._seek_on_ready   = 0
 
         # ── python-mpv engine ─────────────────────────────────
-        # Uses the python-mpv binding (libmpv) instead of spawning a child
-        # process with a Unix IPC socket.  This works inside AppImages because
-        # libmpv.so is bundled alongside the app — no external binary needed.
         self._mpv:         object = None      # mpv.MPV instance or None
         self._mpv_url:     str  = ""
         self._mpv_paused:  bool = False
@@ -11451,17 +11778,13 @@ class _TidalNowPlayingBar(QWidget):
         self._external_next = None
         self._conf_ref = None   # set by page after construction for volume persistence
 
-        # Qt multimedia not needed — python-mpv handles everything
-        self._player = None
-        self._audio  = None
-
         # Thread-safe signals — fired from python-mpv's internal observer thread
         self._track_ended.connect(self._mpv_on_ended)
         self._dur_ready.connect(self._mpv_set_dur)
         self._pos_update.connect(self._mpv_on_pos)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
         self.setAutoFillBackground(False)
-        self.setStyleSheet("_TidalNowPlayingBar { background: transparent; }")
+        self.setStyleSheet("QWidget { background: transparent; }")
 
         accent = tok("accent")
 
@@ -11697,7 +12020,6 @@ class _TidalNowPlayingBar(QWidget):
     def load_stream(self, url: str, track: dict, quality: str):
         self._track      = track
         self._quality    = quality
-        self._stream_url = url
         self._mpv_last_pos_ms = 0   # reset for new track
 
         title = track.get("title", "")
@@ -11723,6 +12045,7 @@ class _TidalNowPlayingBar(QWidget):
         self._dl_btn.setEnabled(True)
         self._lyrics_btn.setEnabled(True)
         self.show()
+        self.track_started.emit(track, quality)
 
         # Seed duration from track metadata (seconds → ms) immediately so the
         # seek bar and time label work before ffprobe finishes probing.
@@ -11733,7 +12056,7 @@ class _TidalNowPlayingBar(QWidget):
         else:
             self._mpv_dur_ms = 0
             self._dur_lbl.setText("—")
-        self._ff_start(url, seek_ms=0)
+        self._mpv_start(url, seek_ms=0)
 
         if self._external_lyrics_refresh:
             self._external_lyrics_refresh(track, None)
@@ -11932,28 +12255,6 @@ class _TidalNowPlayingBar(QWidget):
         self._play_btn.setIcon(_make_icon_pause(20))
         self._play_btn.setIconSize(QSize(20, 20))
 
-    def _mpv_send(self, *args):
-        """
-        Compatibility shim — translates old IPC-style command tuples into python-mpv calls.
-        Still used internally by seek; kept for any external callers.
-        """
-        if self._mpv is None:
-            return None
-        try:
-            cmd = args[0] if args else None
-            if cmd == 'seek' and len(args) >= 3:
-                self._mpv.seek(float(args[1]),
-                               reference='absolute' if 'absolute' in str(args[2]) else 'relative')
-            elif cmd == 'set_property' and len(args) == 3:
-                prop, val = str(args[1]), args[2]
-                if prop == 'pause':   self._mpv.pause  = bool(val)
-                elif prop == 'volume': self._mpv.volume = int(val)
-                else:                  self._mpv[prop]  = val
-            elif cmd == 'get_property' and len(args) == 2:
-                return self._mpv[str(args[1])]
-        except Exception:
-            pass
-        return None
 
     def _mpv_on_pos(self, pos_s: float):
         """Position update — runs on Qt main thread via _pos_update signal."""
@@ -11965,6 +12266,7 @@ class _TidalNowPlayingBar(QWidget):
             self._seek.blockSignals(True)
             self._seek.setValue(int(frac * 1000))
             self._seek.blockSignals(False)
+        self.position_changed.emit(self._mpv_pos_ms, self._mpv_dur_ms)
 
     def _mpv_set_dur(self, dur_ms: int):
         if dur_ms > self._mpv_dur_ms:
@@ -11999,9 +12301,6 @@ class _TidalNowPlayingBar(QWidget):
         if self._external_next:
             self._external_next()
 
-    # compat aliases so rest of codebase still works
-    def _ff_kill(self): self._mpv_kill()
-    def _ff_start(self, url, seek_ms=0): self._mpv_start(url, seek_ms)
 
     # ── Playback controls ─────────────────────────────────────
 
@@ -12016,6 +12315,7 @@ class _TidalNowPlayingBar(QWidget):
             self._mpv_paused = False
             self._play_btn.setIcon(_make_icon_pause(20))
             self._play_btn.setIconSize(QSize(20, 20))
+            self.play_state_changed.emit(True)
         else:
             try:
                 self._mpv.pause = True
@@ -12024,10 +12324,8 @@ class _TidalNowPlayingBar(QWidget):
             self._mpv_paused = True
             self._play_btn.setIcon(_make_icon_play(20))
             self._play_btn.setIconSize(QSize(20, 20))
+            self.play_state_changed.emit(False)
 
-    def _on_playback_state(self, state): pass
-    def _on_position(self, pos_ms: int): pass
-    def _on_duration(self, dur_ms: int): pass
 
     def _on_seek_preview(self, val: int):
         if self._mpv_dur_ms > 0:
@@ -12048,14 +12346,10 @@ class _TidalNowPlayingBar(QWidget):
             pass
 
     def load_stream_at(self, url: str, target_ms: int):
-        self._stream_url = url
         self._mpv_start(url, seek_ms=target_ms)
 
-    def _seek_resume(self): pass
-    def _do_deferred_seek(self, s): pass
-
     def closeEvent(self, e):
-        self._ff_kill()
+        self._mpv_kill()
         super().closeEvent(e)
 
     def _on_cover_clicked(self, event):
@@ -12442,6 +12736,180 @@ class _SeekSlider(QSlider):
 
 
 # ─────────────────────────────────────────────────────────────
+#  ARTIST HERO  –  Mosaic background widget
+# ─────────────────────────────────────────────────────────────
+
+class _ArtistMosaicBg(QWidget):
+    """Full-width mosaic of album covers used as the artist hero background.
+
+    Tiles are loaded asynchronously; each slot shows a coloured gradient
+    placeholder until the image arrives.  The widget handles any number of
+    source covers gracefully:
+      • 0  → pure gradient (artist-name hash picks colours)
+      • 1  → that single cover repeated across every slot
+      • 2+ → covers cycled left-to-right until all slots are filled
+
+    A dark gradient overlay is painted *on top* of the tiles:
+      • strong dark band on the left  (so artist name is always readable)
+      • dark fade at the bottom       (blends into the page body)
+      • slight vignette on the right
+    """
+
+    # Gradient pairs used as per-slot placeholders (same palette as elsewhere)
+    _GPAIRS = [
+        ("#1a1a2e", "#e94560"), ("#0f3460", "#533483"),
+        ("#16213e", "#0f3460"), ("#1b262c", "#0a3d62"),
+        ("#2c003e", "#8e24aa"), ("#1a237e", "#283593"),
+        ("#880e4f", "#4a0072"), ("#004d40", "#00695c"),
+    ]
+
+    def __init__(self, cover_ids: list, artist_name: str = "", parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setStyleSheet("background:transparent;")
+
+        # How many tiles to paint (will recompute in resizeEvent)
+        self._tile_h      = 200          # matches HERO_H
+        self._tile_w      = 200          # will be updated dynamically
+        self._pixmaps:    dict[int, QPixmap] = {}   # slot_idx → loaded pixmap
+        self._workers:    list           = []        # keep-alive refs
+        self._name        = artist_name
+
+        # Build slot list: cycle cover_ids to fill up to 10 slots
+        MAX_SLOTS = 10
+        if not cover_ids:
+            # No covers at all — pure gradient, no workers needed
+            self._cover_ids: list = []
+        else:
+            # Normalise IDs and cycle to fill MAX_SLOTS
+            ids = [_tidal_normalize_cover_id(c) for c in cover_ids if c]
+            ids = [c for c in ids if c]
+            if ids:
+                self._cover_ids = [ids[i % len(ids)] for i in range(min(MAX_SLOTS, max(len(ids), 6)))]
+            else:
+                self._cover_ids = []
+
+        # Fire fetch workers for unique IDs only (avoids duplicate HTTP requests)
+        fetched: set = set()
+        for idx, cid in enumerate(self._cover_ids):
+            if cid in fetched:
+                # Reuse the pixmap once the first fetch completes
+                continue
+            fetched.add(cid)
+            self._start_fetch(idx, cid)
+
+    # ── Async fetch ──────────────────────────────────────────────
+
+    def _start_fetch(self, primary_idx: int, cid: str):
+        w = _CoverFetchWorker(cid, 320)
+        w.done.connect(lambda raw, c=cid: self._on_cover(raw, c))
+        def _cleanup(*args, _ref=weakref.ref(w)):
+            obj = _ref()
+            if obj is None: return
+            try:
+                if w in self._workers: self._workers.remove(w)
+            except Exception: pass
+        w.finished.connect(_cleanup, Qt.ConnectionType.QueuedConnection)
+        self._workers.append(w)
+        w.start()
+
+    def _on_cover(self, img: QImage, cid: str):
+        """Called on main thread when decoded image arrives for cover *cid*."""
+        try:
+            if sip.isdeleted(self): return
+        except Exception: return
+        if img is None or img.isNull(): return
+        src = QPixmap.fromImage(img)
+        # Centre-crop to a square tile
+        tw = self._tile_w if self._tile_w > 0 else 200
+        th = self._tile_h
+        scaled = src.scaled(tw, th,
+                            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                            Qt.TransformationMode.SmoothTransformation)
+        if scaled.width() > tw or scaled.height() > th:
+            scaled = scaled.copy((scaled.width() - tw) // 2,
+                                 (scaled.height() - th) // 2, tw, th)
+        # Store under every slot index that uses this cid
+        for idx, slot_cid in enumerate(self._cover_ids):
+            if slot_cid == cid:
+                self._pixmaps[idx] = scaled
+        self.update()
+
+    # ── Painting ─────────────────────────────────────────────────
+
+    def paintEvent(self, event):
+        if not self.isVisible(): return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        W, H = self.width(), self.height()
+        if W <= 0 or H <= 0: return
+
+        n = len(self._cover_ids)
+        if n == 0:
+            # Pure gradient fallback
+            self._paint_gradient_bg(p, W, H)
+        else:
+            tw = max(1, W // n)       # distribute tiles evenly
+            self._tile_w = tw
+            for idx in range(n):
+                x = idx * tw
+                slot_w = tw if idx < n - 1 else W - x   # last tile fills remainder
+                if idx in self._pixmaps:
+                    # Scale stored pixmap to current tile dimensions (resize-safe)
+                    tile = self._pixmaps[idx]
+                    if tile.width() != slot_w or tile.height() != H:
+                        tile = tile.scaled(slot_w, H,
+                                           Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                                           Qt.TransformationMode.SmoothTransformation)
+                        if tile.width() > slot_w or tile.height() > H:
+                            tile = tile.copy((tile.width() - slot_w) // 2,
+                                             (tile.height() - H) // 2, slot_w, H)
+                    p.drawPixmap(x, 0, tile)
+                else:
+                    # Gradient placeholder while image is loading
+                    c1, c2 = self._GPAIRS[(abs(hash(self._name)) + idx) % len(self._GPAIRS)]
+                    g = QLinearGradient(x, 0, x + slot_w, H)
+                    g.setColorAt(0.0, QColor(c1)); g.setColorAt(1.0, QColor(c2))
+                    p.fillRect(x, 0, slot_w, H, QBrush(g))
+
+        # ── Overlay gradients (drawn over tiles) ──────────────────
+        # Left: strong dark band so artist info is readable
+        gl = QLinearGradient(0, 0, min(W * 0.55, 520), 0)
+        gl.setColorAt(0.0, QColor(0, 0, 0, 230))
+        gl.setColorAt(0.55, QColor(0, 0, 0, 90))
+        gl.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.fillRect(0, 0, W, H, QBrush(gl))
+
+        # Bottom: fade to page background
+        gb = QLinearGradient(0, H * 0.35, 0, H)
+        gb.setColorAt(0.0, QColor(0, 0, 0, 0))
+        gb.setColorAt(1.0, QColor(17, 19, 24, 210))   # #111318 with alpha
+        p.fillRect(0, 0, W, H, QBrush(gb))
+
+        # Right edge: slight vignette
+        gr = QLinearGradient(W * 0.7, 0, W, 0)
+        gr.setColorAt(0.0, QColor(0, 0, 0, 0))
+        gr.setColorAt(1.0, QColor(0, 0, 0, 90))
+        p.fillRect(0, 0, W, H, QBrush(gr))
+
+        p.end()
+
+    def _paint_gradient_bg(self, p: QPainter, W: int, H: int):
+        """Fallback when no covers are available — paint a rich gradient."""
+        c1, c2 = self._GPAIRS[abs(hash(self._name)) % len(self._GPAIRS)]
+        g = QLinearGradient(0, 0, W, H)
+        g.setColorAt(0.0, QColor(c1)); g.setColorAt(1.0, QColor(c2))
+        p.fillRect(0, 0, W, H, QBrush(g))
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        n = len(self._cover_ids)
+        if n > 0:
+            self._tile_w = max(1, self.width() // n)
+        self.update()
+
+
+# ─────────────────────────────────────────────────────────────
 #  TIDAL DOWNLOADER  –  Main page
 # ─────────────────────────────────────────────────────────────
 
@@ -12455,6 +12923,7 @@ class TidalDownloaderPage(QWidget):
         self._dl_jobs:  dict[int, dict] = {}
         self._track_rows: dict[int, _TidalTrackRow] = {}
         self._search_results: dict[int, int] = {}
+        self._search_gen: int = 0          # incremented on every new search; stale callbacks self-discard
         # Navigation history: list of (tab_idx, tracks, albums, status_text, breadcrumb)
         self._nav_history: list[dict] = []
         self._build()
@@ -12520,7 +12989,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/track/?id={tid}&quality={quality}")
         w.ok.connect(lambda d, tr=track, q=quality: self._got_stream_job(d, tr, q))
         w.fail.connect(lambda e, tr=track, q=quality: self._on_stream_fail(tr, q, str(e)))
-        def _finished_w_1(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_w_1(*args, _ref=weakref.ref(w)):
 
             _obj = _ref()
 
@@ -12557,6 +13026,10 @@ class TidalDownloaderPage(QWidget):
 
     def _got_stream_job(self, data: dict, track: dict, quality: str):
         tid = track.get("id")
+        # If a cancel-all was issued while the stream fetch was in-flight, abort now
+        if getattr(self, '_artist_dl_cancelled', False):
+            self._dl_jobs.pop(tid, None)
+            return
         url = _tidal_resolve_stream_url(data)
         if not url:
             # Try next quality in chain
@@ -12594,10 +13067,11 @@ class TidalDownloaderPage(QWidget):
 
         # ── Header ────────────────────────────────────────────
         hdr = QWidget()
-        hdr.setFixedHeight(60)
+        hdr.setFixedHeight(64)
         hdr.setObjectName("tidal_hdr")
         hdr.setStyleSheet(
-            "QWidget#tidal_hdr { background:rgba(0,0,0,0.30); border-bottom:1px solid rgba(255,255,255,0.07); }"
+            "QWidget#tidal_hdr{background:rgba(0,0,0,0.32);"
+            "border-bottom:1px solid rgba(255,255,255,0.08);}"
         )
         hb  = QHBoxLayout(hdr)
         hb.setContentsMargins(16, 0, 14, 0)
@@ -12611,33 +13085,61 @@ class TidalDownloaderPage(QWidget):
         self._back_btn.clicked.connect(self._go_back)
         hb.addWidget(self._back_btn)
 
-        brand = QLabel("TIDAL DL")
-        bf    = QFont(); bf.setPointSize(13); bf.setBold(True)
+        # Brand wordmark
+        brand_row = QHBoxLayout(); brand_row.setSpacing(3); brand_row.setContentsMargins(0,0,0,0)
+        brand = QLabel("TIDAL")
+        bf = QFont(); bf.setPointSize(14); bf.setWeight(QFont.Weight.Black)
         brand.setFont(bf)
-        brand.setStyleSheet(f"color:{tok('accent')};background:transparent;")
-        hb.addWidget(brand)
+        brand.setStyleSheet(f"color:{tok('accent')};background:transparent;letter-spacing:1px;")
+        brand_row.addWidget(brand)
+        brand_sub = QLabel("DL")
+        bsf = QFont(); bsf.setPointSize(14); bsf.setWeight(QFont.Weight.Normal)
+        brand_sub.setFont(bsf)
+        brand_sub.setStyleSheet("color:rgba(255,255,255,0.28);background:transparent;")
+        brand_row.addWidget(brand_sub)
+        hb.addLayout(brand_row)
 
         self._breadcrumb = QLabel("")
-        self._breadcrumb.setStyleSheet("color:rgba(255,255,255,0.35);font-size:10px;background:transparent;")
+        self._breadcrumb.setStyleSheet(
+            "color:rgba(255,255,255,0.30);font-size:10px;background:transparent;"
+        )
         hb.addWidget(self._breadcrumb)
         hb.addStretch()
 
+        # Pill-shaped search bar
         self._search_in = QLineEdit()
-        self._search_in.setPlaceholderText("Search tracks, albums, artists…")
-        self._search_in.setMinimumWidth(300)
+        self._search_in.setPlaceholderText("Search tracks, albums, artists, or paste a TIDAL URL…")
+        self._search_in.setMinimumWidth(320)
+        self._search_in.setFixedHeight(36)
+        self._search_in.setStyleSheet(
+            "QLineEdit{background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.13);"
+            "border-radius:18px;color:rgba(255,255,255,0.92);font-size:13px;padding:0 16px;}"
+            "QLineEdit:focus{background:rgba(255,255,255,0.13);border-color:rgba(255,255,255,0.30);}"
+            "QLineEdit::placeholder{color:rgba(255,255,255,0.35);}"
+        )
         self._search_in.returnPressed.connect(self._do_search)
         hb.addWidget(self._search_in, stretch=1)
 
         srch_btn = QPushButton("Search")
-        srch_btn.setFixedHeight(32)
-        srch_btn.setMinimumWidth(90)
-        srch_btn.setObjectName("toggle")
+        srch_btn.setFixedSize(84, 36)
+        _sa = tok('accent')
+        _sa_h = _sa.lstrip('#'); _sr,_sg,_sb = int(_sa_h[0:2],16),int(_sa_h[2:4],16),int(_sa_h[4:6],16)
+        _sa_hover   = f"#{min(255,int(_sr*1.18)):02x}{min(255,int(_sg*1.18)):02x}{min(255,int(_sb*1.18)):02x}"
+        _sa_pressed = f"#{min(255,int(_sr*0.82)):02x}{min(255,int(_sg*0.82)):02x}{min(255,int(_sb*0.82)):02x}"
+        srch_btn.setStyleSheet(
+            f"QPushButton{{background:{_sa};color:#fff;border:none;"
+            f"border-radius:18px;font-size:12px;font-weight:700;padding:0;}}"
+            f"QPushButton:hover{{background:{_sa_hover};border:none;border-radius:18px;padding:0;}}"
+            f"QPushButton:pressed{{background:{_sa_pressed};border:none;border-radius:18px;padding:0;}}"
+        )
+        srch_btn.setAutoDefault(False)
+        srch_btn.setDefault(False)
         srch_btn.clicked.connect(self._do_search)
         hb.addWidget(srch_btn)
 
-        self._settings_btn = QPushButton("Settings")
-        self._settings_btn.setFixedHeight(32)
-        self._settings_btn.setMinimumWidth(90)
+        self._settings_btn = QPushButton("⚙  Settings")
+        self._settings_btn.setFixedHeight(34)
+        self._settings_btn.setMinimumWidth(100)
         self._settings_btn.setCheckable(True)
         self._settings_btn.setObjectName("toggle")
         self._settings_btn.clicked.connect(self._toggle_settings)
@@ -12648,28 +13150,73 @@ class TidalDownloaderPage(QWidget):
         # ── Tab bar ───────────────────────────────────────────
         tab_bar = QWidget()
         tab_bar.setObjectName("tidal_tab_bar")
-        tab_bar.setFixedHeight(38)
+        tab_bar.setFixedHeight(42)
         tab_bar.setStyleSheet(
-            "QWidget#tidal_tab_bar { background:transparent; border-bottom:1px solid rgba(255,255,255,0.07); }"
+            "QWidget#tidal_tab_bar{background:transparent;"
+            "border-bottom:1px solid rgba(255,255,255,0.07);}"
         )
         tb = QHBoxLayout(tab_bar)
-        tb.setContentsMargins(12, 0, 12, 0)
+        tb.setContentsMargins(14, 0, 14, 0)
         tb.setSpacing(0)
+
+        _tab_checked_ss = (
+            "QPushButton{{"
+            "background:transparent;border:none;"
+            "border-bottom:2px solid " + tok("accent") + ";"
+            "color:#fff;font-size:13px;font-weight:700;"
+            "padding:0 16px;min-height:42px;}}"
+            "QPushButton:hover{{color:#fff;}}"
+        )
+        _tab_normal_ss = (
+            "QPushButton{"
+            "background:transparent;border:none;border-bottom:2px solid transparent;"
+            "color:rgba(255,255,255,0.42);font-size:13px;font-weight:500;"
+            "padding:0 16px;min-height:42px;}"
+            "QPushButton:hover{color:rgba(255,255,255,0.78);"
+            "border-bottom:2px solid rgba(255,255,255,0.18);}"
+        )
 
         self._tab_btns: list[QPushButton] = []
         for i, lbl in enumerate(["Tracks", "Albums", "Artists", "Top Tracks"]):
             btn = QPushButton(lbl)
             btn.setFlat(True)
-            btn.setFixedHeight(38)
-            btn.setFixedWidth(84 if lbl != "Top Tracks" else 100)
             btn.setCheckable(True)
             btn.setChecked(i == 0)
             btn.setObjectName("tabbtn")
-            btn.clicked.connect(lambda _, x=i: self._switch_tab(x))
+            btn.setStyleSheet(_tab_checked_ss if i == 0 else _tab_normal_ss)
+            btn.setAutoDefault(False)
+            btn.setDefault(False)
+            def _make_tab_click(idx, checked_ss=_tab_checked_ss, normal_ss=_tab_normal_ss):
+                def _click():
+                    self._switch_tab(idx)
+                    for j, b in enumerate(self._tab_btns):
+                        b.setStyleSheet(checked_ss if j == idx else normal_ss)
+                return _click
+            btn.clicked.connect(_make_tab_click(i))
             self._tab_btns.append(btn)
             tb.addWidget(btn)
             if lbl == "Top Tracks":
                 btn.hide()  # hidden until an artist is browsed
+
+        # Artist crumb tab — shown next to "Artists" when browsing an artist page
+        self._artist_crumb_btn = QPushButton("")
+        self._artist_crumb_btn.setFlat(True)
+        self._artist_crumb_btn.setCheckable(True)
+        self._artist_crumb_btn.setObjectName("tabbtn")
+        self._artist_crumb_btn.setAutoDefault(False)
+        self._artist_crumb_btn.setDefault(False)
+        self._artist_crumb_btn.setStyleSheet(_tab_checked_ss)
+        self._artist_crumb_btn.hide()
+        def _crumb_click(_checked=False, checked_ss=_tab_checked_ss, normal_ss=_tab_normal_ss):
+            # Switch to artist page (stack index 4) and mark crumb as active
+            self._results_stack.setCurrentIndex(4)
+            for b in self._tab_btns:
+                b.setStyleSheet(normal_ss)
+                b.setChecked(False)
+            self._artist_crumb_btn.setChecked(True)
+            self._artist_crumb_btn.setStyleSheet(checked_ss)
+        self._artist_crumb_btn.clicked.connect(_crumb_click)
+        tb.addWidget(self._artist_crumb_btn)
 
         tb.addStretch()
         self._status_lbl = QLabel("Search for music above to get started.")
@@ -12704,14 +13251,16 @@ class TidalDownloaderPage(QWidget):
             sa.setWidget(inner)
             return sa, layout
 
-        self._tracks_sa,    self._tracks_l    = _scroll_page()
-        self._albums_sa,    self._albums_l    = _scroll_page()
-        self._artists_sa,   self._artists_l   = _scroll_page()
-        self._toptracks_sa, self._toptracks_l = _scroll_page()
+        self._tracks_sa,      self._tracks_l      = _scroll_page()
+        self._albums_sa,      self._albums_l      = _scroll_page()
+        self._artists_sa,     self._artists_l     = _scroll_page()
+        self._toptracks_sa,   self._toptracks_l   = _scroll_page()
+        self._artistpage_sa,  self._artistpage_l  = _scroll_page()
         self._results_stack.addWidget(self._tracks_sa)
         self._results_stack.addWidget(self._albums_sa)
         self._results_stack.addWidget(self._artists_sa)
         self._results_stack.addWidget(self._toptracks_sa)
+        self._results_stack.addWidget(self._artistpage_sa)
         body_hb.addWidget(self._results_stack, stretch=1)
 
         # Queue sidebar
@@ -12758,8 +13307,6 @@ class TidalDownloaderPage(QWidget):
         self._play_idx: int = -1
         self._now_bar.set_prev_next_callbacks(self._play_prev, self._play_next)
         self._now_bar.set_lyrics_callbacks(self._toggle_lyrics_panel, self._refresh_lyrics_panel)
-        if _HAS_MULTIMEDIA and self._now_bar._player is not None:
-            self._now_bar._player.mediaStatusChanged.connect(self._on_media_status)
 
         # ── Floating play-queue panel ─────────────────────────
         self._pq_panel = _TidalPlayQueuePanel(self)
@@ -12781,6 +13328,39 @@ class TidalDownloaderPage(QWidget):
     def showEvent(self, e):
         super().showEvent(e)
         self._place_settings_panel()
+        # Install app-level filter so Space works regardless of which child has focus
+        QApplication.instance().installEventFilter(self)
+
+    def hideEvent(self, e):
+        super().hideEvent(e)
+        try:
+            QApplication.instance().removeEventFilter(self)
+        except Exception:
+            pass
+
+    def eventFilter(self, obj, event):
+        """Intercept Space at app level to toggle playback — skip if a text field has focus."""
+        if (event.type() == QEvent.Type.KeyPress
+                and event.key() == Qt.Key.Key_Space
+                and not event.isAutoRepeat()
+                and self.isVisible()):
+            focused = QApplication.focusWidget()
+            if not isinstance(focused, (QLineEdit, QTextEdit, QPlainTextEdit)):
+                nb = getattr(self, '_now_bar', None)
+                if nb and getattr(nb, '_mpv_url', None):
+                    nb._toggle_play()
+                    return True   # consume — don't let any button act on it
+        return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, e):
+        # Fallback (focus on the page itself with no child focused)
+        if e.key() == Qt.Key.Key_Space and not e.isAutoRepeat():
+            nb = getattr(self, '_now_bar', None)
+            if nb and getattr(nb, '_mpv_url', None):
+                nb._toggle_play()
+                e.accept()
+                return
+        super().keyPressEvent(e)
 
     def _place_settings_panel(self):
         """Position the floating settings panel below the ⚙ button."""
@@ -12825,6 +13405,9 @@ class TidalDownloaderPage(QWidget):
         for i, btn in enumerate(self._tab_btns):
             btn.setChecked(i == idx)
         self._results_stack.setCurrentIndex(idx)
+        # Deselect the artist crumb whenever a regular tab is active
+        if hasattr(self, '_artist_crumb_btn'):
+            self._artist_crumb_btn.setChecked(False)
 
     # ── Settings toggle ───────────────────────────────────────
 
@@ -12923,6 +13506,7 @@ class TidalDownloaderPage(QWidget):
             def _got_pl(data, _kind=kind):
                 tracks = _tidal_extract_tracks(data)
                 if tracks:
+                    self._tracks_srv_exhausted = True
                     self._populate_tracks(tracks)
                     self._switch_tab(0)
                     self._st(f"{len(tracks)} tracks")
@@ -12930,7 +13514,7 @@ class TidalDownloaderPage(QWidget):
                     self._st(f"No tracks found — the proxy may not support {_kind} lookup.")
             w.ok.connect(_got_pl)
             w.fail.connect(lambda e: self._st(f"Could not load {kind}: {e}"))
-            def _finished_w_2(*args, _ref=__import__('weakref').ref(w)):
+            def _finished_w_2(*args, _ref=weakref.ref(w)):
 
                 _obj = _ref()
 
@@ -12958,6 +13542,7 @@ class TidalDownloaderPage(QWidget):
         return True
 
     def _do_search(self):
+        self._artist_page_cache = {}
         q = self._search_in.text().strip()
         if not q:
             return
@@ -12969,9 +13554,39 @@ class TidalDownloaderPage(QWidget):
         qs = requests.utils.quote(q)
         self._st("Searching all tabs…")
         self._search_results = {}  # reset for new search
+        # Immediately clear all three tabs so stale results aren't visible while
+        # the new workers are in flight.
+        self._clear_tab(self._tracks_l)
+        self._clear_tab(self._albums_l)
+        self._clear_tab(self._artists_l)
+        # Reset per-search primary/secondary buckets
+        self._primary_tracks:   list = []
+        self._secondary_tracks: list = []
+        self._primary_albums:   list = []
+        self._secondary_albums: list = []
+        self._primary_artists:  list = []
+        self._secondary_artists: list = []
         self._nav_history.clear()
         self._back_btn.setVisible(False)
         self._breadcrumb.setText("")
+        # Hide artist crumb — only relevant while browsing an artist
+        self._artist_crumb_btn.hide()
+        self._artist_crumb_btn.setChecked(False)
+        # If currently on artist page, switch back to Tracks tab
+        if self._results_stack.currentIndex() == 4:
+            self._switch_tab(0)
+        # Reset album filter/sort and server-side offsets for fresh search
+        self._album_filter       = 'ALL'
+        self._album_sort         = 'popular'
+        self._albums_ctrl_bar    = None
+        self._albums_ctrl_albums = None
+        self._search_query_raw   = q        # stored for server-side pagination
+        self._tracks_srv_offset  = 50       # next offset to request from server
+        self._tracks_srv_exhausted = False  # becomes True when server returns < limit
+        self._albums_srv_offset    = 50
+        self._albums_srv_exhausted = False
+        self._artists_srv_offset   = 50
+        self._artists_srv_exhausted = False
 
         # Hide Top Tracks tab — only visible after browsing an artist
         self._tab_btns[3].hide()
@@ -12981,46 +13596,98 @@ class TidalDownloaderPage(QWidget):
         self._current_artist = None
 
         # Fire all 3 searches simultaneously so all tabs populate at once
-        search_configs = [
-            (f"/search/?s={qs}&limit=200",  0),   # tracks
-            (f"/search/?al={qs}&limit=200", 1),   # albums
-            (f"/search/?a={qs}&limit=200",  2),   # artists
-        ]
-        for path, tab_idx in search_configs:
-            w = _TidalWorker(path)
-            w.ok.connect(lambda d, t=tab_idx: self._on_search_ok(d, t))
-            w.fail.connect(lambda e, t=tab_idx: self._on_search_fail(t))
-            def _finished_w_3(*args, _ref=__import__('weakref').ref(w)):
+        self._search_gen += 1          # invalidate any in-flight callbacks from the previous search
+        gen = self._search_gen
 
-                _obj = _ref()
+        # Safety net: if any worker hasn't responded after 18s, mark it as
+        # failed so the other tabs' results aren't held hostage.
+        def _search_timeout(g=gen):
+            if g != self._search_gen:
+                return
+            for tab_idx in (0, 1, 2):
+                if tab_idx not in self._search_results:
+                    self._on_search_fail(tab_idx, g)
+        _timeout_timer = QTimer(self)
+        _timeout_timer.setSingleShot(True)
+        _timeout_timer.timeout.connect(_search_timeout)
+        _timeout_timer.start(18000)
 
-                if _obj is None: return
+        def _fire_tidal_workers(query_str: str, gen: int, primary: bool = False, offset: int = 0):
+            """Fire the 3 Tidal search workers for a given query string.
+            primary=True means results go into slot A (shown first);
+            primary=False means results go into slot B (appended after).
+            offset is used for server-side pagination of tracks (tab 0 only)."""
+            qs2 = requests.utils.quote(query_str)
+            configs = [
+                (f"/search/?s={qs2}&limit=50&offset={offset}",  0),
+                (f"/search/?al={qs2}&limit=50",                  1),
+                (f"/search/?a={qs2}&limit=50",                   2),
+            ]
+            for path, tab_idx in configs:
+                w = _TidalWorker(path)
+                w.ok.connect(lambda d, t=tab_idx, g=gen, p=primary: self._on_search_ok(d, t, g, p))
+                w.fail.connect(lambda e, t=tab_idx, g=gen: self._on_search_fail(t, g))
+                def _make_cleanup(worker):
+                    def _cleanup(*args):
+                        try:
+                            if worker in self._workers:
+                                self._workers.remove(worker)
+                        except Exception:
+                            pass
+                        try:
+                            if not sip.isdeleted(worker):
+                                worker.deleteLater()
+                        except Exception:
+                            pass
+                    return _cleanup
+                w.finished.connect(_make_cleanup(w), Qt.ConnectionType.QueuedConnection)
+                self._workers.append(w)
+                w.start()
 
-                try:
+        # ── Last.fm correction + Tidal search ────────────────
+        # Last.fm fires first to get the best artist name for the query.
+        # If it differs from the raw query, we fire Tidal workers for BOTH:
+        #   - corrected name = PRIMARY (shown first, e.g. Arctic Monkeys)
+        #   - raw query      = SECONDARY (appended after, e.g. "actic")
+        # Results are merged in that fixed order regardless of which arrives first.
+        lfm_key = self._conf.get("api_key", "") if isinstance(self._conf, dict) else ""
 
-                    if w in self._workers: self._workers.remove(w)
+        def _on_lfm_result(lfm_name: str, g: int = gen):
+            if g != self._search_gen:
+                return
+            if lfm_name.lower() != q.lower():
+                # Corrected name goes first (primary), raw query appended after
+                _fire_tidal_workers(lfm_name, g, primary=True)
+                _fire_tidal_workers(q, g, primary=False)
+            else:
+                # No correction — just one set of workers, treated as primary
+                _fire_tidal_workers(q, g, primary=True)
 
-                except Exception: pass
+        _cw = _LfmCorrectionWorker(q, api_key=lfm_key)
+        _cw.result.connect(lambda s, g=gen: _on_lfm_result(s, g))
+        def _cw_cleanup(*args, _ref=weakref.ref(_cw)):
+            obj = _ref()
+            if obj is None: return
+            try:
+                if obj in self._workers: self._workers.remove(obj)
+            except Exception: pass
+            try:
+                if not sip.isdeleted(obj): obj.deleteLater()
+            except Exception: pass
+        _cw.finished.connect(_cw_cleanup, Qt.ConnectionType.QueuedConnection)
+        self._workers.append(_cw)
+        _cw.start()
 
-                try:
+    def _on_search_fail(self, tab: int, gen: int = 0):
+        if gen and gen != self._search_gen:
+            return
+        # Record 0 for this tab but don't overwrite a real count already there
+        self._search_results.setdefault(tab, 0)
+        self._update_search_status()
 
-                    if not sip.isdeleted(_obj): _obj.deleteLater()
-
-                except Exception: pass
-
-            w.finished.connect(_finished_w_3, Qt.ConnectionType.QueuedConnection)
-            self._workers.append(w)
-            w.start()
-
-    def _on_search_fail(self, tab: int):
-        self._search_results[tab] = 0
-        if len(self._search_results) == 3:
-            t = self._search_results.get(0, 0)
-            al = self._search_results.get(1, 0)
-            ar = self._search_results.get(2, 0)
-            self._st(f"{t} tracks · {al} albums · {ar} artists")
-
-    def _on_search_ok(self, data: dict, tab: int):
+    def _on_search_ok(self, data: dict, tab: int, gen: int = 0, primary: bool = True):
+        if gen and gen != self._search_gen:
+            return
         if getattr(self, '_alive', True) is False:
             return
         try:
@@ -13028,28 +13695,255 @@ class TidalDownloaderPage(QWidget):
                 return
         except Exception:
             pass
-        if tab == 0:
-            items = _tidal_extract_tracks(data)
-            self._populate_tracks(items)
-            count = len(items)
-            self._search_results[0] = count
-        elif tab == 1:
-            items = _tidal_extract_albums(data)
-            self._populate_albums(items)
-            count = len(items)
-            self._search_results[1] = count
-        else:
-            items = _tidal_extract_artists(data)
-            self._populate_artists(items)
-            count = len(items)
-            self._search_results[2] = count
 
-        # Update status once all 3 have responded
+        # Results are stored in two buckets per tab: primary (corrected/LFM name)
+        # and secondary (raw query).  Final display is always primary + secondary
+        # so the better match leads regardless of network arrival order.
+        def _norm_name(s: str) -> str:
+            """Lowercase + collapse whitespace only — used for ID-dedup between
+            primary and secondary results.  No punctuation stripping so we don't
+            accidentally drop artists like 'The Album Leaf.' or 'Panic! At The Disco'."""
+            s = s.lower().strip()
+            s = ' '.join(s.split())   # collapse any whitespace runs
+            return s
+
+        def _merge(prim, sec, name_key='name'):
+            seen_ids   = {x.get('id') for x in prim if x.get('id')}
+            seen_names = {_norm_name(x.get(name_key, '')) for x in prim if x.get(name_key)}
+            extras = []
+            for x in sec:
+                if x.get('id') in seen_ids:
+                    continue
+                n = _norm_name(x.get(name_key, ''))
+                if n and n in seen_names:
+                    continue   # name collision — junk duplicate like "Arctic Monkeys -"
+                seen_ids.add(x.get('id'))
+                seen_names.add(n)
+                extras.append(x)
+            return prim + extras
+
+        if tab == 0:
+            new_items = _tidal_extract_tracks(data)
+            if primary:
+                self._primary_tracks = new_items
+            else:
+                self._secondary_tracks = new_items
+            merged = _merge(getattr(self, '_primary_tracks', []),
+                            getattr(self, '_secondary_tracks', []),
+                            name_key='title')
+            self._populate_tracks(merged)
+            self._search_results[0] = len(merged)
+        elif tab == 1:
+            new_items = _tidal_extract_albums(data)
+            if primary:
+                self._primary_albums = new_items
+            else:
+                self._secondary_albums = new_items
+            merged = _merge(getattr(self, '_primary_albums', []),
+                            getattr(self, '_secondary_albums', []),
+                            name_key='title')
+            self._populate_albums(merged)
+            self._search_results[1] = len(merged)
+        else:
+            new_items = _tidal_extract_artists(data)
+            if primary:
+                self._primary_artists = new_items
+            else:
+                self._secondary_artists = new_items
+            merged = _merge(getattr(self, '_primary_artists', []),
+                            getattr(self, '_secondary_artists', []))
+            self._populate_artists(merged)
+            self._search_results[2] = len(merged)
+
+        self._update_search_status()
+
+    def _update_search_status(self):
+        """Update the status label; only finalize once all 3 tabs have responded."""
         if len(self._search_results) == 3:
-            t = self._search_results.get(0, 0)
+            t  = self._search_results.get(0, 0)
             al = self._search_results.get(1, 0)
             ar = self._search_results.get(2, 0)
             self._st(f"{t} tracks · {al} albums · {ar} artists")
+
+    def _apply_correction(self):
+        pass   # kept as stub
+
+    def _fetch_more_tracks(self):
+        """Fire a server-side search for the next page of tracks (offset-based)."""
+        q   = getattr(self, '_search_query_raw', '').strip()
+        gen = self._search_gen
+        if not q or getattr(self, '_tracks_srv_exhausted', True):
+            return
+        offset = getattr(self, '_tracks_srv_offset', 50)
+        qs = requests.utils.quote(q)
+        path = f"/search/?s={qs}&limit=50&offset={offset}"
+        w = _TidalWorker(path)
+
+        def _got_more(data, g=gen, off=offset):
+            if g != self._search_gen:
+                return
+            try:
+                if sip.isdeleted(self): return
+            except Exception:
+                return
+            new_tracks = _tidal_extract_tracks(data)
+            if len(new_tracks) < 50:
+                self._tracks_srv_exhausted = True
+            if not new_tracks:
+                # Remove the now-useless button
+                if self._show_more_btn is not None:
+                    try:
+                        self._show_more_btn.setParent(None)
+                        self._show_more_btn.deleteLater()
+                    except Exception:
+                        pass
+                    self._show_more_btn = None
+                return
+            self._tracks_srv_offset = off + 50
+            # Dedup against already-loaded tracks
+            existing_ids = {t.get('id') for t in self._all_tracks if t.get('id')}
+            fresh = [t for t in new_tracks if t.get('id') not in existing_ids]
+            self._all_tracks.extend(fresh)
+            # Remove the "Load more" button before appending rows
+            if self._show_more_btn is not None:
+                try:
+                    self._show_more_btn.setParent(None)
+                    self._show_more_btn.deleteLater()
+                except Exception:
+                    pass
+                self._show_more_btn = None
+            self._append_track_page()
+            total = len(self._all_tracks)
+            self._st(f"{total}+ tracks · — albums · — artists")
+
+        def _fail_more(*args):
+            try:
+                if sip.isdeleted(self): return
+            except Exception:
+                return
+            self._tracks_srv_exhausted = True
+            if self._show_more_btn is not None:
+                try:
+                    self._show_more_btn.setText("No more results")
+                    self._show_more_btn.setEnabled(False)
+                except Exception:
+                    pass
+
+        w.ok.connect(_got_more)
+        w.fail.connect(_fail_more)
+        def _cleanup(*args, _ref=weakref.ref(w)):
+            obj = _ref()
+            if obj is None: return
+            try:
+                if w in self._workers: self._workers.remove(w)
+            except Exception: pass
+            try:
+                if not sip.isdeleted(obj): obj.deleteLater()
+            except Exception: pass
+        w.finished.connect(_cleanup, Qt.ConnectionType.QueuedConnection)
+        self._workers.append(w)
+        w.start()
+
+    def _fetch_more_albums(self, existing: list):
+        """Fetch next page of albums from server and re-render the albums tab."""
+        q   = getattr(self, '_search_query_raw', '').strip()
+        gen = self._search_gen
+        if not q or getattr(self, '_albums_srv_exhausted', True):
+            return
+        offset = getattr(self, '_albums_srv_offset', 50)
+        qs = requests.utils.quote(q)
+        w = _TidalWorker(f"/search/?al={qs}&limit=50&offset={offset}")
+
+        def _got(data, g=gen, off=offset):
+            if g != self._search_gen: return
+            try:
+                if sip.isdeleted(self): return
+            except Exception: return
+            new_albs = _tidal_extract_albums(data)
+            if len(new_albs) < 50:
+                self._albums_srv_exhausted = True
+            if not new_albs:
+                return
+            self._albums_srv_offset = off + 50
+            existing_ids = {a.get('id') for a in existing if a.get('id')}
+            fresh = [a for a in new_albs if a.get('id') not in existing_ids]
+            merged = existing + fresh
+            # Also sync the primary/secondary buckets so Back works correctly
+            self._primary_albums = merged
+            self._secondary_albums = []
+            self._populate_albums(merged)
+            self._search_results[1] = len(merged)
+            self._update_search_status()
+
+        def _fail(*args):
+            try:
+                if sip.isdeleted(self): return
+            except Exception: return
+            self._albums_srv_exhausted = True
+
+        def _cleanup(*args, _ref=weakref.ref(w)):
+            obj = _ref()
+            if obj is None: return
+            try:
+                if w in self._workers: self._workers.remove(w)
+            except Exception: pass
+            try:
+                if not sip.isdeleted(obj): obj.deleteLater()
+            except Exception: pass
+        w.ok.connect(_got); w.fail.connect(_fail)
+        w.finished.connect(_cleanup, Qt.ConnectionType.QueuedConnection)
+        self._workers.append(w)
+        w.start()
+
+    def _fetch_more_artists(self, existing: list):
+        """Fetch next page of artists from server and re-render the artists tab."""
+        q   = getattr(self, '_search_query_raw', '').strip()
+        gen = self._search_gen
+        if not q or getattr(self, '_artists_srv_exhausted', True):
+            return
+        offset = getattr(self, '_artists_srv_offset', 50)
+        qs = requests.utils.quote(q)
+        w = _TidalWorker(f"/search/?a={qs}&limit=50&offset={offset}")
+
+        def _got(data, g=gen, off=offset):
+            if g != self._search_gen: return
+            try:
+                if sip.isdeleted(self): return
+            except Exception: return
+            new_arts = _tidal_extract_artists(data)
+            if len(new_arts) < 50:
+                self._artists_srv_exhausted = True
+            if not new_arts:
+                return
+            self._artists_srv_offset = off + 50
+            existing_ids = {a.get('id') for a in existing if a.get('id')}
+            fresh = [a for a in new_arts if a.get('id') not in existing_ids]
+            merged = existing + fresh
+            self._primary_artists = merged
+            self._secondary_artists = []
+            self._populate_artists(merged)
+            self._search_results[2] = len(merged)
+            self._update_search_status()
+
+        def _fail(*args):
+            try:
+                if sip.isdeleted(self): return
+            except Exception: return
+            self._artists_srv_exhausted = True
+
+        def _cleanup(*args, _ref=weakref.ref(w)):
+            obj = _ref()
+            if obj is None: return
+            try:
+                if w in self._workers: self._workers.remove(w)
+            except Exception: pass
+            try:
+                if not sip.isdeleted(obj): obj.deleteLater()
+            except Exception: pass
+        w.ok.connect(_got); w.fail.connect(_fail)
+        w.finished.connect(_cleanup, Qt.ConnectionType.QueuedConnection)
+        self._workers.append(w)
+        w.start()
 
     # ── Populate tracks ───────────────────────────────────────
 
@@ -13105,6 +13999,7 @@ class TidalDownloaderPage(QWidget):
         self._tracks_shown += len(page)
 
         if self._tracks_shown < len(tracks):
+            # Still have locally cached tracks to show
             remaining = len(tracks) - self._tracks_shown
             btn = QPushButton(f"Show more  ({remaining} remaining)")
             btn.setFixedHeight(36)
@@ -13112,21 +14007,230 @@ class TidalDownloaderPage(QWidget):
             btn.clicked.connect(self._append_track_page)
             self._tracks_l.insertWidget(self._tracks_l.count() - 1, btn)
             self._show_more_btn = btn
+        elif not getattr(self, '_tracks_srv_exhausted', True):
+            # Local results exhausted but server may have more — offer to fetch
+            btn = QPushButton("Load more results from server…")
+            btn.setFixedHeight(36)
+            btn.setObjectName("ghost")
+            def _on_load_more(_, b=btn):
+                b.setEnabled(False)
+                b.setText("Loading…")
+                self._fetch_more_tracks()
+            btn.clicked.connect(_on_load_more)
+            self._tracks_l.insertWidget(self._tracks_l.count() - 1, btn)
+            self._show_more_btn = btn
 
     # ── Populate albums ───────────────────────────────────────
 
     def _populate_albums(self, albums: list):
-        """Responsive grid of album cards — reflows on window resize."""
+        """Responsive grid of album cards with type filter tabs and sort controls."""
+
+        # ── Fast path: only swap the flow widget, keep ctrl_bar ──────────────
+        # On filter/sort clicks _populate_albums is called again with the same
+        # albums list.  Rebuilding the ctrl_bar is wasteful; just replace the flow.
+        active_filter = getattr(self, '_album_filter', 'ALL')
+        sort_order    = getattr(self, '_album_sort',   'popular')
+        if (getattr(self, '_albums_ctrl_albums', None) is albums
+                and getattr(self, '_albums_ctrl_bar', None) is not None):
+            # Ctrl bar already exists — only rebuild the flow widget
+            old_flow = getattr(self, '_albums_flow_widget', None)
+            old_more = getattr(self, '_albums_more_btn', None)
+            for w in [old_flow, old_more]:
+                if w is not None:
+                    try:
+                        w.setParent(None)
+                        w.deleteLater()
+                    except Exception:
+                        pass
+            def _alb_type(a):
+                t = (a.get('type') or '').upper()
+                n = a.get('numberOfTracks', 0) or 0
+                title = (a.get('title') or '').lower()
+                if t == 'SINGLE' or (t == '' and n == 1): return 'SINGLE'
+                if t == 'EP' or (t == '' and 1 < n <= 6): return 'EP'
+                if any(w in title for w in ('live','concert','unplugged','acoustic session')): return 'LIVE'
+                if any(w in title for w in ('greatest hits','best of','collection','anthology',
+                                            'essential','complete','platinum','gold','hits')): return 'COMPILATION'
+                return 'ALBUM'
+            def _sorted(albs, order):
+                if order == 'newest':
+                    return sorted(albs, key=lambda a: str(a.get('releaseDate') or '0000')[:10], reverse=True)
+                if order == 'oldest':
+                    return sorted(albs, key=lambda a: str(a.get('releaseDate') or '0000')[:10])
+                if order == 'popular':
+                    def _pop_key(a):
+                        for field in ('popularity','popularityLevel','numberOfListeners',
+                                      'streamCount','playCount','numberOfTracks'):
+                            v = a.get(field)
+                            if v:
+                                try: return int(v)
+                                except Exception: pass
+                        return 0
+                    return sorted(albs, key=_pop_key, reverse=True)
+                return albs
+            filtered = [a for a in albums if active_filter == 'ALL' or _alb_type(a) == active_filter]
+            display  = _sorted(filtered, sort_order)
+            new_flow = _AlbumFlowWidget(
+                display,
+                on_open=self._on_album_open,
+                on_dl=self._on_dl_album,
+                on_queue=self._on_queue_album,
+                on_play=self._on_play_album,
+                on_play_queue=self._on_play_queue_album,
+            )
+            # Insert before the trailing stretch (last item)
+            self._albums_l.insertWidget(self._albums_l.count() - 1, new_flow)
+            self._albums_flow_widget = new_flow
+            # Re-add Load more button if still applicable
+            self._albums_more_btn = None
+            if not getattr(self, '_albums_srv_exhausted', True):
+                mb = QPushButton("Load more albums from server…")
+                mb.setFixedHeight(36); mb.setObjectName("ghost")
+                def _on_load_more_albs2(_, b=mb, albs=albums):
+                    b.setEnabled(False); b.setText("Loading…")
+                    self._fetch_more_albums(albs)
+                mb.clicked.connect(_on_load_more_albs2)
+                self._albums_l.insertWidget(self._albums_l.count() - 1, mb)
+                self._albums_more_btn = mb
+            # Update ctrl_bar button checked states
+            ctrl_bar = self._albums_ctrl_bar
+            val_map = {'All':'ALL','Albums':'ALBUM','EPs':'EP','Singles':'SINGLE',
+                       'Live':'LIVE','Compilations':'COMPILATION',
+                       'Newest':'newest','Oldest':'oldest','Popular':'popular'}
+            for b in ctrl_bar.findChildren(QPushButton):
+                val = val_map.get(b.text().split()[0])
+                if val:
+                    b.setChecked(val == active_filter or val == sort_order)
+            return
+
+        # ── Full build ────────────────────────────────────────────────────────
         self._clear_tab(self._albums_l)
-        t = _current_theme
+        self._albums_ctrl_bar    = None
+        self._albums_ctrl_albums = None
+        self._albums_flow_widget = None
+        self._albums_more_btn    = None
         if not albums:
             empty = QLabel("No albums found.")
             empty.setObjectName("secondary")
             empty.setStyleSheet("padding:24px;color:rgba(255,255,255,0.55);")
             self._albums_l.insertWidget(self._albums_l.count() - 1, empty)
             return
+
+        # Persist filter/sort state across calls
+        active_filter = getattr(self, '_album_filter', 'ALL')
+        sort_order    = getattr(self, '_album_sort',   'popular')
+
+        # ── Categorise ───────────────────────────────────────
+        def _alb_type(a):
+            t = (a.get('type') or '').upper()
+            n = a.get('numberOfTracks', 0) or 0
+            title = (a.get('title') or '').lower()
+            if t == 'SINGLE' or (t == '' and n == 1):
+                return 'SINGLE'
+            if t == 'EP' or (t == '' and 1 < n <= 6):
+                return 'EP'
+            if any(w in title for w in ('live', 'concert', 'unplugged', 'acoustic session')):
+                return 'LIVE'
+            if any(w in title for w in ('greatest hits', 'best of', 'collection', 'anthology',
+                                        'essential', 'complete', 'platinum', 'gold', 'hits')):
+                return 'COMPILATION'
+            return 'ALBUM'
+
+        counts = {'ALL': len(albums), 'ALBUM': 0, 'EP': 0, 'SINGLE': 0, 'LIVE': 0, 'COMPILATION': 0}
+        for a in albums:
+            counts[_alb_type(a)] += 1
+
+        # ── Sort ─────────────────────────────────────────────
+        def _sorted(albs, order):
+            if order == 'newest':
+                return sorted(albs, key=lambda a: str(a.get('releaseDate') or '0000')[:10], reverse=True)
+            if order == 'oldest':
+                return sorted(albs, key=lambda a: str(a.get('releaseDate') or '0000')[:10])
+            if order == 'popular':
+                def _pop_key(a):
+                    for field in ('popularity','popularityLevel','numberOfListeners',
+                                  'streamCount','playCount','numberOfTracks'):
+                        v = a.get(field)
+                        if v:
+                            try: return int(v)
+                            except Exception: pass
+                    return 0
+                return sorted(albs, key=_pop_key, reverse=True)
+            return albs
+
+        # ── Filter bar ───────────────────────────────────────
+        ctrl_bar = QWidget()
+        ctrl_bar.setFixedHeight(36)
+        ctrl_bar.setStyleSheet("background:transparent;")
+        cb = QHBoxLayout(ctrl_bar)
+        cb.setContentsMargins(4, 0, 4, 0)
+        cb.setSpacing(2)
+
+        filter_labels = [
+            ('All',          'ALL'),
+            ('Albums',       'ALBUM'),
+            ('EPs',          'EP'),
+            ('Singles',      'SINGLE'),
+            ('Live',         'LIVE'),
+            ('Compilations', 'COMPILATION'),
+        ]
+        for label, val in filter_labels:
+            c = counts.get(val, 0)
+            if val != 'ALL' and c == 0:
+                continue
+            btn = QPushButton(f"{label}  {c}" if val != 'ALL' else f"All  {c}")
+            btn.setFixedHeight(24)
+            btn.setCheckable(True)
+            btn.setChecked(active_filter == val)
+            btn.setAutoDefault(False)
+            btn.setStyleSheet(
+                "QPushButton{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);"
+                "color:rgba(255,255,255,0.40);border-radius:4px;font-size:10px;padding:0 8px;}"
+                "QPushButton:checked{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.32);"
+                "color:rgba(255,255,255,0.90);}"
+                "QPushButton:hover{background:rgba(255,255,255,0.09);color:rgba(255,255,255,0.70);}"
+            )
+            def _on_filter(_, v=val, albs=albums):
+                self._album_filter = v
+                self._populate_albums(albs)
+            btn.clicked.connect(_on_filter)
+            cb.addWidget(btn)
+
+        cb.addStretch()
+
+        # Sort buttons on the right
+        sort_lbl = QLabel("Sort:")
+        sort_lbl.setStyleSheet("color:rgba(255,255,255,0.30);font-size:10px;background:transparent;")
+        cb.addWidget(sort_lbl)
+        for label, val in [("Newest", "newest"), ("Oldest", "oldest"), ("Popular", "popular")]:
+            btn = QPushButton(label)
+            btn.setFixedHeight(24)
+            btn.setCheckable(True)
+            btn.setChecked(sort_order == val)
+            btn.setAutoDefault(False)
+            btn.setStyleSheet(
+                "QPushButton{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);"
+                "color:rgba(255,255,255,0.40);border-radius:4px;font-size:10px;padding:0 8px;}"
+                "QPushButton:checked{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.32);"
+                "color:rgba(255,255,255,0.90);}"
+                "QPushButton:hover{background:rgba(255,255,255,0.09);color:rgba(255,255,255,0.70);}"
+            )
+            def _on_sort(_, v=val, albs=albums):
+                self._album_sort = v
+                self._populate_albums(albs)
+            btn.clicked.connect(_on_sort)
+            cb.addWidget(btn)
+
+        self._albums_l.insertWidget(self._albums_l.count() - 1, ctrl_bar)
+        self._albums_ctrl_bar    = ctrl_bar
+        self._albums_ctrl_albums = albums   # identity check for fast path
+
+        # ── Apply filter + sort then render ──────────────────
+        filtered = [a for a in albums if active_filter == 'ALL' or _alb_type(a) == active_filter]
+        display  = _sorted(filtered, sort_order)
+
         flow = _AlbumFlowWidget(
-            albums,
+            display,
             on_open=self._on_album_open,
             on_dl=self._on_dl_album,
             on_queue=self._on_queue_album,
@@ -13134,71 +14238,51 @@ class TidalDownloaderPage(QWidget):
             on_play_queue=self._on_play_queue_album,
         )
         self._albums_l.insertWidget(self._albums_l.count() - 1, flow)
+        self._albums_flow_widget = flow
+        self._albums_more_btn    = None
+
+        if not getattr(self, '_albums_srv_exhausted', True):
+            btn = QPushButton("Load more albums from server…")
+            btn.setFixedHeight(36)
+            btn.setObjectName("ghost")
+            def _on_load_more_albs(_, b=btn, albs=albums):
+                b.setEnabled(False)
+                b.setText("Loading…")
+                self._fetch_more_albums(albs)
+            btn.clicked.connect(_on_load_more_albs)
+            self._albums_l.insertWidget(self._albums_l.count() - 1, btn)
+            self._albums_more_btn = btn
 
 
     # ── Populate artists ──────────────────────────────────────────────────────
 
     def _populate_artists(self, artists: list):
         self._clear_tab(self._artists_l)
-        t = _current_theme
-        for art in artists:
-            row = QWidget()
-            row.setFixedHeight(58)
-            row.setStyleSheet(
-                f"background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:5px;"
-            )
-            hb = QHBoxLayout(row)
-            hb.setContentsMargins(10, 8, 10, 8)
-            hb.setSpacing(12)
+        if not artists:
+            empty = QLabel("No artists found.")
+            empty.setObjectName("secondary")
+            empty.setStyleSheet("padding:24px;color:rgba(255,255,255,0.55);")
+            self._artists_l.insertWidget(self._artists_l.count() - 1, empty)
+            return
 
-            pic = QLabel()
-            pic.setFixedSize(40, 40)
-            pic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            pic.setText("◉")
-            pic.setStyleSheet(
-                f"background:rgba(255,255,255,0.08);border-radius:20px;color:rgba(255,255,255,0.35);font-size:16px;"
-            )
-            hb.addWidget(pic)
+        flow = _ArtistFlowWidget(
+            artists,
+            on_browse=self._load_artist_albums,
+            on_dl=self._on_dl_artist,
+            on_queue=self._on_queue_artist,
+        )
+        self._artists_l.insertWidget(self._artists_l.count() - 1, flow)
 
-            nl = QLabel(art.get("name", ""))
-            nl.setStyleSheet("font-weight:600;color:rgba(255,255,255,0.85);font-size:13px;")
-            hb.addWidget(nl, stretch=1)
-
-            alb_btn = QPushButton("Browse artist")
-            alb_btn.setFixedHeight(28)
-            alb_btn.setObjectName("ghost")
-            alb_btn.clicked.connect(lambda _, a=art: self._load_artist_albums(a))
-            hb.addWidget(alb_btn)
-
-            _art_btn_ss = (
-                "QPushButton{background:transparent;border:1px solid rgba(255,255,255,0.16);"
-                "color:rgba(255,255,255,0.65);border-radius:5px;font-size:11px;font-weight:500;"
-                "padding:0 12px;min-height:28px;max-height:28px;}"
-                "QPushButton:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.40);color:#fff;}"
-                "QPushButton:pressed{background:rgba(255,255,255,0.06);}"
-            )
-
-            dl_btn = QPushButton("⬇  Download")
-            dl_btn.setFixedHeight(28)
-            dl_btn.setMinimumWidth(100)
-            dl_btn.setToolTip("Download all tracks by this artist")
-            dl_btn.setStyleSheet(_art_btn_ss)
-            dl_btn.clicked.connect(lambda _, a=art: self._on_dl_artist(a))
-            hb.addWidget(dl_btn)
-
-            q_btn = QPushButton("+ Queue")
-            q_btn.setFixedHeight(28)
-            q_btn.setMinimumWidth(66)
-            q_btn.setToolTip("Add all tracks by this artist to the download queue")
-            q_btn.setStyleSheet(_art_btn_ss)
-            q_btn.clicked.connect(lambda _, a=art: self._on_queue_artist(a))
-            hb.addWidget(q_btn)
-
-            self._artists_l.insertWidget(self._artists_l.count() - 1, row)
-
-            pid = art.get("picture", "")
-            if pid:
-                _load_cover_into_label(pid, pic, 40, circle=True)
+        if not getattr(self, '_artists_srv_exhausted', True):
+            btn = QPushButton("Load more artists from server…")
+            btn.setFixedHeight(36)
+            btn.setObjectName("ghost")
+            def _on_load_more_arts(_, b=btn, arts=artists):
+                b.setEnabled(False)
+                b.setText("Loading…")
+                self._fetch_more_artists(arts)
+            btn.clicked.connect(_on_load_more_arts)
+            self._artists_l.insertWidget(self._artists_l.count() - 1, btn)
 
     # ── Album → track list ────────────────────────────────────
 
@@ -13214,25 +14298,16 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/album/?id={aid}")
         w.ok.connect(lambda d, a=album: self._show_album_tracks(d, a))
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        def _finished_w_4(*args, _ref=__import__('weakref').ref(w)):
-
-            _obj = _ref()
-
-            if _obj is None: return
-
-            try:
-
-                if w in self._workers: self._workers.remove(w)
-
-            except Exception: pass
-
-            try:
-
-                if not sip.isdeleted(_obj): _obj.deleteLater()
-
-            except Exception: pass
-
-        w.finished.connect(_finished_w_4, Qt.ConnectionType.QueuedConnection)
+        def _make_cleanup(worker):
+            def _cleanup(*args):
+                try:
+                    if worker in self._workers: self._workers.remove(worker)
+                except Exception: pass
+                try:
+                    if not sip.isdeleted(worker): worker.deleteLater()
+                except Exception: pass
+            return _cleanup
+        w.finished.connect(_make_cleanup(w), Qt.ConnectionType.QueuedConnection)
         self._workers.append(w)
         w.start()
 
@@ -13246,11 +14321,17 @@ class TidalDownloaderPage(QWidget):
 
     def _push_nav_state(self, breadcrumb: str = ""):
         """Save current view state to history stack."""
+        cur_tab = self._results_stack.currentIndex()
         state = {
-            "tab":        self._results_stack.currentIndex(),
+            "tab":        cur_tab,
             "breadcrumb": self._breadcrumb.text(),
             "status":     self._status_lbl.text(),
         }
+        if cur_tab == 4:
+            art = getattr(self, '_current_artist', {})
+            state['artist_id']   = art.get('id')
+            state['disc_filter'] = getattr(self, '_artistpage_filter', 'ALL')
+            state['disc_sort']   = getattr(self, '_artistpage_sort', 'popular')
         self._nav_history.append(state)
         self._breadcrumb.setText(f"  ›  {breadcrumb}" if breadcrumb else "")
         self._back_btn.setVisible(True)
@@ -13260,9 +14341,35 @@ class TidalDownloaderPage(QWidget):
         if not self._nav_history:
             return
         state = self._nav_history.pop()
-        self._results_stack.setCurrentIndex(state["tab"])
+        tab = state["tab"]
+        if tab == 4 and state.get('artist_id'):
+            cache = getattr(self, '_artist_page_cache', {})
+            cached = cache.get(state['artist_id'])
+            if cached:
+                self._current_artist    = cached['artist']
+                self._artistpage_filter = state.get('disc_filter', 'ALL')
+                self._artistpage_sort   = state.get('disc_sort', 'popular')
+                self._build_artist_page(cached['artist'],
+                                        albums=cached['albums'],
+                                        top_tracks=cached['top_tracks'],
+                                        loading=False)
+                # Update crumb to restored artist
+                _crumb_name = cached['artist'].get('name', 'Artist')
+                if len(_crumb_name) > 18:
+                    _crumb_name = _crumb_name[:16] + '…'
+                self._artist_crumb_btn.setText(_crumb_name)
+                self._artist_crumb_btn.setChecked(True)
+                self._artist_crumb_btn.show()
+        elif tab != 4:
+            # Going back to a regular search tab — hide crumb unless there's
+            # still an artist page further forward in history
+            still_on_artist = any(s.get('tab') == 4 for s in self._nav_history)
+            if not still_on_artist:
+                self._artist_crumb_btn.hide()
+                self._artist_crumb_btn.setChecked(False)
+        self._results_stack.setCurrentIndex(tab)
         for i, btn in enumerate(self._tab_btns):
-            btn.setChecked(i == state["tab"])
+            btn.setChecked(i == tab)
         self._breadcrumb.setText(state["breadcrumb"])
         self._status_lbl.setText(state["status"])
         self._back_btn.setVisible(bool(self._nav_history))
@@ -13274,92 +14381,170 @@ class TidalDownloaderPage(QWidget):
         self._st(f"{album.get('title', '')} · {n} track{'s' if n!=1 else ''}")
         self._switch_tab(0)
         self._show_album_header(album, n)
-        self._populate_tracks(tracks)
+        # These are all the tracks for this album — no server pagination applies
+        self._tracks_srv_exhausted = True
+        volumes = {t.get("volumeNumber",1) or 1 for t in tracks}
+        if len(volumes) > 1:
+            self._populate_tracks_with_discs(tracks)
+        else:
+            self._populate_tracks(tracks)
+
+    def _populate_tracks_with_discs(self, tracks: list):
+        """Render multi-disc albums with DISC N section headers."""
+        from collections import defaultdict
+        discs: dict = defaultdict(list)
+        for tr in tracks:
+            discs[tr.get("volumeNumber") or 1].append(tr)
+        self._clear_tab(self._tracks_l)
+        self._clear_album_header()
+        active_ids = set(self._dl_wkrs.keys())
+        self._track_rows = {tid: row for tid, row in self._track_rows.items() if tid in active_ids}
+        scroll = self._tracks_sa if hasattr(self, "_tracks_sa") else None
+        target = scroll if scroll else self
+        target.setUpdatesEnabled(False)
+        try:
+            for disc_num in sorted(discs.keys()):
+                dh = QWidget(); dh.setFixedHeight(34)
+                dh.setStyleSheet("background:transparent;")
+                _dl2 = QHBoxLayout(dh); _dl2.setContentsMargins(10,0,10,0); _dl2.setSpacing(10)
+                _disc_lbl = QLabel(f"DISC {disc_num}")
+                _disc_lbl.setStyleSheet(
+                    "color:rgba(255,255,255,0.38);font-size:10px;font-weight:700;"
+                    "letter-spacing:1.8px;background:transparent;")
+                _dl2.addWidget(_disc_lbl)
+                _dline = QFrame(); _dline.setFixedHeight(1)
+                _dline.setStyleSheet("QFrame{background:rgba(255,255,255,0.08);border:none;}")
+                _dl2.addWidget(_dline, stretch=1)
+                self._tracks_l.insertWidget(self._tracks_l.count()-1, dh)
+                for tr in discs[disc_num]:
+                    row = _TidalTrackRow(tr)
+                    row.download_req.connect(self._on_dl_track)
+                    row.queue_req.connect(self._queue_side.add_track)
+                    row.album_open.connect(self._on_album_open)
+                    row.play_req.connect(self._on_play_track)
+                    row.play_queue_req.connect(self._on_play_queue_track)
+                    tid = tr.get("id")
+                    if tid is not None: self._track_rows[tid] = row
+                    self._tracks_l.insertWidget(self._tracks_l.count()-1, row)
+        finally:
+            target.setUpdatesEnabled(True)
+        self._all_tracks = list(tracks)
+        self._tracks_shown = len(tracks)
+        self._show_more_btn = None
 
     def _show_album_header(self, album: dict, track_count: int):
-        """Inject a sticky album header with cover art at the top of the tracks list."""
+        """Hero banner at the top of the album track list."""
         t = _current_theme
-        # Remove any previous header
         self._clear_album_header()
 
         hdr = QWidget()
         hdr.setObjectName("alb_hdr")
+        hdr.setFixedHeight(180)
         hdr.setStyleSheet(
-            f"QWidget#alb_hdr{{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"
-            f"border-radius:10px;margin-bottom:4px;}}"
-            f"QWidget#alb_hdr QLabel{{background:transparent;border:none;}}"
+            "QWidget#alb_hdr{background:transparent;border:none;}"
+            "QWidget#alb_hdr QLabel{background:transparent;border:none;}"
         )
-        hb = QHBoxLayout(hdr)
-        hb.setContentsMargins(14, 12, 14, 12)
-        hb.setSpacing(14)
+
+        # Background layer: blurred cover
+        bg_lbl = QLabel(hdr); bg_lbl.setGeometry(0,0,800,180)
+        bg_lbl.setScaledContents(True)
+        bg_lbl.setStyleSheet("border:none;background:transparent;")
+
+        # Gradient overlay
+        ov_w = QWidget(hdr); ov_w.setGeometry(0,0,800,180)
+        ov_w.setStyleSheet("background:transparent;")
+        def _pg(event, w=ov_w):
+            p = QPainter(w)
+            g = QLinearGradient(0,0,w.width()*0.7,0)
+            g.setColorAt(0.0, QColor(0,0,0,200)); g.setColorAt(1.0, QColor(0,0,0,60))
+            p.fillRect(w.rect(), QBrush(g))
+            g2 = QLinearGradient(0, w.height()*0.4, 0, w.height())
+            g2.setColorAt(0.0, QColor(0,0,0,0)); g2.setColorAt(1.0, QColor(0,0,0,100))
+            p.fillRect(w.rect(), QBrush(g2)); p.end()
+        ov_w.paintEvent = _pg
+
+        # Content layer
+        cw = QWidget(hdr); cw.setGeometry(0,0,800,180)
+        cw.setStyleSheet("background:transparent;")
+        hb = QHBoxLayout(cw); hb.setContentsMargins(18,18,18,18); hb.setSpacing(18)
 
         # Cover art
         cover_lbl = QLabel("♪")
-        cover_lbl.setFixedSize(72, 72)
+        cover_lbl.setFixedSize(144, 144)
         cover_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         cover_lbl.setStyleSheet(
-            f"background:rgba(255,255,255,0.08);border-radius:8px;color:rgba(255,255,255,0.35);font-size:28px;"
+            "background:rgba(255,255,255,0.08);border-radius:8px;"
+            "color:rgba(255,255,255,0.28);font-size:36px;"
         )
         hb.addWidget(cover_lbl)
 
-        cover_id = (album.get("cover") or album.get("coverId") or
-                    _tidal_find_cover_id(album))
+        cover_id = (album.get("cover") or album.get("coverId") or _tidal_find_cover_id(album))
         if cover_id:
-            _load_cover_into_label(cover_id, cover_lbl, 72, corner_radius=8)
+            _load_cover_into_label(cover_id, cover_lbl, 640, corner_radius=8)
+            _load_cover_into_label(cover_id, bg_lbl, 320, corner_radius=0)
 
-        # Info
-        info = QVBoxLayout()
-        info.setSpacing(3)
-        info.setContentsMargins(0, 0, 0, 0)
+        # Info column
+        info_v = QVBoxLayout(); info_v.setSpacing(5); info_v.setContentsMargins(0,0,0,0)
+        info_v.addStretch()
+
+        # Type badge
+        _n = album.get("numberOfTracks", 0) or 0
+        _tp = (album.get("type") or "").upper()
+        _ttl_l = (album.get("title") or "").lower()
+        if _tp == "SINGLE" or (_tp == "" and _n == 1):         _badge = "SINGLE"
+        elif _tp == "EP" or (_tp == "" and 1 < _n <= 6):       _badge = "EP"
+        elif any(w in _ttl_l for w in ("live","concert")):     _badge = "LIVE"
+        else:                                                    _badge = "ALBUM"
+        badge_lbl = QLabel(_badge)
+        badge_lbl.setStyleSheet(
+            "color:rgba(255,255,255,0.55);font-size:10px;font-weight:700;"
+            "letter-spacing:1.8px;background:transparent;"
+        )
+        info_v.addWidget(badge_lbl)
 
         title_lbl = QLabel(album.get("title") or "Unknown Album")
-        title_lbl.setStyleSheet(
-            f"font-weight:700;font-size:15px;color:rgba(255,255,255,0.87);"
-        )
-        info.addWidget(title_lbl)
+        _tf = QFont(); _tf.setPointSize(20); _tf.setWeight(QFont.Weight.Black)
+        title_lbl.setFont(_tf)
+        title_lbl.setStyleSheet("color:#fff;")
+        info_v.addWidget(title_lbl)
 
         artist = ""
-        if isinstance(album.get("artist"), dict):
-            artist = album["artist"].get("name", "")
+        if isinstance(album.get("artist"), dict): artist = album["artist"].get("name","")
         if not artist and isinstance(album.get("artists"), list) and album["artists"]:
             a0 = album["artists"][0]
-            if isinstance(a0, dict):
-                artist = a0.get("name", "")
-
-        year = str(album.get("releaseDate") or album.get("release_date") or album.get("year") or "")
+            if isinstance(a0, dict): artist = a0.get("name","")
+        year = str(album.get("releaseDate") or album.get("year") or "")
         year = year.split("-")[0] if year else ""
-
-        meta_parts = [p for p in [artist, year,
-                                   f"{track_count} track{'s' if track_count != 1 else ''}"] if p]
+        meta_parts = [p for p in [artist, year, f"{track_count} track{'s' if track_count!=1 else ''}"] if p]
         meta_lbl = QLabel("  ·  ".join(meta_parts))
-        meta_lbl.setStyleSheet("color:rgba(255,255,255,0.55);font-size:12px;")
-        info.addWidget(meta_lbl)
+        meta_lbl.setStyleSheet("color:rgba(255,255,255,0.52);font-size:12px;")
+        info_v.addWidget(meta_lbl)
 
-        hb.addLayout(info, stretch=1)
+        _acc = tok("accent")
+        _acc_ss = (f"QPushButton{{background:{_acc};border:none;color:#fff;"
+                   f"border-radius:6px;font-size:11px;font-weight:700;"
+                   f"padding:0 18px;min-height:32px;}}"
+                   f"QPushButton:hover{{opacity:0.85;}}")
+        _ghost_ss = ("QPushButton{background:rgba(255,255,255,0.10);"
+                     "border:1px solid rgba(255,255,255,0.22);color:rgba(255,255,255,0.87);"
+                     "border-radius:6px;font-size:11px;font-weight:600;"
+                     "padding:0 14px;min-height:32px;}"
+                     "QPushButton:hover{background:rgba(255,255,255,0.18);color:#fff;}")
+        btn_row = QHBoxLayout(); btn_row.setSpacing(8); btn_row.setContentsMargins(0,10,0,0)
+        play_btn = QPushButton("▶  Play All"); play_btn.setStyleSheet(_acc_ss)
+        play_btn.clicked.connect(lambda: self._on_play_album(album)); btn_row.addWidget(play_btn)
+        dl_btn = QPushButton("↓  Download All"); dl_btn.setStyleSheet(_ghost_ss)
+        dl_btn.clicked.connect(lambda: self._on_dl_album(album)); btn_row.addWidget(dl_btn)
+        q_btn = QPushButton("+ Queue All"); q_btn.setStyleSheet(_ghost_ss)
+        q_btn.clicked.connect(lambda: self._on_queue_album(album)); btn_row.addWidget(q_btn)
+        btn_row.addStretch()
+        info_v.addLayout(btn_row)
+        info_v.addStretch()
+        hb.addLayout(info_v, stretch=1)
 
-        # Action buttons
-        play_btn = QPushButton("▶  Play All")
-        play_btn.setFixedHeight(32)
-        play_btn.setMinimumWidth(100)
-        play_btn.setStyleSheet(
-            "QPushButton{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);"
-            "color:rgba(255,255,255,0.85);border-radius:6px;font-size:11px;font-weight:600;}"
-            "QPushButton:hover{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.35);color:#fff;}"
-        )
-        play_btn.clicked.connect(lambda: self._on_play_album(album))
-        hb.addWidget(play_btn)
-
-        dl_btn = QPushButton("↓  Download All")
-        dl_btn.setFixedHeight(32)
-        dl_btn.setMinimumWidth(120)
-        dl_btn.clicked.connect(lambda: self._on_dl_album(album))
-        hb.addWidget(dl_btn)
-
-        q_btn = QPushButton("+ Queue All")
-        q_btn.setFixedHeight(32)
-        q_btn.setMinimumWidth(90)
-        q_btn.clicked.connect(lambda: self._on_queue_album(album))
-        hb.addWidget(q_btn)
+        def _hdr_r(e, h=hdr, b=bg_lbl, o=ov_w, c=cw):
+            w = h.width(); b.setGeometry(0,0,w,180); o.setGeometry(0,0,w,180); c.setGeometry(0,0,w,180)
+        hdr.resizeEvent = _hdr_r
 
         self._tracks_l.insertWidget(0, hdr)
         self._album_header_widget = hdr
@@ -13382,32 +14567,43 @@ class TidalDownloaderPage(QWidget):
             return
         self._push_nav_state(artist.get("name", "Artist"))
         self._st(f"Loading artist page for {artist.get('name', '')}…")
-        self._current_artist = artist   # remember for "show all tracks" button
-        # skip_tracks=true makes the API fetch the real Tidal top-tracks endpoint
-        # (/artists/{id}/toptracks, limit 15) instead of crawling every album.
-        # Albums are still returned so the Albums tab is populated normally.
+        self._current_artist = artist
+        self._search_gen += 1
+        self._search_results = {}
+        self._primary_tracks   = []; self._secondary_tracks   = []
+        self._primary_albums   = []; self._secondary_albums   = []
+        self._primary_artists  = []; self._secondary_artists  = []
+        self._album_filter = 'ALL'
+        self._artistpage_filter = 'ALL'
+        self._artistpage_sort   = 'popular'
+        self._disc_flow_widget  = None
+        self._disc_ctrl_bar     = None
+        self._disc_layout       = None
+        # Show skeleton immediately while data loads
+        self._build_artist_page(artist, albums=[], top_tracks=[], loading=True)
+        self._results_stack.setCurrentIndex(4)
+        for i, btn in enumerate(self._tab_btns):
+            btn.setChecked(False)
+        # Show artist crumb tab with artist name, marked active
+        _crumb_name = artist.get("name", "Artist")
+        if len(_crumb_name) > 18:
+            _crumb_name = _crumb_name[:16] + "…"
+        self._artist_crumb_btn.setText(_crumb_name)
+        self._artist_crumb_btn.setChecked(True)
+        self._artist_crumb_btn.show()
         w = _TidalWorker(f"/artist/?f={aid}&skip_tracks=true")
-        w.ok.connect(self._show_artist_albums)
+        w.ok.connect(self._show_artist_page)
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        def _finished_w_5(*args, _ref=__import__('weakref').ref(w)):
-
-            _obj = _ref()
-
-            if _obj is None: return
-
-            try:
-
-                if w in self._workers: self._workers.remove(w)
-
-            except Exception: pass
-
-            try:
-
-                if not sip.isdeleted(_obj): _obj.deleteLater()
-
-            except Exception: pass
-
-        w.finished.connect(_finished_w_5, Qt.ConnectionType.QueuedConnection)
+        def _make_cleanup(worker):
+            def _cleanup(*args):
+                try:
+                    if worker in self._workers: self._workers.remove(worker)
+                except Exception: pass
+                try:
+                    if not sip.isdeleted(worker): worker.deleteLater()
+                except Exception: pass
+            return _cleanup
+        w.finished.connect(_make_cleanup(w), Qt.ConnectionType.QueuedConnection)
         self._workers.append(w)
         w.start()
 
@@ -13442,7 +14638,7 @@ class TidalDownloaderPage(QWidget):
             self._st(f"{len(tracks)} tracks loaded")
         w.ok.connect(_got)
         w.fail.connect(lambda e: self._st(f"Error loading all tracks: {e}"))
-        def _fin(*args, _ref=__import__('weakref').ref(w)):
+        def _fin(*args, _ref=weakref.ref(w)):
             _obj = _ref()
             if _obj is None: return
             try:
@@ -13455,52 +14651,569 @@ class TidalDownloaderPage(QWidget):
         self._workers.append(w)
         w.start()
 
-    def _show_artist_albums(self, data: dict):
+    def _show_artist_page(self, data: dict):
         albums = _tidal_extract_albums(data)
         tracks = _tidal_extract_tracks(data)
-        n_alb = len(albums)
-        self._st(f"{len(tracks)} top tracks on Tidal · {n_alb} album{'s' if n_alb!=1 else ''}")
+        artist = getattr(self, '_current_artist', {})
+        artist_name = artist.get('name', '')
+        aid = artist.get('id')
 
-        # Populate Top Tracks tab (tab index 3) silently — don't switch away from Tracks tab
-        _tt_c = self._toptracks_l.parentWidget()
-        if _tt_c: _tt_c.setUpdatesEnabled(False)
-        self._clear_tab(self._toptracks_l)
-        for track in tracks:
-            tid = track.get("id")
-            if not tid:
-                continue
-            row = _TidalTrackRow(track)
-            row.play_req.connect(self._on_play_track)
-            row.play_queue_req.connect(self._on_play_queue_track)
-            row.download_req.connect(self._on_dl_track)
-            row.queue_req.connect(self._queue_side.add_track)
-            row.album_open.connect(self._on_album_open)
-            if tid in self._dl_wkrs:
-                row.set_downloading(0)
-            self._track_rows[tid] = row
-            self._toptracks_l.insertWidget(self._toptracks_l.count() - 1, row)
-        if _tt_c: _tt_c.setUpdatesEnabled(True)
+        def _finish(artist_dict, albs, trs):
+            n_alb = len(albs)
+            n_tr  = len(trs)
+            self._st(f"{n_tr} popular tracks · {n_alb} album{'s' if n_alb!=1 else ''}")
+            self._build_artist_page(artist_dict, albums=albs, top_tracks=trs, loading=False)
 
-        # "Show all tracks" button — crawls every album, takes longer
-        _t = _current_theme
-        show_more_btn = QPushButton(f"Show all tracks from discography…")
-        show_more_btn.setStyleSheet(
-            f"QPushButton{{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);"
-            f"color:rgba(255,255,255,0.55);border-radius:6px;font-size:12px;padding:8px 18px;margin:8px 0;}}"
-            f"QPushButton:hover{{background:rgba(255,255,255,0.10);color:rgba(255,255,255,0.85);}}"
+        def _make_cleanup(worker):
+            def _c(*args):
+                try:
+                    if worker in self._workers: self._workers.remove(worker)
+                except Exception: pass
+                try:
+                    if not sip.isdeleted(worker): worker.deleteLater()
+                except Exception: pass
+            return _c
+
+        # If picture is missing (e.g. browsed from a track row), fetch artist metadata
+        if aid and not artist.get('picture'):
+            _enriched = [dict(artist)]
+            def _got_meta(d):
+                a = d.get('artist') or {}
+                pic = a.get('picture') or ''
+                if pic:
+                    _enriched[0] = dict(artist)
+                    _enriched[0]['picture'] = pic
+                _finish(_enriched[0], albums, tracks[:15])
+            def _fail_meta(e):
+                _finish(artist, albums, tracks[:15])
+            # Only wait for metadata if we have no albums/tracks yet
+            if not albums and not tracks:
+                wm = _TidalWorker(f"/artist/?id={aid}")
+                wm.ok.connect(_got_meta); wm.fail.connect(_fail_meta)
+                wm.finished.connect(_make_cleanup(wm), Qt.ConnectionType.QueuedConnection)
+                self._workers.append(wm); wm.start()
+                return
+            # If we already have data, show it now and fetch picture async to update hero
+            _finish(artist, albums, tracks[:15])
+            wm = _TidalWorker(f"/artist/?id={aid}")
+            def _got_meta_late(d):
+                a = d.get('artist') or {}
+                pic = a.get('picture') or ''
+                if pic and getattr(self, '_current_artist', {}).get('id') == aid:
+                    # Refresh the hero photo only
+                    try:
+                        from PyQt6 import sip as _sip
+                        pb = getattr(self, '_artist_hero_photo', None)
+                        if pb and not _sip.isdeleted(pb):
+                            _load_cover_into_label(pic, pb, 110, circle=True)
+                    except Exception:
+                        pass
+            wm.ok.connect(_got_meta_late); wm.fail.connect(lambda e: None)
+            wm.finished.connect(_make_cleanup(wm), Qt.ConnectionType.QueuedConnection)
+            self._workers.append(wm); wm.start()
+            return
+
+        # Fallback: if proxy returned nothing, search by name
+        if not albums and not tracks and artist_name:
+            self._st(f"No data via artist ID — searching by name…")
+            qs = requests.utils.quote(artist_name)
+            w_al = _TidalWorker(f"/search/?al={qs}&limit=200")
+            w_tr = _TidalWorker(f"/search/?s={qs}&limit=200")
+            _fallback_albums = []
+            _fallback_tracks = []
+            _pending = [2]
+            def _check_done():
+                if _pending[0] > 0:
+                    return
+                filtered = [t for t in _fallback_tracks
+                            if t.get('artist', {}).get('name', '').lower() == artist_name.lower()
+                            or any(a.get('name', '').lower() == artist_name.lower()
+                                   for a in t.get('artists', []))]
+                _finish(artist, _fallback_albums, filtered[:15])
+            def _got_albs(d):
+                _fallback_albums.extend(_tidal_extract_albums(d))
+                _pending[0] -= 1; _check_done()
+            def _got_trs(d):
+                _fallback_tracks.extend(_tidal_extract_tracks(d))
+                _pending[0] -= 1; _check_done()
+            def _fail_albs(e): _pending[0] -= 1; _check_done()
+            def _fail_trs(e):  _pending[0] -= 1; _check_done()
+            w_al.ok.connect(_got_albs); w_al.fail.connect(_fail_albs)
+            w_tr.ok.connect(_got_trs);  w_tr.fail.connect(_fail_trs)
+            w_al.finished.connect(_make_cleanup(w_al), Qt.ConnectionType.QueuedConnection)
+            w_tr.finished.connect(_make_cleanup(w_tr), Qt.ConnectionType.QueuedConnection)
+            self._workers.extend([w_al, w_tr])
+            w_al.start(); w_tr.start()
+            return
+
+        _finish(artist, albums, tracks[:15])
+
+    def _build_artist_page(self, artist: dict, albums: list, top_tracks: list, loading: bool = False):
+        """Build the full Tidal-style artist page in self._artistpage_l."""
+        self._clear_tab(self._artistpage_l)
+        name  = artist.get("name", "Unknown Artist")
+        pid   = artist.get("picture") or artist.get("image") or ""
+
+        # ── HERO SECTION — full-width banner ─────────────────────
+        HERO_H = 220
+        hero = QWidget()
+        hero.setObjectName("artist_hero")
+        hero.setFixedHeight(HERO_H)
+        hero.setStyleSheet("QWidget#artist_hero{background:#111318;border:none;}"
+                           "QWidget#artist_hero QLabel{background:transparent;border:none;}")
+
+        # Mosaic background — pick up to 8 album covers, prefer variety
+        # (full albums first, then EPs, then singles so the mosaic looks rich)
+        _sorted_albs = sorted(
+            albums,
+            key=lambda a: {"ALBUM": 0, "EP": 1, "SINGLE": 2}.get(
+                (a.get("type") or "").upper(), 1
+            ),
         )
-        show_more_btn.clicked.connect(lambda: (show_more_btn.setEnabled(False),
-                                               show_more_btn.setText("Loading all tracks…"),
-                                               self._load_all_artist_tracks()))
-        self._toptracks_l.insertWidget(self._toptracks_l.count() - 1, show_more_btn)
+        _mosaic_cids = []
+        _seen_cids: set = set()
+        for _a in _sorted_albs:
+            _cid = _tidal_normalize_cover_id(
+                _a.get("cover") or _a.get("image") or _a.get("videoCover") or ""
+            )
+            if _cid and _cid not in _seen_cids:
+                _seen_cids.add(_cid)
+                _mosaic_cids.append(_cid)
+            if len(_mosaic_cids) >= 8:
+                break
+        # Fall back to artist picture if no album covers found
+        if not _mosaic_cids and pid:
+            _mosaic_cids = [_tidal_normalize_cover_id(str(pid))]
+            _mosaic_cids = [c for c in _mosaic_cids if c]
 
-        # Reveal the Top Tracks tab now that we have real top-track data
-        self._tab_btns[3].show()
+        mosaic = _ArtistMosaicBg(_mosaic_cids, artist_name=name, parent=hero)
+        mosaic.setGeometry(0, 0, 800, HERO_H)
 
-        # Populate Albums tab and switch to it — Tracks tab is left untouched
-        self._clear_album_header()
-        self._populate_albums(albums)
-        self._switch_tab(1)  # Albums tab
+        content = QWidget(hero); content.setGeometry(0,0,800,HERO_H)
+        content.setStyleSheet("background:transparent;")
+        hero_l = QHBoxLayout(content)
+        hero_l.setContentsMargins(22,22,22,22); hero_l.setSpacing(22)
+
+        CIRC = 155
+        _GPAIRS = [("#1a1a2e","#e94560"),("#0f3460","#533483"),
+                   ("#16213e","#0f3460"),("#1b262c","#0a3d62"),
+                   ("#2c003e","#8e24aa"),("#1a237e","#283593")]
+        c1, c2 = _GPAIRS[abs(hash(name)) % len(_GPAIRS)]
+        first  = (name[:1] or "♪").upper()
+        pix    = QPixmap(CIRC, CIRC); pix.fill(Qt.GlobalColor.transparent)
+        pp = QPainter(pix); pp.setRenderHint(QPainter.RenderHint.Antialiasing)
+        _cp = QPainterPath(); _cp.addEllipse(QRectF(0,0,CIRC,CIRC)); pp.setClipPath(_cp)
+        _gr = QLinearGradient(0,0,CIRC,CIRC)
+        _gr.setColorAt(0.0,QColor(c1)); _gr.setColorAt(1.0,QColor(c2))
+        pp.fillRect(0,0,CIRC,CIRC,QBrush(_gr))
+        pp.setPen(QColor(255,255,255,55))
+        _ff = QFont(); _ff.setPointSize(50); _ff.setWeight(QFont.Weight.Black)
+        pp.setFont(_ff); pp.drawText(pix.rect(), Qt.AlignmentFlag.AlignCenter, first); pp.end()
+
+        photo_lbl = QLabel()
+        photo_lbl.setFixedSize(CIRC, CIRC)
+        photo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        photo_lbl.setPixmap(pix)
+        if pid:
+            _load_cover_into_label(str(pid), photo_lbl, CIRC, circle=True)
+        self._artist_hero_photo = photo_lbl
+        hero_l.addWidget(photo_lbl)
+
+        info_col = QVBoxLayout(); info_col.setSpacing(7); info_col.setContentsMargins(0,0,0,0)
+        info_col.addStretch()
+
+        artist_lbl = QLabel(name)
+        _af = QFont(); _af.setPointSize(24); _af.setWeight(QFont.Weight.Black)
+        artist_lbl.setFont(_af)
+        artist_lbl.setStyleSheet("color:#fff;")
+        info_col.addWidget(artist_lbl)
+
+        if not loading:
+            _meta_p = []
+            if top_tracks: _meta_p.append(f"{len(top_tracks)} popular tracks")
+            if albums:     _meta_p.append(f"{len(albums)} release{'s' if len(albums)!=1 else ''}")
+            meta_lbl = QLabel("  ·  ".join(_meta_p))
+            meta_lbl.setStyleSheet("color:rgba(255,255,255,0.42);font-size:12px;")
+            info_col.addWidget(meta_lbl)
+
+            _acc = tok("accent")
+            # Compute a brighter hover and darker pressed from the accent hex
+            def _adj(hex_c, factor):
+                h = hex_c.lstrip('#')
+                r, g, b = int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
+                r = min(255, max(0, int(r * factor)))
+                g = min(255, max(0, int(g * factor)))
+                b = min(255, max(0, int(b * factor)))
+                return f"#{r:02x}{g:02x}{b:02x}"
+            _acc_hover   = _adj(_acc, 1.18)
+            _acc_pressed = _adj(_acc, 0.82)
+            _acc_ss = (f"QPushButton{{background:{_acc};border:none;color:#fff;"
+                       f"border-radius:6px;font-size:11px;font-weight:700;"
+                       f"padding:0 18px;min-height:32px;}}"
+                       f"QPushButton:hover{{background:{_acc_hover};border:none;"
+                       f"border-radius:6px;padding:0 18px;min-height:32px;}}"
+                       f"QPushButton:pressed{{background:{_acc_pressed};border:none;"
+                       f"border-radius:6px;padding:0 18px;min-height:32px;}}")
+            _ghost_ss = ("QPushButton{background:rgba(255,255,255,0.10);"
+                         "border:1px solid rgba(255,255,255,0.22);color:rgba(255,255,255,0.87);"
+                         "border-radius:6px;font-size:11px;font-weight:600;"
+                         "padding:0 14px;min-height:32px;}"
+                         "QPushButton:hover{background:rgba(255,255,255,0.18);color:#fff;}")
+            _btn_row = QHBoxLayout(); _btn_row.setSpacing(8); _btn_row.setContentsMargins(0,12,0,0)
+            _pb = QPushButton("▶  Play Popular"); _pb.setStyleSheet(_acc_ss)
+            _pb.clicked.connect(lambda: self._play_artist_tracks(top_tracks)); _btn_row.addWidget(_pb)
+            _db = QPushButton("⬇  Download All"); _db.setStyleSheet(_ghost_ss)
+            def _confirm_dl_artist(_, a=artist):
+                alb_count = len(getattr(self, '_artistpage_albums', []))
+                name = a.get('name', 'this artist')
+                msg = QMessageBox(self)
+                msg.setWindowTitle("Download All")
+                msg.setIcon(QMessageBox.Icon.Question)
+                msg.setText(
+                    f"Download the full discography of <b>{name}</b>?<br><br>"
+                    f"<b>{alb_count}</b> release{'s' if alb_count != 1 else ''}<br><br>"
+                    f"<small>Tracks already downloaded will be skipped.</small>"
+                )
+                msg.setStandardButtons(
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel
+                )
+                msg.setDefaultButton(QMessageBox.StandardButton.Cancel)
+                if msg.exec() == QMessageBox.StandardButton.Yes:
+                    self._on_dl_artist(a)
+            _db.clicked.connect(_confirm_dl_artist)
+            _btn_row.addWidget(_db)
+            _btn_row.addStretch()
+            info_col.addLayout(_btn_row)
+        else:
+            _ll = QLabel("Loading…"); _ll.setStyleSheet("color:rgba(255,255,255,0.35);font-size:12px;")
+            info_col.addWidget(_ll)
+
+        info_col.addStretch()
+        hero_l.addLayout(info_col, stretch=1)
+
+        def _hero_r(e, h=hero, m=mosaic, c=content):
+            w = h.width(); m.setGeometry(0,0,w,HERO_H); c.setGeometry(0,0,w,HERO_H)
+        hero.resizeEvent = _hero_r
+
+        self._artistpage_l.insertWidget(self._artistpage_l.count() - 1, hero)
+
+        if loading:
+            return
+
+        # ── POPULAR TRACKS ───────────────────────────────────────
+        if top_tracks:
+            pop_hdr = QLabel("Popular")
+            pop_hdr.setStyleSheet(
+                "font-weight:800;font-size:15px;color:rgba(255,255,255,0.88);"
+                "background:transparent;border:none;padding:16px 4px 8px 4px;"
+            )
+            self._artistpage_l.insertWidget(self._artistpage_l.count() - 1, pop_hdr)
+
+            container = self._artistpage_l.parentWidget()
+            if container: container.setUpdatesEnabled(False)
+            for track in top_tracks:
+                tid = track.get("id")
+                if not tid:
+                    continue
+                row = _TidalTrackRow(track)
+                row.play_req.connect(self._on_play_track)
+                row.play_queue_req.connect(self._on_play_queue_track)
+                row.download_req.connect(self._on_dl_track)
+                row.queue_req.connect(self._queue_side.add_track)
+                row.album_open.connect(self._on_album_open)
+                if tid in self._dl_wkrs:
+                    row.set_downloading(0)
+                self._track_rows[tid] = row
+                self._artistpage_l.insertWidget(self._artistpage_l.count() - 1, row)
+            if container: container.setUpdatesEnabled(True)
+
+            more_btn = QPushButton("Show all tracks from discography…")
+            more_btn.setStyleSheet(
+                "QPushButton{background:transparent;border:none;"
+                "color:rgba(255,255,255,0.35);font-size:11px;padding:6px 4px;text-align:left;}"
+                "QPushButton:hover{color:rgba(255,255,255,0.75);}"
+            )
+            more_btn.clicked.connect(lambda: (
+                more_btn.setEnabled(False),
+                more_btn.setText("Loading…"),
+                self._load_all_artist_tracks_inline()
+            ))
+            self._artistpage_l.insertWidget(self._artistpage_l.count() - 1, more_btn)
+            self._artistpage_more_btn = more_btn
+
+        # ── DIVIDER ──────────────────────────────────────────────
+        div = QFrame()
+        div.setFixedHeight(1)
+        div.setStyleSheet("background:rgba(255,255,255,0.08);border:none;margin:10px 0;")
+        self._artistpage_l.insertWidget(self._artistpage_l.count() - 1, div)
+
+        # ── DISCOGRAPHY ──────────────────────────────────────────
+        disc_hdr = QLabel("Discography")
+        disc_hdr.setStyleSheet(
+            "font-weight:800;font-size:15px;color:rgba(255,255,255,0.88);"
+            "background:transparent;border:none;padding:10px 4px 8px 4px;"
+        )
+        self._artistpage_l.insertWidget(self._artistpage_l.count() - 1, disc_hdr)
+
+        # Cache page data by artist ID for instant Back restore
+        aid = artist.get('id')
+        if aid:
+            if not hasattr(self, '_artist_page_cache'):
+                self._artist_page_cache = {}
+            self._artist_page_cache[aid] = {
+                'artist': artist, 'albums': albums, 'top_tracks': top_tracks
+            }
+        self._artistpage_albums    = albums
+        self._artistpage_toptracks = top_tracks
+        self._artistpage_artist    = artist
+
+        disc_container = QWidget()
+        disc_container.setObjectName('disc_container')
+        disc_container.setStyleSheet('background:transparent;')
+        self._artistpage_disc_container = disc_container
+        dc_l = QVBoxLayout(disc_container)
+        dc_l.setContentsMargins(0, 0, 0, 0); dc_l.setSpacing(0)
+        self._fill_discography(dc_l, albums)
+        self._artistpage_l.insertWidget(self._artistpage_l.count() - 1, disc_container)
+
+    @staticmethod
+    def _alb_type_classify(a: dict) -> str:
+        t     = (a.get('type') or '').upper()
+        n     = a.get('numberOfTracks', 0) or 0
+        title = (a.get('title') or '').lower()
+        if t == 'SINGLE' or (t == '' and n == 1): return 'SINGLE'
+        if t == 'EP'     or (t == '' and 1 < n <= 6): return 'EP'
+        if any(w in title for w in ('live', 'concert', 'unplugged', 'acoustic session')): return 'LIVE'
+        if any(w in title for w in ('greatest hits', 'best of', 'collection', 'anthology',
+                                    'essential', 'complete', 'platinum', 'gold', 'hits')): return 'COMPILATION'
+        return 'ALBUM'
+
+    @staticmethod
+    def _disc_sort(albs: list, order: str) -> list:
+        if order == 'newest':
+            return sorted(albs, key=lambda a: str(a.get('releaseDate') or '0000')[:10], reverse=True)
+        if order == 'oldest':
+            return sorted(albs, key=lambda a: str(a.get('releaseDate') or '0000')[:10])
+        if order == 'popular':
+            def _pk(a):
+                for f in ('popularity', 'popularityLevel', 'numberOfListeners',
+                          'streamCount', 'playCount', 'numberOfTracks'):
+                    v = a.get(f)
+                    if v:
+                        try: return int(v)
+                        except Exception: pass
+                return 0
+            return sorted(albs, key=_pk, reverse=True)
+        return albs
+
+    def _fill_discography(self, layout, albums: list):
+        _pill_ss = (
+            'QPushButton{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);'
+            'color:rgba(255,255,255,0.40);border-radius:4px;font-size:10px;padding:0 8px;}'
+            'QPushButton:checked{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.32);'
+            'color:rgba(255,255,255,0.90);}'
+            'QPushButton:hover{background:rgba(255,255,255,0.09);color:rgba(255,255,255,0.70);}'
+        )
+        active_filter = getattr(self, '_artistpage_filter', 'ALL')
+        sort_order    = getattr(self, '_artistpage_sort',   'popular')
+
+        if not albums:
+            empty = QLabel('No albums found.')
+            empty.setStyleSheet(
+                'color:rgba(255,255,255,0.35);padding:16px 4px;'
+                'font-size:12px;background:transparent;border:none;'
+            )
+            layout.addWidget(empty)
+            return
+
+        counts = {'ALL': len(albums), 'ALBUM': 0, 'EP': 0, 'SINGLE': 0, 'LIVE': 0, 'COMPILATION': 0}
+        for a in albums:
+            counts[self._alb_type_classify(a)] += 1
+
+        ctrl_bar = QWidget(); ctrl_bar.setFixedHeight(36)
+        ctrl_bar.setStyleSheet('background:transparent;')
+        cb = QHBoxLayout(ctrl_bar)
+        cb.setContentsMargins(4, 0, 4, 0); cb.setSpacing(2)
+
+        for label, val in [('All','ALL'),('Albums','ALBUM'),('EPs','EP'),
+                            ('Singles','SINGLE'),('Live','LIVE'),('Compilations','COMPILATION')]:
+            c = counts.get(val, 0)
+            if val != 'ALL' and c == 0: continue
+            btn = QPushButton(f"{label}  {c}" if val != 'ALL' else f"All  {c}")
+            btn.setFixedHeight(24); btn.setCheckable(True)
+            btn.setChecked(active_filter == val); btn.setAutoDefault(False)
+            btn.setStyleSheet(_pill_ss)
+            def _on_filter(_, v=val):
+                self._artistpage_filter = v
+                self._rebuild_discography()
+            btn.clicked.connect(_on_filter)
+            cb.addWidget(btn)
+
+        cb.addStretch()
+        sort_lbl = QLabel('Sort:')
+        sort_lbl.setStyleSheet('color:rgba(255,255,255,0.30);font-size:10px;background:transparent;')
+        cb.addWidget(sort_lbl)
+        for label, val in [('Newest','newest'),('Oldest','oldest'),('Popular','popular')]:
+            btn = QPushButton(label); btn.setFixedHeight(24)
+            btn.setCheckable(True); btn.setChecked(sort_order == val)
+            btn.setAutoDefault(False); btn.setStyleSheet(_pill_ss)
+            def _on_sort(_, v=val):
+                self._artistpage_sort = v
+                self._rebuild_discography()
+            btn.clicked.connect(_on_sort)
+            cb.addWidget(btn)
+        layout.addWidget(ctrl_bar)
+        self._disc_ctrl_bar = ctrl_bar
+
+        filtered = [a for a in albums
+                    if active_filter == 'ALL' or self._alb_type_classify(a) == active_filter]
+        display  = self._disc_sort(filtered, sort_order)
+
+        flow = _AlbumFlowWidget(
+            display,
+            on_open=self._on_album_open,
+            on_dl=self._on_dl_album,
+            on_queue=self._on_queue_album,
+            on_play=self._on_play_album,
+            on_play_queue=self._on_play_queue_album,
+        )
+        layout.addWidget(flow)
+        self._disc_flow_widget = flow
+        self._disc_layout      = layout
+        self._disc_more_btn    = None
+
+    def _rebuild_discography(self):
+        albums        = getattr(self, '_artistpage_albums', [])
+        active_filter = getattr(self, '_artistpage_filter', 'ALL')
+        sort_order    = getattr(self, '_artistpage_sort',   'popular')
+
+        # ── Fast path: disc ctrl_bar already exists, only swap flow ──────────
+        old_flow = getattr(self, '_disc_flow_widget', None)
+        old_more = getattr(self, '_disc_more_btn', None)
+        disc_l   = getattr(self, '_disc_layout', None)
+        if old_flow is not None and disc_l is not None:
+            for w in [old_flow, old_more]:
+                if w is not None:
+                    try: w.setParent(None); w.deleteLater()
+                    except Exception: pass
+            filtered = [a for a in albums
+                        if active_filter == 'ALL' or self._alb_type_classify(a) == active_filter]
+            display  = self._disc_sort(filtered, sort_order)
+            new_flow = _AlbumFlowWidget(
+                display,
+                on_open=self._on_album_open,
+                on_dl=self._on_dl_album,
+                on_queue=self._on_queue_album,
+                on_play=self._on_play_album,
+                on_play_queue=self._on_play_queue_album,
+            )
+            disc_l.addWidget(new_flow)
+            self._disc_flow_widget = new_flow
+            self._disc_more_btn    = None
+            # Update ctrl_bar button checked states
+            ctrl_bar = getattr(self, '_disc_ctrl_bar', None)
+            if ctrl_bar:
+                val_map = {'All':'ALL','Albums':'ALBUM','EPs':'EP','Singles':'SINGLE',
+                           'Live':'LIVE','Compilations':'COMPILATION',
+                           'Newest':'newest','Oldest':'oldest','Popular':'popular'}
+                for b in ctrl_bar.findChildren(QPushButton):
+                    val = val_map.get(b.text().split()[0])
+                    if val:
+                        b.setChecked(val == active_filter or val == sort_order)
+            return
+
+        # ── Full rebuild ──────────────────────────────────────────────────────
+        old_container = getattr(self, '_artistpage_disc_container', None)
+        if old_container is None:
+            return
+        parent_l = self._artistpage_l
+        idx = -1
+        try:
+            for i in range(parent_l.count()):
+                item = parent_l.itemAt(i)
+                if item and item.widget() is old_container:
+                    idx = i; break
+            if idx == -1:
+                return
+            parent_l.removeWidget(old_container)
+            old_container.deleteLater()
+        except Exception:
+            return
+        new_container = QWidget()
+        new_container.setObjectName('disc_container')
+        new_container.setStyleSheet('background:transparent;')
+        self._artistpage_disc_container = new_container
+        dc_l = QVBoxLayout(new_container)
+        dc_l.setContentsMargins(0, 0, 0, 0); dc_l.setSpacing(0)
+        self._fill_discography(dc_l, albums)
+        parent_l.insertWidget(idx, new_container)
+
+    def _play_artist_tracks(self, tracks: list):
+        if not tracks:
+            return
+        self._play_queue = list(tracks)
+        self._play_idx   = 0
+        self._fetch_stream_for_playback(tracks[0])
+        self._refresh_play_queue_panel()
+
+    def _load_all_artist_tracks_inline(self):
+        """Load full discography tracks and insert them inline after popular tracks."""
+        artist = getattr(self, '_current_artist', None)
+        if not artist or not artist.get('id'):
+            return
+        aid = artist['id']
+        self._st(f"Loading all tracks for {artist.get('name', '')}…")
+        w = _TidalWorker(f"/artist/?f={aid}")
+        def _got(data):
+            tracks = _tidal_extract_tracks(data)
+            try:
+                mb = getattr(self, '_artistpage_more_btn', None)
+                if mb and not sip.isdeleted(mb):
+                    self._artistpage_l.removeWidget(mb)
+                    mb.deleteLater()
+                    self._artistpage_more_btn = None
+            except Exception: pass
+            container = self._artistpage_l.parentWidget()
+            if container: container.setUpdatesEnabled(False)
+            # Find insertion point: just before the divider (first QFrame child)
+            insert_pos = self._artistpage_l.count() - 1
+            for i in range(self._artistpage_l.count()):
+                item = self._artistpage_l.itemAt(i)
+                if item and isinstance(item.widget(), QFrame):
+                    insert_pos = i
+                    break
+            added = 0
+            for track in tracks:
+                tid = track.get('id')
+                if not tid or tid in self._track_rows:
+                    continue
+                row = _TidalTrackRow(track)
+                row.play_req.connect(self._on_play_track)
+                row.play_queue_req.connect(self._on_play_queue_track)
+                row.download_req.connect(self._on_dl_track)
+                row.queue_req.connect(self._queue_side.add_track)
+                row.album_open.connect(self._on_album_open)
+                if tid in self._dl_wkrs: row.set_downloading(0)
+                self._track_rows[tid] = row
+                self._artistpage_l.insertWidget(insert_pos, row)
+                insert_pos += 1
+                added += 1
+            if container: container.setUpdatesEnabled(True)
+            self._st(f"{len(tracks)} tracks loaded")
+        w.ok.connect(_got)
+        w.fail.connect(lambda e: self._st(f"Error: {e}"))
+        def _fin(*args, _ref=weakref.ref(w)):
+            _obj = _ref()
+            if _obj is None: return
+            try:
+                if w in self._workers: self._workers.remove(w)
+            except Exception: pass
+            try:
+                if not sip.isdeleted(_obj): _obj.deleteLater()
+            except Exception: pass
+        w.finished.connect(_fin, Qt.ConnectionType.QueuedConnection)
+        self._workers.append(w)
+        w.start()
 
     def _on_dl_track(self, track: dict):
         tid = track.get("id")
@@ -13526,7 +15239,28 @@ class TidalDownloaderPage(QWidget):
         tid = track.get("id")
         if not tid:
             return
-        # Build a playlist from the currently visible track list
+
+        # If this track is already in the play queue, just jump to it.
+        for i, t in enumerate(self._play_queue):
+            if t.get("id") == tid:
+                self._play_idx = i
+                self._fetch_stream_for_playback(track)
+                self._refresh_play_queue_panel()
+                return
+
+        # If there's an active queue with manually queued tracks, insert this
+        # track right after the current position instead of blowing away the queue.
+        has_queued = any(t.get("_queued") for t in self._play_queue)
+        if self._play_queue and has_queued:
+            insert_at = self._play_idx + 1
+            self._play_queue.insert(insert_at, track)
+            self._play_idx = insert_at
+            self._fetch_stream_for_playback(track)
+            self._refresh_play_queue_panel()
+            return
+
+        # No active queue — build one from the currently visible track list
+        # so prev/next navigation works across the full result set.
         visible = getattr(self, "_all_tracks", [])
         if visible:
             self._play_queue = list(visible)
@@ -13541,6 +15275,7 @@ class TidalDownloaderPage(QWidget):
             self._play_queue = [track]
             self._play_idx = 0
         self._fetch_stream_for_playback(track)
+        self._refresh_play_queue_panel()
 
     def _on_play_queue_track(self, track: dict):
         """Add a track to the play queue right after the current position."""
@@ -13550,8 +15285,6 @@ class TidalDownloaderPage(QWidget):
             self._play_idx = 0
             self._fetch_stream_for_playback(track)
         else:
-            # Insert after current track and any previously queued tracks,
-            # so repeated presses stack in the order they were added.
             insert_at = self._play_idx + 1
             while insert_at < len(self._play_queue) and self._play_queue[insert_at].get("_queued"):
                 insert_at += 1
@@ -13583,7 +15316,7 @@ class TidalDownloaderPage(QWidget):
                 self._now_bar.load_stream_at(url, t)
         w.ok.connect(_got)
         w.fail.connect(lambda e: self._st(f"Seek error: {e}"))
-        def _fin(*args, _ref=__import__('weakref').ref(w)):
+        def _fin(*args, _ref=weakref.ref(w)):
             _obj = _ref()
             if _obj is None: return
             try:
@@ -13627,7 +15360,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/track/?id={tid}&quality={quality}")
         w.ok.connect(lambda d, tr=track, q=quality, qi=_quality_idx: self._got_playback_stream(d, tr, q, qi))
         w.fail.connect(lambda e, tr=track, qi=_quality_idx: self._on_playback_stream_fail(tr, qi, str(e)))
-        def _fin(*args, _ref=__import__('weakref').ref(w)):
+        def _fin(*args, _ref=weakref.ref(w)):
             _obj = _ref()
             if _obj is None: return
             try:
@@ -13785,21 +15518,6 @@ class TidalDownloaderPage(QWidget):
         dlg.show()
         dlg.raise_()
 
-    def _on_media_status(self, status):
-        """Auto-advance to next track when current one ends. Re-fetch on stream error."""
-        try:
-            from PyQt6.QtMultimedia import QMediaPlayer as _QMP
-            if status == _QMP.MediaStatus.EndOfMedia:
-                self._play_next()
-            elif status == _QMP.MediaStatus.InvalidMedia:
-                # Stream corruption after seek — re-fetch at pending seek position
-                target = getattr(self._now_bar, "_pending_seek_ms", 0)
-                if target > 0:
-                    self._now_bar._pending_seek_ms = 0
-                    self._on_seek_req(target)
-        except Exception:
-            pass
-
     def _on_cancel_track(self, track: dict):
         """Cancel an active download for the given track."""
         tid = track.get("id")
@@ -13815,7 +15533,18 @@ class TidalDownloaderPage(QWidget):
             self._track_rows[tid].set_done(False)
 
     def _on_cancel_all(self):
-        """Cancel all active downloads."""
+        """Cancel all active downloads and stop any pending artist download queue."""
+        # Stop the staggered artist-download chain from adding more tracks
+        self._artist_dl_cancelled = True
+        # Kill any in-flight album-fetch workers so they don't deliver more tracks
+        for ww in list(getattr(self, '_artist_dl_workers', [])):
+            try:
+                if not sip.isdeleted(ww) and ww.isRunning():
+                    ww.requestInterruption()
+            except Exception:
+                pass
+        if hasattr(self, '_artist_dl_workers'):
+            self._artist_dl_workers.clear()
         tids = list(self._dl_wkrs.keys())
         for tid in tids:
             w = self._dl_wkrs.get(tid)
@@ -13880,6 +15609,22 @@ class TidalDownloaderPage(QWidget):
     def _start_dl(self, url: str, track: dict, force_quality: str = None, stream_data: dict = None):
         prefs   = self._prefs()
         quality = force_quality or prefs.get("quality", "HI_RES_LOSSLESS")
+
+        # Enrich track with releaseDate by fetching album data if missing
+        if not (track.get("album") or {}).get("releaseDate"):
+            aid = (track.get("album") or {}).get("id")
+            if aid:
+                try:
+                    _info = _tidal_req(f"/album/?id={aid}")
+                    if _info:
+                        _inner = _info.get("data") or _info
+                        _rd = _inner.get("releaseDate") or ""
+                        if _rd:
+                            track = dict(track)
+                            track["album"] = dict(track.get("album") or {})
+                            track["album"]["releaseDate"] = _rd
+                except Exception:
+                    pass
 
         # Check if this is a DASH stream — if so, output is always FLAC regardless of URL
         _sd = stream_data or {}
@@ -13954,7 +15699,7 @@ class TidalDownloaderPage(QWidget):
         if tid is not None:
             self._dl_wkrs[tid] = w
         self._workers.append(w)
-        def _finished_w_6(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_w_6(*args, _ref=weakref.ref(w)):
 
             _obj = _ref()
 
@@ -14050,7 +15795,7 @@ class TidalDownloaderPage(QWidget):
             self._fetch_stream_for_playback(tracks[0])
         w.ok.connect(_play_tracks)
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        def _finished_play(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_play(*args, _ref=weakref.ref(w)):
             _obj = _ref()
             if _obj is None: return
             try:
@@ -14090,7 +15835,7 @@ class TidalDownloaderPage(QWidget):
                 self._refresh_play_queue_panel()
         w.ok.connect(_append_tracks)
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        def _finished_pq(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_pq(*args, _ref=weakref.ref(w)):
             _obj = _ref()
             if _obj is None: return
             try:
@@ -14110,7 +15855,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/album/?id={aid}")
         w.ok.connect(lambda d, a=album: self._dl_album_tracks(d, a))
         w.fail.connect(lambda e: self._st(f"Error: {e}"))
-        def _finished_w_7(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_w_7(*args, _ref=weakref.ref(w)):
 
             _obj = _ref()
 
@@ -14138,11 +15883,14 @@ class TidalDownloaderPage(QWidget):
             self._st("No tracks found for album.")
             return
         self._switch_tab(0)
+        self._tracks_srv_exhausted = True
         self._populate_tracks(tracks)
         n = len(tracks)
         self._st(f"Queuing {n} track{'s' if n!=1 else ''} for download…")
         # Stagger track fetch requests to avoid overwhelming the API
         def _enqueue(i=0):
+            if getattr(self, '_artist_dl_cancelled', False):
+                return
             if i < len(tracks):
                 self._on_dl_track(tracks[i])
                 QTimer.singleShot(300, lambda: _enqueue(i + 1))
@@ -14157,7 +15905,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/album/?id={aid}")
         w.ok.connect(lambda d, a=album: self._queue_album_tracks(d, a))
         w.fail.connect(lambda e: self._st(f"Error fetching album: {e}"))
-        def _finished_w_8(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_w_8(*args, _ref=weakref.ref(w)):
 
             _obj = _ref()
 
@@ -14198,7 +15946,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/artist/?f={aid}")
         w.ok.connect(lambda d, a=artist: self._dl_artist_albums(d, a))
         w.fail.connect(lambda e: self._st(f"Error fetching artist: {e}"))
-        def _finished_w_9(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_w_9(*args, _ref=weakref.ref(w)):
 
             _obj = _ref()
 
@@ -14226,41 +15974,62 @@ class TidalDownloaderPage(QWidget):
             self._st(f"No albums found for '{artist.get('name', '')}'.")
             return
         self._st(f"Downloading {len(albums)} album(s) by '{artist.get('name', '')}'…")
-        # Fetch and download each album's tracks, staggered
-        def _fetch_next(i=0):
-            if i >= len(albums):
+        # Clear any previous cancellation so this new run starts fresh
+        self._artist_dl_cancelled = False
+        # Track album-fetch workers so we can kill them on cancel
+        if not hasattr(self, '_artist_dl_workers'):
+            self._artist_dl_workers: list = []
+        self._artist_dl_workers.clear()
+
+        # Fetch albums in parallel batches of 5, then start next batch when done
+        BATCH = 5
+        pending = [0]   # count of in-flight workers in current batch
+
+        def _fetch_batch(start: int):
+            if getattr(self, '_artist_dl_cancelled', False):
                 return
-            alb = albums[i]
-            aid = alb.get("id")
-            if not aid:
-                _fetch_next(i + 1)
+            batch = albums[start:start + BATCH]
+            if not batch:
                 return
-            ww = _TidalWorker(f"/album/?id={aid}")
-            ww.ok.connect(lambda d, a=alb, ni=i: (self._dl_album_tracks(d, a),
-                                                    QTimer.singleShot(800, lambda: _fetch_next(ni + 1))))
-            ww.fail.connect(lambda e, ni=i: QTimer.singleShot(400, lambda: _fetch_next(ni + 1)))
-            def _finished_ww_10(*args, _ref=__import__('weakref').ref(ww)):
+            pending[0] = len(batch)
+            for idx, alb in enumerate(batch):
+                aid2 = alb.get("id")
+                if not aid2:
+                    pending[0] -= 1
+                    if pending[0] == 0:
+                        _fetch_batch(start + BATCH)
+                    continue
+                ww = _TidalWorker(f"/album/?id={aid2}")
+                def _on_ok(d, a=alb, s=start):
+                    if not getattr(self, '_artist_dl_cancelled', False):
+                        self._dl_album_tracks(d, a)
+                    pending[0] -= 1
+                    if pending[0] == 0:
+                        QTimer.singleShot(200, lambda: _fetch_batch(s + BATCH))
+                def _on_fail(e, s=start):
+                    pending[0] -= 1
+                    if pending[0] == 0:
+                        QTimer.singleShot(200, lambda: _fetch_batch(s + BATCH))
+                ww.ok.connect(_on_ok)
+                ww.fail.connect(_on_fail)
+                def _finished_ww_10(*args, _ref=weakref.ref(ww)):
+                    _obj = _ref()
+                    if _obj is None: return
+                    try:
+                        if ww in self._workers: self._workers.remove(ww)
+                    except Exception: pass
+                    try:
+                        if ww in self._artist_dl_workers: self._artist_dl_workers.remove(ww)
+                    except Exception: pass
+                    try:
+                        if not sip.isdeleted(_obj): _obj.deleteLater()
+                    except Exception: pass
+                ww.finished.connect(_finished_ww_10, Qt.ConnectionType.QueuedConnection)
+                self._workers.append(ww)
+                self._artist_dl_workers.append(ww)
+                ww.start()
 
-                _obj = _ref()
-
-                if _obj is None: return
-
-                try:
-
-                    if ww in self._workers: self._workers.remove(ww)
-
-                except Exception: pass
-
-                try:
-
-                    if not sip.isdeleted(_obj): _obj.deleteLater()
-
-                except Exception: pass
-
-            ww.finished.connect(_finished_ww_10, Qt.ConnectionType.QueuedConnection)
-            self._workers.append(ww)
-            ww.start()
-        _fetch_next()
+        _fetch_batch(0)
 
     def _on_queue_artist(self, artist: dict):
         """Fetch all artist albums and queue every track."""
@@ -14271,7 +16040,7 @@ class TidalDownloaderPage(QWidget):
         w = _TidalWorker(f"/artist/?f={aid}")
         w.ok.connect(lambda d, a=artist: self._queue_artist_albums(d, a))
         w.fail.connect(lambda e: self._st(f"Error fetching artist: {e}"))
-        def _finished_w_11(*args, _ref=__import__('weakref').ref(w)):
+        def _finished_w_11(*args, _ref=weakref.ref(w)):
 
             _obj = _ref()
 
@@ -14318,7 +16087,7 @@ class TidalDownloaderPage(QWidget):
                 QTimer.singleShot(400, lambda: _fetch_next(ni + 1))
             ww.ok.connect(_on_ok)
             ww.fail.connect(lambda e, ni=i: QTimer.singleShot(400, lambda: _fetch_next(ni + 1)))
-            def _finished_ww_12(*args, _ref=__import__('weakref').ref(ww)):
+            def _finished_ww_12(*args, _ref=weakref.ref(ww)):
 
                 _obj = _ref()
 
@@ -14363,7 +16132,6 @@ class TidalDownloaderPage(QWidget):
             _enqueue()
 
     def _queue_as_zip(self, tracks: list):
-        import zipfile
         path, _ = QFileDialog.getSaveFileName(
             self, "Save queue as ZIP", str(Path.home() / "tidal_queue.zip"), "ZIP (*.zip)"
         )
@@ -14543,7 +16311,6 @@ class _SpectrogramWorker(QThread):
             elif name == "Blackman":return np.blackman(n)
             else:                   return np.ones(n)
         except ImportError:
-            import math
             n = fft_size
             if name == "Hann":
                 return [0.5 - 0.5 * math.cos(2*math.pi*k/n) for k in range(n)]
@@ -14628,7 +16395,6 @@ class _SpectrogramWorker(QThread):
 
         except ImportError:
             # ── Fallback: pure Python Cooley-Tukey ────────────
-            import cmath, math, array as _arr
             raw_arr  = _arr.array('h', raw)
             n        = len(raw_arr)
             n_frames = max(1, (n - fft_size) // hop + 1)
@@ -14699,7 +16465,7 @@ class _SpectrogramRenderWorker(QThread):
         self.deleteLater()
 
     def run(self):
-        import math as _m
+
         ML, MR, MT, MB = self.ML, self.MR, self.MT, self.MB
         IW, IH = self._img_w, self._img_h
         # Plot area inside margins
@@ -14743,7 +16509,7 @@ class _SpectrogramRenderWorker(QThread):
             if log_scale:
                 flo = max(fmin, 20); fhi = fmax
                 if flo <= 0: flo = 1
-                t = _m.log(max(hz, flo) / flo) / _m.log(max(fhi / flo, 1.0001))
+                t = math.log(max(hz, flo) / flo) / math.log(max(fhi / flo, 1.0001))
             else:
                 t = (hz - fmin) / max(fmax - fmin, 1)
             return py0 + int((1.0 - t) * ph)
@@ -14818,7 +16584,7 @@ class _SpectrogramRenderWorker(QThread):
                     freq_hz = py_to_freq(py)
                     bi  = min(max(freq_to_bin(freq_hz), 0), n_bins - 1)
                     val = row[bi] / gmax
-                    db_val = max(0.0, min(1.0, 1.0 + _m.log10(max(val, 1e-10)) / (db_range / 20.0)))
+                    db_val = max(0.0, min(1.0, 1.0 + math.log10(max(val, 1e-10)) / (db_range / 20.0)))
                     db_val = db_val ** gamma
                     r, g, b = _interp_colormap(stops, db_val)
                     img.setPixel(px0 + px, py0 + py, 0xFF000000 | (r << 16) | (g << 8) | b)
@@ -15147,7 +16913,6 @@ class _SpectrogramWidget(QWidget):
                 ph  = int((IH - MT - MB) * sy)
                 hx, hy = self._hover
                 if px0 <= hx <= px0 + pw and py0 <= hy <= py0 + ph:
-                    import math as _m
                     p.setPen(QColor(255, 255, 255, 60))
                     p.drawLine(int(hx), py0, int(hx), py0 + ph)
                     p.drawLine(px0, int(hy), px0 + pw, int(hy))
@@ -16118,7 +17883,6 @@ class AlbumCoverExtractorPage(QWidget):
             self._folder_edit.setText(f)
 
     def _log_msg(self, msg: str):
-        import html as _html
         m = msg.strip()
         if m.startswith("[ERR]") or m.startswith("⚠") or "ERROR" in m[:10]:
             color = "#ff6b6b"
@@ -16141,7 +17905,7 @@ class AlbumCoverExtractorPage(QWidget):
         else:
             color = "rgba(255,255,255,0.6)"
             category = "all"
-        escaped = _html.escape(msg)
+        escaped = _html_mod.escape(msg)
         html_line = f'<span style="color:{color};white-space:pre;">{escaped}</span>'
         self._log_entries.append((category, html_line))
         # Only show if matches current filter
@@ -16556,7 +18320,7 @@ class _CoverExtractWorker(QThread):
                 else:
                     if not dry:
                         try:
-                            import tempfile
+
                             with tempfile.NamedTemporaryFile(suffix=cover_ext, delete=False) as tf:
                                 tf.write(cover_data); tmp_in = tf.name
                             try:
@@ -16859,7 +18623,6 @@ class _TagLoaderWorker(QThread):
                 covr = (audio.tags or {}).get("covr")
                 return bytes(covr[0]) if covr else None
             elif suffix in (".ogg", ".opus", ".oga"):
-                import base64
                 from mutagen.flac import Picture
                 tags = audio.tags or {}
                 mbp  = tags.get("metadata_block_picture") or tags.get("METADATA_BLOCK_PICTURE")
@@ -18818,7 +20581,7 @@ class MusicTagEditorPage(QWidget):
         # lines to avoid flooding the log table with 10k+ insertions and freezing the UI.
         worker.log_line.connect(lambda msg, lvl: self._log(msg, lvl) if lvl in ("warn", "error") else None)
         worker.finished.connect(self._on_rename_done)
-        def _finished_bare_5(*args, _ref=__import__('weakref').ref(worker)):
+        def _finished_bare_5(*args, _ref=weakref.ref(worker)):
 
             _obj = _ref()
 
@@ -18854,7 +20617,6 @@ class MusicTagEditorPage(QWidget):
                 covr = (audio.tags or {}).get("covr")
                 return bytes(covr[0]) if covr else None
             elif suffix in (".ogg", ".opus", ".oga"):
-                import base64
                 from mutagen.flac import Picture
                 tags = audio.tags or {}
                 mbp  = tags.get("metadata_block_picture") or tags.get("METADATA_BLOCK_PICTURE")
@@ -18937,7 +20699,6 @@ class MusicTagEditorPage(QWidget):
                     audio_raw.add_tags()
                 audio_raw.tags["covr"] = [MP4Cover(data, imageformat=fmt)]
             elif suf in (".ogg", ".opus", ".oga"):
-                import base64
                 from mutagen.flac import Picture
                 pic = Picture()
                 pic.data = data; pic.type = 3; pic.mime = mime
@@ -19051,7 +20812,6 @@ class MusicTagEditorPage(QWidget):
                 audio.add_tags()
             audio.tags["covr"] = [MP4Cover(new_data, imageformat=MP4Cover.FORMAT_JPEG)]
         elif suf in (".ogg", ".opus", ".oga"):
-            import base64
             from mutagen.flac import Picture
             pic = Picture()
             pic.data = new_data; pic.type = 3; pic.mime = mime
@@ -19183,7 +20943,7 @@ class MusicTagEditorPage(QWidget):
         worker.log_line.connect(self._on_bulk_resize_log)
         worker.originals_ready.connect(self._on_bulk_originals_ready)
         worker.finished.connect(self._on_bulk_resize_done)
-        def _finished_bare_6(*args, _ref=__import__('weakref').ref(worker)):
+        def _finished_bare_6(*args, _ref=weakref.ref(worker)):
 
             _obj = _ref()
 
@@ -19223,7 +20983,7 @@ class MusicTagEditorPage(QWidget):
         worker.log_line.connect(self._on_bulk_resize_log)
         worker.originals_ready.connect(self._on_bulk_originals_ready)
         worker.finished.connect(self._on_bulk_resize_done)
-        def _finished_bare_7(*args, _ref=__import__('weakref').ref(worker)):
+        def _finished_bare_7(*args, _ref=weakref.ref(worker)):
 
             _obj = _ref()
 
@@ -19295,7 +21055,7 @@ class MusicTagEditorPage(QWidget):
         worker = _IntegrityCheckWorker([self._current])
         worker.log_line.connect(self._log)
         worker.finished.connect(self._on_verify_done_single)
-        def _finished_bare_8(*args, _ref=__import__('weakref').ref(worker)):
+        def _finished_bare_8(*args, _ref=weakref.ref(worker)):
 
             _obj = _ref()
 
@@ -19323,7 +21083,7 @@ class MusicTagEditorPage(QWidget):
         worker.progress.connect(self._on_verify_progress)
         worker.log_line.connect(self._log)
         worker.finished.connect(self._on_verify_done_all)
-        def _finished_bare_9(*args, _ref=__import__('weakref').ref(worker)):
+        def _finished_bare_9(*args, _ref=weakref.ref(worker)):
 
             _obj = _ref()
 
@@ -19377,7 +21137,7 @@ class MusicTagEditorPage(QWidget):
         worker.progress.connect(self._on_rg_progress)
         worker.log_line.connect(self._log)
         worker.finished.connect(self._on_rg_done)
-        def _finished_bare_10(*args, _ref=__import__('weakref').ref(worker)):
+        def _finished_bare_10(*args, _ref=weakref.ref(worker)):
 
             _obj = _ref()
 
@@ -21551,6 +23311,293 @@ class FadeOverlay(QWidget):
         p.end()
 
 
+class _SidebarMiniPlayer(QWidget):
+    """Lock-screen style now-playing widget for the sidebar.
+    Hidden until a track starts playing on the Tidal DL page.
+    Layout: centered art → title/artist → progress → prev/play/next"""
+
+    navigate_req = pyqtSignal()
+
+    _ART_W = 120
+    _ART_H = 120
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.hide()
+        self._dur_ms  = 0
+        self._pos_ms  = 0
+        self._accent  = tok("accent")
+        self._now_bar_ref = None
+        self._build()
+
+    # ── Build ─────────────────────────────────────────────────
+
+    def _build(self):
+        self.setFixedWidth(182)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setObjectName("mini_player")
+        self.setStyleSheet(
+            "QWidget#mini_player{"
+            "background:rgba(255,255,255,0.04);"
+            "border:1px solid rgba(255,255,255,0.09);"
+            "border-radius:14px;}"
+        )
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(10, 10, 10, 10)
+        root.setSpacing(0)
+
+        # ── Album art ────────────────────────────────────────
+        art_wrap = QWidget()
+        art_wrap.setFixedHeight(self._ART_W + 8)
+        art_wrap.setStyleSheet("background:transparent;")
+        art_lay = QVBoxLayout(art_wrap)
+        art_lay.setContentsMargins(0, 4, 0, 4)
+        art_lay.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+
+        self._cover = QLabel("♪")
+        self._cover.setFixedSize(self._ART_W, self._ART_H)
+        self._cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._cover.setStyleSheet(
+            f"background:rgba(255,255,255,0.07);border-radius:12px;"
+            f"color:rgba(255,255,255,0.25);font-size:32px;border:none;"
+        )
+        art_lay.addWidget(self._cover)
+        root.addWidget(art_wrap)
+        root.addSpacing(2)
+
+        # ── Title ─────────────────────────────────────────────
+        self._title_lbl = QLabel("—")
+        self._title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._title_lbl.setWordWrap(False)
+        self._title_lbl.setStyleSheet(
+            "color:rgba(255,255,255,0.92);font-size:12px;font-weight:700;"
+            "background:transparent;border:none;"
+        )
+        root.addWidget(self._title_lbl)
+        root.addSpacing(2)
+
+        # ── Artist ────────────────────────────────────────────
+        self._artist_lbl = QLabel("")
+        self._artist_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._artist_lbl.setStyleSheet(
+            "color:rgba(255,255,255,0.42);font-size:10px;"
+            "background:transparent;border:none;"
+        )
+        root.addWidget(self._artist_lbl)
+        root.addSpacing(2)
+
+        # ── Quality badge ─────────────────────────────────────
+        self._badge = QLabel("")
+        self._badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._badge.setFixedHeight(14)
+        self._badge.setStyleSheet(
+            f"color:rgba(255,255,255,0.50);font-size:8px;font-weight:700;"
+            f"letter-spacing:0.8px;background:transparent;border:none;"
+        )
+        self._badge.hide()
+        root.addWidget(self._badge)
+        root.addSpacing(7)
+
+        # ── Progress bar + time ───────────────────────────────
+        prog_row = QHBoxLayout()
+        prog_row.setContentsMargins(0, 0, 0, 0)
+        prog_row.setSpacing(5)
+
+        self._pos_lbl = QLabel("0:00")
+        self._pos_lbl.setStyleSheet(
+            "color:rgba(255,255,255,0.30);font-size:9px;background:transparent;border:none;"
+        )
+        self._pos_lbl.setFixedWidth(26)
+        prog_row.addWidget(self._pos_lbl)
+
+        self._prog = QProgressBar()
+        self._prog.setRange(0, 1000)
+        self._prog.setValue(0)
+        self._prog.setFixedHeight(3)
+        self._prog.setTextVisible(False)
+        self._prog.setStyleSheet(
+            f"QProgressBar{{background:rgba(255,255,255,0.12);border:none;border-radius:2px;}}"
+            f"QProgressBar::chunk{{background:{self._accent};border-radius:2px;}}"
+        )
+        prog_row.addWidget(self._prog, stretch=1)
+
+        self._dur_lbl = QLabel("—")
+        self._dur_lbl.setStyleSheet(
+            "color:rgba(255,255,255,0.30);font-size:9px;background:transparent;border:none;"
+        )
+        self._dur_lbl.setFixedWidth(26)
+        self._dur_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        prog_row.addWidget(self._dur_lbl)
+        root.addLayout(prog_row)
+        root.addSpacing(6)
+
+        # ── Prev / Play-Pause / Next ──────────────────────────
+        btn_row = QHBoxLayout()
+        btn_row.setContentsMargins(0, 0, 0, 0)
+        btn_row.setSpacing(12)
+        btn_row.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+        _btn_ss = (
+            "QPushButton{background:transparent;border:none;border-radius:16px;}"
+            "QPushButton:hover{background:rgba(255,255,255,0.10);}"
+            "QPushButton:pressed{background:rgba(255,255,255,0.04);}"
+        )
+
+        self._prev_btn = QPushButton()
+        self._prev_btn.setFixedSize(32, 32)
+        self._prev_btn.setFlat(True)
+        self._prev_btn.setIcon(_make_icon_prev(16, QColor(255, 255, 255, 160)))
+        self._prev_btn.setIconSize(QSize(16, 16))
+        self._prev_btn.setStyleSheet(_btn_ss)
+        self._prev_btn.setEnabled(False)
+
+        # Compute hover/pressed colors dynamically from accent
+        _ah = self._accent.lstrip('#')
+        _ar, _ag, _ab = int(_ah[0:2],16), int(_ah[2:4],16), int(_ah[4:6],16)
+        _acc_hover   = f"#{min(255,int(_ar*1.18)):02x}{min(255,int(_ag*1.18)):02x}{min(255,int(_ab*1.18)):02x}"
+        _acc_pressed = f"#{min(255,int(_ar*0.82)):02x}{min(255,int(_ag*0.82)):02x}{min(255,int(_ab*0.82)):02x}"
+
+        self._play_btn = QPushButton()
+        self._play_btn.setFixedSize(42, 42)
+        self._play_btn.setFlat(False)
+        self._play_btn.setIcon(_make_icon_pause(20))
+        self._play_btn.setIconSize(QSize(20, 20))
+        self._play_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._play_btn.setStyleSheet(
+            "QPushButton{"
+            "background-color:rgba(255,255,255,0.16);"
+            "border:none;"
+            "border-radius:21px;"
+            "padding:0px;"
+            "min-width:42px;max-width:42px;"
+            "min-height:42px;max-height:42px;"
+            "}"
+            "QPushButton:hover{"
+            "background-color:rgba(255,255,255,0.22);"
+            "border:none;"
+            "border-radius:21px;"
+            "}"
+            "QPushButton:pressed{"
+            "background-color:rgba(255,255,255,0.12);"
+            "border:none;"
+            "border-radius:21px;"
+            "}"
+            "QPushButton:disabled{"
+            "background-color:rgba(255,255,255,0.08);"
+            "border:none;"
+            "border-radius:21px;"
+            "}"
+        )
+        self._play_btn.setEnabled(False)
+
+        self._next_btn = QPushButton()
+        self._next_btn.setFixedSize(32, 32)
+        self._next_btn.setFlat(True)
+        self._next_btn.setIcon(_make_icon_next(16, QColor(255, 255, 255, 160)))
+        self._next_btn.setIconSize(QSize(16, 16))
+        self._next_btn.setStyleSheet(_btn_ss)
+        self._next_btn.setEnabled(False)
+
+        btn_row.addWidget(self._prev_btn)
+        btn_row.addWidget(self._play_btn)
+        btn_row.addWidget(self._next_btn)
+        root.addLayout(btn_row)
+
+    # ── Wiring ────────────────────────────────────────────────
+
+    def connect_now_bar(self, now_bar, navigate_to_tidal_fn):
+        self._now_bar_ref = now_bar
+        now_bar.track_started.connect(self._on_track_started)
+        now_bar.play_state_changed.connect(self._on_play_state)
+        now_bar.position_changed.connect(self._on_position)
+        self._play_btn.clicked.connect(now_bar._toggle_play)
+        self._play_btn.setEnabled(True)
+        # Prev / next — connect to the same callbacks as the main bar
+        self._prev_btn.clicked.connect(lambda: now_bar._prev_btn.click())
+        self._next_btn.clicked.connect(lambda: now_bar._next_btn.click())
+        self.navigate_req.connect(navigate_to_tidal_fn)
+
+    # ── Slot handlers ─────────────────────────────────────────
+
+    def _on_track_started(self, track: dict, quality: str):
+        # Title
+        title = track.get("title", "—")
+        if track.get("version"):
+            title += f" ({track['version']})"
+        fm = QFontMetrics(self._title_lbl.font())
+        self._title_lbl.setText(fm.elidedText(title, Qt.TextElideMode.ElideRight, 158))
+
+        # Artist
+        artist = ", ".join(a.get("name","") for a in (track.get("artists") or []))
+        if not artist:
+            artist = (track.get("artist") or {}).get("name", "")
+        fm2 = QFontMetrics(self._artist_lbl.font())
+        self._artist_lbl.setText(fm2.elidedText(artist, Qt.TextElideMode.ElideRight, 158))
+
+        # Quality badge
+        ql = {"HI_RES_LOSSLESS": "HI-RES", "LOSSLESS": "CD QUALITY",
+              "HIGH": "320K", "LOW": "96K"}
+        badge = ql.get(quality, quality)
+        self._badge.setText(badge)
+        self._badge.setVisible(bool(badge))
+
+        # Duration
+        dur_s = track.get("duration", 0)
+        self._dur_ms = int(dur_s * 1000) if dur_s else 0
+        self._dur_lbl.setText(_fmt_dur(dur_s) if dur_s else "—")
+
+        # Cover
+        alb = track.get("album") or {}
+        cid = alb.get("cover") or alb.get("coverId") or alb.get("cover_id")
+        if cid:
+            _load_cover_into_label(str(cid), self._cover, self._ART_W, corner_radius=12)
+        else:
+            self._cover.setText("♪")
+            self._cover.setPixmap(QPixmap())
+
+        # Reset progress
+        self._prog.setValue(0)
+        self._pos_lbl.setText("0:00")
+        self._play_btn.setIcon(_make_icon_pause(20))
+        self._play_btn.setIconSize(QSize(20, 20))
+
+        # Enable prev/next if main bar has them
+        nb = self._now_bar_ref
+        if nb:
+            self._prev_btn.setEnabled(nb._prev_btn.isEnabled())
+            self._next_btn.setEnabled(nb._next_btn.isEnabled())
+
+        self.show()
+
+    def _on_play_state(self, playing: bool):
+        if playing:
+            self._play_btn.setIcon(_make_icon_pause(20))
+        else:
+            self._play_btn.setIcon(_make_icon_play(20))
+        self._play_btn.setIconSize(QSize(20, 20))
+
+    def _on_position(self, pos_ms: int, dur_ms: int):
+        if dur_ms > 0:
+            self._prog.setValue(int(pos_ms * 1000 / dur_ms))
+        self._pos_lbl.setText(_fmt_dur(pos_ms // 1000))
+        if dur_ms > 0 and dur_ms != self._dur_ms:
+            self._dur_ms = dur_ms
+            self._dur_lbl.setText(_fmt_dur(dur_ms // 1000))
+
+    # ── Click anywhere → navigate ─────────────────────────────
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            # Don't navigate if a button was clicked
+            if not (self._play_btn.underMouse() or
+                    self._prev_btn.underMouse() or
+                    self._next_btn.underMouse()):
+                self.navigate_req.emit()
+        super().mousePressEvent(e)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -21674,6 +23721,13 @@ class MainWindow(QMainWindow):
             self._nav_btns.append(btn)
 
         sv.addStretch()
+
+        # Mini now-playing widget — hidden until Tidal DL starts playing
+        self._sidebar_mini_player = _SidebarMiniPlayer()
+        sv.addSpacing(8)
+        sv.addWidget(self._sidebar_mini_player)
+        sv.addSpacing(8)
+
         ver = QLabel(f"Made by Roy  ·  v{APP_VERSION}"); ver.setObjectName("muted"); sv.addWidget(ver)
 
         sidebar_scroll.setWidget(sidebar)
@@ -21699,6 +23753,13 @@ class MainWindow(QMainWindow):
         self._page_settings.auth_changed.connect(self._refresh_platform_dots)
         self._page_settings.auth_changed.connect(self._page_scrobble.refresh_for_platform)
         self._page_settings.theme_changed.connect(self._apply_theme)
+
+        # Wire sidebar mini player to Tidal DL now-playing bar
+        tidal_idx = 3   # index of TIDAL DL in pages list
+        self._sidebar_mini_player.connect_now_bar(
+            self._page_tidal._now_bar,
+            lambda: self._nav_to(tidal_idx),
+        )
 
         for page in [self._page_scrobble, self._page_stats,
                      self._page_history, self._page_tidal,
@@ -21819,7 +23880,7 @@ class MainWindow(QMainWindow):
                 connected = bool(load_session(plat))
             dot.set_color(t["success"] if connected else t["txt2"])
 
-    def _apply_theme(self, theme: dict):
+    def _apply_theme(self, _theme: dict = None):
         """Persist theme choice and ask for restart (no live apply).
 
         Live theme switching in large Qt apps with many per-widget stylesheets is fragile and can
