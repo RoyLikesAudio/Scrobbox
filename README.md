@@ -2,8 +2,6 @@
 
 **By Roy**
 
-**WARNING**
-App is almost fully "vibe-coded", It is something to keep in mind, before using it.
 
 A desktop companion app for Rockbox players and music libraries. Scrobbles your listening history, manages your Rockbox device, and handles your music collection — tag editing, file renaming, format conversion, cover art, spectrograms, and more.
 
@@ -106,6 +104,8 @@ python scrobbox.py
 - `rsync` — only if you use the Rsync page
 
 ---
+
+"Built with AI assistance. Works well for its intended purpose but may have rough edges — contributions and bug reports welcome."
 
 ## Credits
 
