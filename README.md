@@ -1,7 +1,7 @@
 # Scrobbox
 
 **By Roy**
-
+**Heavily VIBE-CODED, but it somewhat works, no longer maintained, I would be happy if someone took parts from this project and made it their own unique way**
 
 A desktop companion app for Rockbox players and music libraries. Scrobbles your listening history, manages your Rockbox device, and handles your music collection — tag editing, file renaming, format conversion, cover art, spectrograms, and more.
 
